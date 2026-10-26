@@ -158,6 +158,12 @@ export function SettingsPanel() {
             </span>
           </label>
           <Toggle
+            checked={settings.trustConsoleWakes !== false}
+            onChange={(v) => saveSettings({ trustConsoleWakes: v })}
+            label="Trust my agent-bridge console"
+            note="Messages you send from the agent-bridge console follow your approval setting. Messages from other agents always ask before changing the model."
+          />
+          <Toggle
             checked={settings.pluginEventsInChat !== false}
             onChange={(v) => saveSettings({ pluginEventsInChat: v })}
             label="Show plugin events in the chat"

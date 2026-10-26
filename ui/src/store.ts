@@ -58,7 +58,7 @@ import { DEFAULT_STEPS, LONG_RUN_STEPS, clampSteps, runReportsDone, stickyState,
 import { profileLine, splitProfileArg } from "./lib/toolFormLogic";
 import { WRITE_TOOLS, runAgent, type ApprovalDecision, type ApprovalRequest, type LiveBlock, type SubAgentProgress } from "./agent/runAgent";
 import { BUILTIN_COMMANDS, commandHead, parseSlash, resolveSlash, tagLines, type CommandSources, type TagKind } from "./lib/commands";
-import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, systemEventText, wakeApproval, wakesMayFollow } from "./lib/hooks";
+import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, isConsoleWake, systemEventText, wakeApproval, wakesMayFollow } from "./lib/hooks";
 import { SECRET_SAVED, SECRET_SKIPPED, secretTarget, type SecretAsk } from "./lib/creator";
 import type { MemoryIndex } from "./lib/memory";
 
@@ -108,6 +108,11 @@ export interface RunOverride {
    * It never inherits auto-approval (a long tool run's, or "Always allow" in the chat): write tools ask, or follow read-only.
    */
   fromWake?: boolean;
+  /**
+   * A wake whose messages all came from the user's own agent-bridge console (isConsoleWake): the user, so the turn
+   * follows the approval setting like a typed message. Not carried into Stop-hook continuations (a plugin's request).
+   */
+  consoleWake?: boolean;
   /** A Stop-hook continuation: the turn goes on because a plugin asked, so no memory, profile or tool-copy writes (lib/memory.ts). */
   fromHook?: boolean;
 }
@@ -865,7 +870,8 @@ export const useStore = create<State>((set, get) => {
     preparing.get(threadId)?.release(); // the run itself is the busy mark now
     // A plugin's turn: write tools ask (or follow read-only), whatever this chat or a tool run allowed before.
     const settings = get().settings;
-    const approval = run.fromWake ? wakeApproval(settings.approval) : run.autoApprove ? "auto" : settings.approval;
+    const untrustedWake = run.fromWake && !run.consoleWake;
+    const approval = untrustedWake ? wakeApproval(settings.approval) : run.autoApprove ? "auto" : settings.approval;
     let allowedInWake = false; // "Always allow" chosen during this woken turn
     let stopHook: HookResult | null = null;
     const started = performance.now();
@@ -990,7 +996,7 @@ export const useStore = create<State>((set, get) => {
             return queuedBlocks(now);
           },
           isAutoApproved: () =>
-            run.fromWake ? allowedInWake : !!run.autoApprove || !!get().chats[docKey]?.data.threads.find((t) => t.id === threadId)?.autoApprove,
+            untrustedWake ? allowedInWake : !!run.autoApprove || !!get().chats[docKey]?.data.threads.find((t) => t.id === threadId)?.autoApprove,
           setAutoApproved: () => {
             allowedInWake = true;
             updateThread(docKey, threadId, (t) => ({ ...t, autoApprove: true }));
@@ -1231,7 +1237,8 @@ export const useStore = create<State>((set, get) => {
    * Wakes into a chat as one system-event message, acked once it is saved there (a reload before that gets them handed
    * over again), then a turn - unless automatic turns are paused: then they wait in the chat for the user's next
    * message. Never through send(): that would answer a pending question, or end up in the composer on Stop. The turn is
-   * marked fromWake: another agent's message never runs write tools without the user's OK.
+   * marked fromWake: another agent's message never runs write tools without the user's OK. Messages only from the user's
+   * own console (isConsoleWake) follow the approval setting instead, unless the user turned that off.
    */
   const deliverWakes = async (threadId: string, list: Wake[]) => {
     const blocks = wakeBlocks(list);
@@ -1239,7 +1246,8 @@ export const useStore = create<State>((set, get) => {
     if (allowAutoTurn()) {
       const release = beginPreparing(WORKSPACE, threadId);
       try {
-        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true }, ack);
+        const consoleWake = get().settings.trustConsoleWakes !== false && list.every(isConsoleWake);
+        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true, consoleWake }, ack);
       } finally {
         release();
       }

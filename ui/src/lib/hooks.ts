@@ -110,3 +110,20 @@ export function wakesMayFollow(outcome: string): boolean {
 export function wakeApproval(mode: ApprovalMode): ApprovalMode {
   return mode === "read_only" ? "read_only" : "ask";
 }
+
+/** A message header in an agent-bridge wake from the user's own console: `#3751 from Martin Smith [Console] (1s ago):`. */
+const CONSOLE_HEADER = /^#\d+ from [^\n[\]]+ \[Console\](?: in chat #\d+ .*)? \([^)\n]*\)(?: \[reply to #\d+\])?:$/;
+
+/**
+ * An agent-bridge wake whose messages all came from the user's operator console: the user at another screen, so the
+ * turn may follow their approval setting. Every message's header must name the console (agent-bridge's formatMessages:
+ * messages split by "---", each starting with its header), so a message from another agent - even one whose text
+ * imitates a console header - makes the whole wake untrusted. Anything that doesn't parse is untrusted too.
+ */
+export function isConsoleWake(w: { text: string; plugin?: string | null }): boolean {
+  if (!/^agent-bridge/.test(w.plugin ?? "") || !w.text.startsWith("agent-bridge: New agent-bridge messages")) return false;
+  const start = w.text.indexOf("\n\n#");
+  if (start < 0) return false;
+  const chunks = w.text.slice(start + 2).split("\n\n---\n\n");
+  return chunks.every((c) => CONSOLE_HEADER.test(c.split("\n", 1)[0]));
+}

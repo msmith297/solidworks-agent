@@ -194,6 +194,8 @@ export interface Settings {
   pluginMcp?: boolean;
   /** Automatic turns per hour (plugin wakes and Stop-hook continuations together) before they pause. Default 20. */
   pluginWakesPerHour?: number;
+  /** agent-bridge messages from the user's own console follow the approval setting (other agents' always ask). Default on. */
+  trustConsoleWakes?: boolean;
   /** Show what plugins add (hook context, notices) in the chat. Default on. */
   pluginEventsInChat?: boolean;
   /** Where a tool's inputs appear: a card in the chat panel (default) or the native PropertyManager page. */
