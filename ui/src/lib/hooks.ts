@@ -124,6 +124,15 @@ const CONSOLE_HEADER = /^#\d+ from [^\n[\]]+ \[Console\](?: in chat #\d+ .*)? \(
  * messages split by "---", each starting with its header), so a message from another agent - even one whose text
  * imitates a console header - makes the whole wake untrusted. Anything that doesn't parse is untrusted too.
  */
+/**
+ * Whether a wake follows the approval setting (true) or asks before any change (false): the user's console with
+ * "Trust my agent-bridge console", anything else (other agents, Claude Desktop, Codex) with "Trust messages from my
+ * agents". Both are on unless the user turned them off.
+ */
+export function wakeTrusted(w: { text: string; plugin?: string | null }, s: { trustConsoleWakes?: boolean; trustAgentWakes?: boolean }): boolean {
+  return isConsoleWake(w) ? s.trustConsoleWakes !== false : s.trustAgentWakes !== false;
+}
+
 export function isConsoleWake(w: { text: string; plugin?: string | null }): boolean {
   if (!/^agent-bridge/.test(w.plugin ?? "") || !w.text.startsWith("agent-bridge: New agent-bridge messages")) return false;
   const start = w.text.indexOf("\n\n#");

@@ -58,7 +58,7 @@ import { DEFAULT_STEPS, LONG_RUN_STEPS, clampSteps, runReportsDone, stickyState,
 import { profileLine, splitProfileArg } from "./lib/toolFormLogic";
 import { WRITE_TOOLS, runAgent, type ApprovalDecision, type ApprovalRequest, type LiveBlock, type SubAgentProgress } from "./agent/runAgent";
 import { BUILTIN_COMMANDS, commandHead, parseSlash, resolveSlash, tagLines, type CommandSources, type TagKind } from "./lib/commands";
-import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, isConsoleWake, systemEventText, wakeApproval, wakesMayFollow } from "./lib/hooks";
+import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, systemEventText, wakeApproval, wakeTrusted, wakesMayFollow } from "./lib/hooks";
 import { SECRET_SAVED, SECRET_SKIPPED, secretTarget, type SecretAsk } from "./lib/creator";
 import { NO_WRITTEN_REPLY, linkAnswerText, linkState } from "./lib/localLink";
 import type { MemoryIndex } from "./lib/memory";
@@ -110,10 +110,11 @@ export interface RunOverride {
    */
   fromWake?: boolean;
   /**
-   * A wake whose messages all came from the user's own agent-bridge console (isConsoleWake): the user, so the turn
-   * follows the approval setting like a typed message. Not carried into Stop-hook continuations (a plugin's request).
+   * A wake the user trusts (wakeTrusted): from their own console, or from their other agents / Claude Desktop / Codex
+   * while "Trust messages from my agents" is on. The turn follows the approval setting like a typed message. Not carried
+   * into Stop-hook continuations (a plugin's request).
    */
-  consoleWake?: boolean;
+  trustedWake?: boolean;
   /** A Stop-hook continuation: the turn goes on because a plugin asked, so no memory, profile or tool-copy writes (lib/memory.ts). */
   fromHook?: boolean;
 }
@@ -878,7 +879,7 @@ export const useStore = create<State>((set, get, api) => {
     preparing.get(threadId)?.release(); // the run itself is the busy mark now
     // A plugin's turn: write tools ask (or follow read-only), whatever this chat or a tool run allowed before.
     const settings = get().settings;
-    const untrustedWake = run.fromWake && !run.consoleWake;
+    const untrustedWake = run.fromWake && !run.trustedWake;
     const approval = untrustedWake ? wakeApproval(settings.approval) : run.autoApprove ? "auto" : settings.approval;
     let allowedInWake = false; // "Always allow" chosen during this woken turn
     let stopHook: HookResult | null = null;
@@ -1308,8 +1309,8 @@ export const useStore = create<State>((set, get, api) => {
    * Wakes into a chat as one system-event message, acked once it is saved there (a reload before that gets them handed
    * over again), then a turn - unless automatic turns are paused: then they wait in the chat for the user's next
    * message. Never through send(): that would answer a pending question, or end up in the composer on Stop. The turn is
-   * marked fromWake: another agent's message never runs write tools without the user's OK. Messages only from the user's
-   * own console (isConsoleWake) follow the approval setting instead, unless the user turned that off.
+   * marked fromWake. Whether it follows the approval setting or asks before any change is the user's choice per sender
+   * (wakeTrusted): their console, and by default their other agents too.
    */
   const deliverWakes = async (threadId: string, list: Wake[]) => {
     const blocks = wakeBlocks(list);
@@ -1321,8 +1322,8 @@ export const useStore = create<State>((set, get, api) => {
       };
       const release = beginPreparing(WORKSPACE, threadId);
       try {
-        const consoleWake = get().settings.trustConsoleWakes !== false && list.every(isConsoleWake);
-        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true, consoleWake }, appended);
+        const trustedWake = list.every((w) => wakeTrusted(w, get().settings));
+        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true, trustedWake }, appended);
       } finally {
         release();
       }

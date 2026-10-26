@@ -361,7 +361,22 @@ await t("Link: a message into the new-chat page starts a chat named after the se
   await until(() => addIn.reports.filter((r) => r.panel).at(-1).panel.chat?.busy === false, "idle again");
 });
 
-await t("Link: a woken turn asks before execute_csharp even with approval on auto, and the ticket says it waits for the user", async () => {
+await t("Link: with approval on auto, a message from Claude Desktop runs execute_csharp without asking (trusted by default)", async () => {
+  await until(idle, "an idle chat");
+  let step = 0;
+  reply = () =>
+    step++ === 0
+      ? { sse: anthropicStream([{ type: "tool_use", id: "toolu_t1", name: "execute_csharp", input: { title: "Chamfer", code: "x" } }], "tool_use") }
+      : text("Chamfered the edges.");
+  addIn.wake("u3d_t", "Chamfer the edges.");
+  await until(() => addIn.of("u3d_t").some((r) => r.answer), "the answer");
+  assert.ok(!addIn.of("u3d_t").includes("approval"), "no approval card");
+  assert.deepEqual(addIn.of("u3d_t").at(-1), { answer: "done", text: "Chamfered the edges.", error: null });
+});
+
+await t("Link: with \"Trust messages from my agents\" off, a woken turn asks before execute_csharp even with approval on auto, and the ticket says it waits for the user", async () => {
+  await until(idle, "an idle chat");
+  await S().saveSettings({ trustAgentWakes: false });
   let step = 0;
   reply = () =>
     step++ === 0
@@ -374,6 +389,7 @@ await t("Link: a woken turn asks before execute_csharp even with approval on aut
   S().answerApproval(thread().id, { decision: "run" });
   await until(() => addIn.of("u3d_b").some((r) => r.answer), "the answer");
   assert.deepEqual(addIn.of("u3d_b"), ["working", "approval", "working", { answer: "done", text: "Filleted the top edges.", error: null }]);
+  await S().saveSettings({ trustAgentWakes: true });
 });
 
 await t("Link: a message to a busy chat is queued, goes when the turn ends, and gets its own turn's answer", async () => {

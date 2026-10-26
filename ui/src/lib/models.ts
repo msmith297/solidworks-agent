@@ -130,6 +130,7 @@ export const DEFAULT_SETTINGS: Settings = {
   pluginMcp: true,
   pluginWakesPerHour: 20,
   trustConsoleWakes: true,
+  trustAgentWakes: true,
   pluginEventsInChat: true,
   toolInputs: "panel",
   questionTimeoutSec: 60,

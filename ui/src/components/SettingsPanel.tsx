@@ -164,13 +164,19 @@ export function SettingsPanel() {
             label="Show plugin events in the chat"
             note="What hooks add for the agent appears as small cards in the chat."
           />
+          <Toggle
+            checked={settings.trustAgentWakes !== false}
+            onChange={(v) => saveSettings({ trustAgentWakes: v })}
+            label="Trust messages from my agents"
+            note="Requests from your other AI agents (agent-bridge) and from Claude Desktop or Codex follow your approval setting. Turn off to have them always ask before changing the model."
+          />
           {hasBridge && (
             <PluginGroup name="Agent Bridge">
               <Toggle
                 checked={settings.trustConsoleWakes !== false}
                 onChange={(v) => saveSettings({ trustConsoleWakes: v })}
                 label="Trust my agent-bridge console"
-                note="Messages you send from the agent-bridge console follow your approval setting. Messages from other agents always ask before changing the model."
+                note="Messages you send from the agent-bridge console follow your approval setting."
               />
             </PluginGroup>
           )}

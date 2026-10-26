@@ -196,6 +196,8 @@ export interface Settings {
   pluginWakesPerHour?: number;
   /** agent-bridge messages from the user's own console follow the approval setting (other agents' always ask). Default on. */
   trustConsoleWakes?: boolean;
+  /** Messages from the user's other agents (agent-bridge) and Claude Desktop / Codex follow the approval setting too. Default on. */
+  trustAgentWakes?: boolean;
   /** Show what plugins add (hook context, notices) in the chat. Default on. */
   pluginEventsInChat?: boolean;
   /** Where a tool's inputs appear: a card in the chat panel (default) or the native PropertyManager page. */

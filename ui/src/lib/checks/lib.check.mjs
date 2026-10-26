@@ -19,7 +19,7 @@ import {
 } from "../toolRun.ts";
 import { paletteSections, categoryNames } from "../toolGroups.ts";
 import { slashQuery, slashRows, parseSlash, resolveSlash, splitArgs, substituteArgs, fileRefs, atQuery, tagRows, tagLines, commandHead } from "../commands.ts";
-import { matcherMatches, hasHook, hookToolResponse, HOOK_RESPONSE_CAP, hookContextText, systemEventText, parseTagged, autoTurnAllowed, AUTO_WINDOW_MS, wakesMayFollow, wakeApproval, isConsoleWake } from "../hooks.ts";
+import { matcherMatches, hasHook, hookToolResponse, HOOK_RESPONSE_CAP, hookContextText, systemEventText, parseTagged, autoTurnAllowed, AUTO_WINDOW_MS, wakesMayFollow, wakeApproval, isConsoleWake, wakeTrusted } from "../hooks.ts";
 import { mcpParts, isBridgeTool, mcpTitle, bridgeMessages, reminderSenders } from "../mcpView.ts";
 import { linkAnswerText, linkState, parseLinkMessage, LINK_ANSWER_CAP, NO_WRITTEN_REPLY } from "../localLink.ts";
 import "./resolve.mjs"; // workSummary imports its siblings without extensions
@@ -544,6 +544,16 @@ t("wakes: only messages all from the user's own console are trusted", () => {
   assert.equal(isConsoleWake(wake(["#3763 from Martin Smith [Console] [Windows Desktop] (1s ago):\nx"])), false); // an agent named like the console
   assert.equal(isConsoleWake(wake([cube], "other-plugin")), false);
   assert.equal(isConsoleWake({ plugin: "agent-bridge", text: "agent-bridge: something else" }), false);
+
+  // Trust per sender: console and agents both follow the approval setting by default; each can be turned off.
+  const link = { plugin: "claude-mcp", text: "Message from Claude Desktop: make a cube" };
+  assert.equal(wakeTrusted(wake([cube]), {}), true);
+  assert.equal(wakeTrusted(wake([agent]), {}), true);
+  assert.equal(wakeTrusted(link, {}), true);
+  assert.equal(wakeTrusted(wake([agent]), { trustAgentWakes: false }), false);
+  assert.equal(wakeTrusted(link, { trustAgentWakes: false }), false);
+  assert.equal(wakeTrusted(wake([cube]), { trustAgentWakes: false }), true); // the console keeps its own switch
+  assert.equal(wakeTrusted(wake([cube]), { trustConsoleWakes: false }), false);
 });
 
 t("agent-bridge in the chat: readable tool names, wake summaries, quiet reminders, folded steps", () => {
