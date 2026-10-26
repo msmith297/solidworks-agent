@@ -11,6 +11,7 @@ using SwAgent.Chat;
 using SwAgent.Infrastructure;
 using SwAgent.ModelFiles;
 using SwAgent.Plugins.Hooks;
+using SwAgent.Plugins.LocalLink;
 using SwAgent.Scripting;
 using SwAgent.Tools;
 using SwAgent.UI;
@@ -72,6 +73,9 @@ namespace SwAgent
         /// <summary>True when tools changed since SolidWorks started: the ribbon only picks them up after a restart.</summary>
         internal Func<bool> RibbonStale { get; set; }
         private bool _agentRunning;
+
+        /// <summary>The Claude MCP / Codex MCP plugins' local link (pipe server, tickets); made when the panel first attaches.</summary>
+        private LinkHost _link;
 
         public AgentController(ISwApplication app, ToolRegistry tools, ScriptHost scripts)
         {
@@ -241,37 +245,7 @@ namespace SwAgent
                     return (object)await Runtime.CallAsync((string)p["name"], p["input"] as JObject, (string)p["threadId"], (string)p["toolUseId"]);
                 var doc = DocumentFor((string)p["docKey"]);
                 var refs = (p["refs"] as JObject)?.Properties().ToDictionary(x => x.Name, x => (string)x.Value);
-                var ctx = new ToolContext(_app, doc, (string)p["threadId"], _tools, refs) { ToolUseId = (string)p["toolUseId"], RunTool = (string)p["tool"] };
-                // A tool that touches the model never runs while the user is in a command (a sketch edit, an open
-                // PropertyManager page, a rebuild): a geometry call then can crash SolidWorks (SwBusy, SceneOverlay). Wait for
-                // the command to end; the add-in's own tool page doesn't count.
-                var name = (string)p["name"];
-                // A drawing the model has moved on from (the overlay saw a change) goes now, at a safe moment.
-                Safe.Run("Clear a stale overlay", UI.SceneOverlay.ClearIfStale);
-                // After a fault inside SolidWorks (NativeFault) its memory may be damaged: no more model work until a restart.
-                if (NativeFault.Tripped != null && !SwBusyGate.ModelFree(name))
-                    return (object)ToolResult.Error(NativeFault.RestartAdvice).ToJson();
-                var touchesModel = !SwBusyGate.ModelFree(name) && _app.Sw != null;
-                if (touchesModel)
-                {
-                    // Only a command the user started since the agent's last call blocks (SwBusyGate): what the agent left
-                    // behind itself - a sketch it opened, a failed feature's leftovers - is the agent's to use or clean up.
-                    SwCommandState state = null;
-                    var waited = await SwBusyGate.WaitAsync(() =>
-                    {
-                        state = SwBusy.State(_app.Sw);
-                        return SwBusyGate.MustWait(state, SwBusyGate.AgentLeft) && !ToolPage.AnyOpen;
-                    }, SwBusyGate.Timeout);
-                    if (!waited)
-                    {
-                        Log.Info($"Tool {name} not run: SolidWorks busy for {SwBusyGate.Timeout.TotalSeconds:0} s ({state?.Describe()}; the agent's last call left: {SwBusyGate.AgentLeft ?? "nothing"})");
-                        return (object)ToolResult.Error($"SolidWorks is in a command the user started: {state?.Describe()}. Nothing was run. " +
-                            "Tell the user exactly that (what is open) and ask them to finish or close it, then try again.").ToJson();
-                    }
-                }
-                var result = await _tools.InvokeAsync(name, p["input"] as JObject, ctx);
-                if (touchesModel) Safe.Run("Record the command state", () => SwBusyGate.AgentLeft = SwBusy.State(_app.Sw).Key);
-                return (object)result.ToJson();
+                return (object)await RunToolAsync((string)p["name"], p["input"] as JObject, doc, (string)p["threadId"], (string)p["toolUseId"], refs, (string)p["tool"]);
             });
             // "Undo everything the agent did since this message" (offered when a message is edited or resent).
             bridge.Register("history.undoable", p =>
@@ -316,6 +290,7 @@ namespace SwAgent
             });
             _voice.AttachBridge(bridge);
             Runtime.Attach(bridge); // hooks.fire, session.*, mcp.*; starts the MCP servers the first time
+            AttachLink(bridge); // localLink.*; the Claude/Codex pipe follows the link plugins
             bridge.Register("agent.activity", p =>
             {
                 // The UI reports when a run starts and ends; silence SolidWorks' rebuild-error beeps in between.
@@ -488,6 +463,96 @@ namespace SwAgent
             (_toolRunner ?? (_toolRunner = new ToolRunner(_app, _tools, _scripts, SendCommand, Status, _forms, () => _settings))).RunAsync(name, showPane);
 
         private ToolRunner _toolRunner;
+
+        /// <summary>
+        /// Runs one of the add-in's own tools (not an MCP one) for the panel's tools.run or the local link, on the UI thread:
+        /// a stale overlay goes first, nothing touches the model after a NativeFault, and a model tool waits for a command the
+        /// user started to end (SwBusyGate) before it runs; what it leaves behind is recorded for the next call.
+        /// </summary>
+        internal async Task<JObject> RunToolAsync(string name, JObject input, ISwDocument doc, string threadId, string toolUseId, IReadOnlyDictionary<string, string> refs, string runTool)
+        {
+            var ctx = new ToolContext(_app, doc, threadId, _tools, refs) { ToolUseId = toolUseId, RunTool = runTool };
+            // A drawing the model has moved on from (the overlay saw a change) goes now, at a safe moment.
+            Safe.Run("Clear a stale overlay", UI.SceneOverlay.ClearIfStale);
+            // After a fault inside SolidWorks (NativeFault) its memory may be damaged: no more model work until a restart.
+            if (NativeFault.Tripped != null && !SwBusyGate.ModelFree(name))
+                return ToolResult.Error(NativeFault.RestartAdvice).ToJson();
+            // A tool that touches the model never runs while the user is in a command (a sketch edit, an open
+            // PropertyManager page, a rebuild): a geometry call then can crash SolidWorks (SwBusy, SceneOverlay). Wait for
+            // the command to end; the add-in's own tool page doesn't count.
+            var touchesModel = !SwBusyGate.ModelFree(name) && _app.Sw != null;
+            if (touchesModel)
+            {
+                // Only a command the user started since the agent's last call blocks (SwBusyGate): what the agent left
+                // behind itself - a sketch it opened, a failed feature's leftovers - is the agent's to use or clean up.
+                SwCommandState state = null;
+                var waited = await SwBusyGate.WaitAsync(() =>
+                {
+                    state = SwBusy.State(_app.Sw);
+                    return SwBusyGate.MustWait(state, SwBusyGate.AgentLeft) && !ToolPage.AnyOpen;
+                }, SwBusyGate.Timeout);
+                if (!waited)
+                {
+                    Log.Info($"Tool {name} not run: SolidWorks busy for {SwBusyGate.Timeout.TotalSeconds:0} s ({state?.Describe()}; the agent's last call left: {SwBusyGate.AgentLeft ?? "nothing"})");
+                    return ToolResult.Error($"SolidWorks is in a command the user started: {state?.Describe()}. Nothing was run. " +
+                        "Tell the user exactly that (what is open) and ask them to finish or close it, then try again.").ToJson();
+                }
+            }
+            var result = await _tools.InvokeAsync(name, input, ctx);
+            if (touchesModel) Safe.Run("Record the command state", () => SwBusyGate.AgentLeft = SwBusy.State(_app.Sw).Key);
+            return result.ToJson();
+        }
+
+        // ---- the local link (Claude MCP / Codex MCP plugins) ----
+
+        /// <summary>
+        /// The link's panel RPCs (again on every panel reload); the first time, the LinkHost itself. Its SolidWorks work is
+        /// posted to this (the UI) thread's SynchronizationContext, never run on a pipe thread.
+        /// </summary>
+        private void AttachLink(WebBridge bridge)
+        {
+            if (_link == null)
+            {
+                _link = new LinkHost(Plugins.PluginManager.Instance, Runtime.Session, Runtime.QueueLinkWake, LinkHost.UiRunner(System.Threading.SynchronizationContext.Current),
+                    LinkStatus, RunLinkToolAsync, Updates.CurrentVersion.ToString(3));
+                Runtime.PanelReloaded += _link.PanelReloaded;
+                _link.Start();
+            }
+            _link.Attach(bridge);
+        }
+
+        /// <summary>The link's status, on the UI thread: SolidWorks' revision and the active document.</summary>
+        private JObject LinkStatus()
+        {
+            JObject document = null;
+            try
+            {
+                var model = _app.Documents.Active?.Model;
+                if (model != null)
+                {
+                    var type = (swDocumentTypes_e)model.GetType();
+                    document = new JObject
+                    {
+                        ["title"] = model.GetTitle(),
+                        ["type"] = type == swDocumentTypes_e.swDocPART ? "part" : type == swDocumentTypes_e.swDocASSEMBLY ? "assembly" : type == swDocumentTypes_e.swDocDRAWING ? "drawing" : "other",
+                        ["path"] = string.IsNullOrEmpty(model.GetPathName()) ? null : model.GetPathName(),
+                    };
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Link status: reading the active document failed: " + ex.Message);
+            }
+            return new JObject { ["solidWorks"] = SafeRevision(), ["document"] = document };
+        }
+
+        /// <summary>A read-only model tool for the link, on the UI thread, on the active document (null: none open and it needs one).</summary>
+        private Task<JObject> RunLinkToolAsync(string tool, JObject input, bool needsDocument)
+        {
+            var doc = _app.Documents.Active;
+            if (doc == null && needsDocument) return Task.FromResult<JObject>(null);
+            return RunToolAsync(tool, input ?? new JObject(), doc, null, null, null, null);
+        }
 
         private void Status(string text)
         {
@@ -869,6 +934,7 @@ namespace SwAgent
             StopWatch();
             Safe.Run("Stop voice", _voice.Dispose);
             Safe.Run("Save chats", _workspace.Flush);
+            Safe.Run("Stop the local link", () => _link?.Dispose());
             _themeTimer.Dispose();
             _activeTimer.Dispose();
             _updateTimer.Dispose();

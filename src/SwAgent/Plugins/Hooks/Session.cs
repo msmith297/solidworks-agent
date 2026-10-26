@@ -180,9 +180,21 @@ namespace SwAgent.Plugins.Hooks
             }
         }
 
+        /// <summary>Automatic turns left in the hour's allowance (counts nothing).</summary>
+        public int AutomaticLeft(DateTime now)
+        {
+            lock (_sync)
+            {
+                return Math.Max(0, AutomaticPerHour - _automatic.Count(t => now - t <= TimeSpan.FromHours(1)));
+            }
+        }
+
         // ---- wakes ----
 
-        /// <summary>A message that starts an agent turn without the user (an asyncRewake hook exited 2).</summary>
+        /// <summary>
+        /// A message that starts an agent turn without the user (an asyncRewake hook exited 2, or a message from Claude
+        /// Desktop or Codex over the local link).
+        /// </summary>
         internal sealed class Wake
         {
             public string Id;
@@ -190,7 +202,19 @@ namespace SwAgent.Plugins.Hooks
             public string Source;
             public string Plugin;
 
-            public JObject ToJson() => new JObject { ["id"] = Id, ["text"] = Text, ["source"] = Source, ["plugin"] = Plugin };
+            /// <summary>The local link's ticket: the panel reports the turn's answer for it (localLink.answer).</summary>
+            public string Ticket;
+
+            /// <summary>Who sent it, for the chat ("Message from Claude Desktop").</summary>
+            public string From;
+
+            public JObject ToJson()
+            {
+                var json = new JObject { ["id"] = Id, ["text"] = Text, ["source"] = Source, ["plugin"] = Plugin };
+                if (Ticket != null) json["ticket"] = Ticket;
+                if (From != null) json["from"] = From;
+                return json;
+            }
         }
 
         /// <summary>
@@ -206,6 +230,18 @@ namespace SwAgent.Plugins.Hooks
                 (allowed ? _pending : _held).Add(wake);
             }
             return allowed;
+        }
+
+        /// <summary>
+        /// Queues a wake from the local link for the panel. The caller already counted it (TryCountAutomatic) and refused
+        /// it over the limit: the sender is waiting and can try again, so it is never held.
+        /// </summary>
+        public void AddLinkWake(Wake wake)
+        {
+            lock (_sync)
+            {
+                _pending.Add(wake);
+            }
         }
 
         /// <summary>The wakes the panel hasn't confirmed yet (it calls this at ready and on every session.wake nudge).</summary>
