@@ -140,6 +140,53 @@ namespace SwAgent.Plugins
             return ToolResult.Ok(new UTF8Encoding(false).GetString(bytes).TrimStart('\uFEFF'));
         }
 
+        public sealed class BridgeFileInput
+        {
+            [ToolParam("The attachment's path as the message gives it (under .agent-bridge\\inbox\\<message id>\\), or relative to that inbox folder, e.g. \"4114\\notes.md\".", Required = true)]
+            public string Path { get; set; }
+        }
+
+        /// <summary>agent-bridge's inbox: where its files tool saves attachments (AGENT_BRIDGE_HOME, else %USERPROFILE%\.agent-bridge).</summary>
+        internal static string BridgeInbox
+        {
+            get
+            {
+                var home = Environment.GetEnvironmentVariable("AGENT_BRIDGE_HOME");
+                if (string.IsNullOrWhiteSpace(home)) home = System.IO.Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".agent-bridge");
+                return System.IO.Path.Combine(home, "inbox");
+            }
+        }
+
+        [AgentTool("read_bridge_file", "Read a file another agent attached to an agent-bridge message (saved under the .agent-bridge\\inbox folder). Read-only and never asks the user, so use it instead of C# to read attachments. Text files and images; other files only by name and size.")]
+        public ToolResult ReadBridgeFile(ToolContext ctx, BridgeFileInput input)
+        {
+            var inbox = System.IO.Path.GetFullPath(BridgeInbox).TrimEnd('\\') + "\\";
+            string path;
+            try
+            {
+                path = System.IO.Path.GetFullPath(System.IO.Path.IsPathRooted(input.Path ?? "") ? input.Path : System.IO.Path.Combine(inbox, input.Path ?? ""));
+            }
+            catch (Exception ex)
+            {
+                return ToolResult.Error($"'{input.Path}' isn't a valid path: {ex.Message}");
+            }
+            // Only agent-bridge's own attachments: a peer must not be able to have any other file read without the user.
+            if (!path.StartsWith(inbox, StringComparison.OrdinalIgnoreCase)) return ToolResult.Error($"Only files in the agent-bridge inbox ({inbox}) can be read this way.");
+            if (!File.Exists(path)) return ToolResult.Error($"No file '{path}'. Download attachments first with agent-bridge's files tool.");
+            var info = new FileInfo(path);
+            var ext = info.Extension.ToLowerInvariant();
+            if (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".gif" || ext == ".webp")
+            {
+                if (info.Length > 5_000_000) return ToolResult.Error($"'{info.Name}' is {info.Length / 1024} KB; images over 5 MB aren't read.");
+                var media = ext == ".png" ? "image/png" : ext == ".gif" ? "image/gif" : ext == ".webp" ? "image/webp" : "image/jpeg";
+                return new ToolResult().Text($"{info.Name} ({info.Length / 1024} KB)").Image(Convert.ToBase64String(File.ReadAllBytes(path)), media);
+            }
+            if (info.Length > MaxRead) return ToolResult.Error($"'{info.Name}' is {info.Length / 1024} KB; text files over {MaxRead / 1000} KB aren't read.");
+            var bytes = File.ReadAllBytes(path);
+            if (bytes.Take(8000).Contains((byte)0)) return ToolResult.Ok($"'{info.Name}' is a binary file ({info.Length / 1024} KB); it can't be shown as text.");
+            return ToolResult.Ok(new UTF8Encoding(false).GetString(bytes).TrimStart('﻿'));
+        }
+
         [AgentTool("list_plugins", "List the installed plugins (enabled or not, with what they contain) and how many more the marketplaces offer.")]
         public ToolResult List(ToolContext ctx, NoInput input)
         {

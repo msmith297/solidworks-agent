@@ -33,6 +33,7 @@ const MINOR_TOOLS = new Set([
   "remember", // shown as its own "Remembered" chip with Undo
   "list_memory",
   "compare_fork",
+  "read_bridge_file", // a peer's attachment, read-only
 ]);
 
 const LOOKUPS = new Set(["search_sw_api", "get_sw_api_type", "read_user_tool", "list_user_tools", "design_library", "list_memory", "compare_fork"]);

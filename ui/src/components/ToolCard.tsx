@@ -101,6 +101,8 @@ export function toolTitle(name: string, input: any, partial?: string): string {
       return field("query") ? `Search the Design Library for "${field("query")}"` : "Browse the Design Library";
     case "add_to_design_library":
       return `Add to Design Library: ${field("folder") ?? "…"}`;
+    case "read_bridge_file":
+      return `Read attachment ${String(field("path") ?? "").split(/[\\/]/).pop() || "…"}`;
     default:
       return mcpTitle(name, input) ?? name;
   }

@@ -24,7 +24,7 @@ namespace SwAgent.Infrastructure
             "search_sw_api", "get_sw_api_type", "mold_calc", "rebuild_journal", "list_user_tools", "read_user_tool", "save_user_tool",
             "edit_user_tool", "clear_overlay", "design_library", "list_open_documents", "get_selection",
             // plugins: skills, plugin files and the plugin creator
-            "use_skill", "read_plugin_file", "list_plugins", "read_plugin",
+            "use_skill", "read_plugin_file", "list_plugins", "read_plugin", "read_bridge_file",
             // the agent's own knowledge: API notes and helper files (test_helper runs a cell, so it isn't here)
             "save_api_note", "list_api_notes", "save_helper", "read_helper", "list_helpers", "delete_helper",
             // the plugin creator's checks (plugin_try_mcp is a plugin_ tool)

@@ -83,8 +83,9 @@ and how to get back (the user can ask you to undo it, or name the checkpoint to 
 
 ## Files from peers
 
-Attachments are downloaded to `%USERPROFILE%\.agent-bridge\inbox\<message id>\`. You cannot open an image or PDF
-attachment yourself: tell the user its path and ask them to drop it into the chat if it matters. Opening a model file
+Attachments are downloaded to `%USERPROFILE%\.agent-bridge\inbox\<message id>\`. Read them with `read_bridge_file`
+(text files and images; read-only, it never asks the user), never with C#. A PDF or other binary file you can't read:
+tell the user its path and ask them to drop it into the chat if it matters. Opening a model file
 from a peer in SolidWorks counts as changing what is open: ask the user first.
 
 The agent-bridge server runs in the user's profile folder, so relative paths in `files` (`local_path`) and

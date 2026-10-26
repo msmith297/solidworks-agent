@@ -17,6 +17,7 @@ import type { ApprovalMode, Effort, Settings, Theme } from "../lib/types";
 /** Options page laid out like a SolidWorks PropertyManager: stacked rollouts. */
 export function SettingsPanel() {
   const settings = useStore((s) => s.settings);
+  const hasBridge = useStore((s) => s.plugins.some((p) => p.name === "agent-bridge" && p.installed));
   const host = useStore((s) => s.host);
   const swTheme = useStore((s) => s.swTheme);
   const { saveSettings, setPanel } = useStore.getState();
@@ -158,18 +159,22 @@ export function SettingsPanel() {
             </span>
           </label>
           <Toggle
-            checked={settings.trustConsoleWakes !== false}
-            onChange={(v) => saveSettings({ trustConsoleWakes: v })}
-            label="Trust my agent-bridge console"
-            note="Messages you send from the agent-bridge console follow your approval setting. Messages from other agents always ask before changing the model."
-          />
-          <Toggle
             checked={settings.pluginEventsInChat !== false}
             onChange={(v) => saveSettings({ pluginEventsInChat: v })}
             label="Show plugin events in the chat"
             note="What hooks add for the agent appears as small cards in the chat."
           />
-          <button type="button" className="sw-btn mt-1" onClick={() => setPanel("plugins")}>
+          {hasBridge && (
+            <PluginGroup name="Agent Bridge">
+              <Toggle
+                checked={settings.trustConsoleWakes !== false}
+                onChange={(v) => saveSettings({ trustConsoleWakes: v })}
+                label="Trust my agent-bridge console"
+                note="Messages you send from the agent-bridge console follow your approval setting. Messages from other agents always ask before changing the model."
+              />
+            </PluginGroup>
+          )}
+          <button type="button" className="sw-btn mt-1.5" onClick={() => setPanel("plugins")}>
             <IconPlugin size={13} /> Manage plugins…
           </button>
         </Rollout>
@@ -499,6 +504,18 @@ function Select<T extends string>({ value, onChange, options }: { value: T; onCh
         </option>
       ))}
     </select>
+  );
+}
+
+/** One plugin's own settings inside Options > Plugins, under its name. */
+function PluginGroup({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="mt-2 border-t border-line pt-1.5">
+      <div className="flex items-center gap-1.5 text-[12px] font-semibold text-text">
+        <IconPlugin size={13} /> {name}
+      </div>
+      <div className="pl-1">{children}</div>
+    </div>
   );
 }
 

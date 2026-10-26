@@ -33,7 +33,7 @@
     {
       "name": "agent-bridge-unify3d",
       "source": "./agent-bridge-unify3d",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "description": "Agent Bridge inside SolidWorks: how the Unify3D agent handles bridge messages safely (the user's model and data stay under the user's control), and a /bridge command for peers, inbox, listening and the bridge name. Installed with Agent Bridge.",
       "category": "Collaboration",
       "keywords": ["agents", "messaging", "collaboration", "solidworks"]
