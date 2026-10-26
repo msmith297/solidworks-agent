@@ -381,6 +381,10 @@ export interface Wake {
   source: string;
   /** The plugin, e.g. "agent-bridge". */
   plugin: string;
+  /** A message from Claude Desktop or Codex (the local link): its ticket, which gets the turn's answer (localLink.answer). */
+  ticket?: string | null;
+  /** Who sent it, for the chat: "Claude Desktop", "Codex". */
+  from?: string | null;
 }
 
 /** One stretch of recognised speech; times in ms from the first key press. */

@@ -39,6 +39,11 @@
     <ProjectReference Include="..\SwAgent.Speech\SwAgent.Speech.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
+  <!-- The add-in <-> Unify3D.LocalMcp.exe pipe contract, shared with src/SwAgent.LocalMcp (docs/plugins/local-mcp.md 5.1). -->
+  <ItemGroup>
+    <Compile Include="..\Shared\LocalLinkProtocol.cs" Link="LocalLink\LocalLinkProtocol.cs" />
+  </ItemGroup>
+
   <!-- Headless tests (tests/SwAgent.Tests) exercise the parts that don't need SolidWorks. -->
   <ItemGroup>
     <InternalsVisibleTo Include="SwAgent.Tests" />

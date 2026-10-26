@@ -17,7 +17,8 @@ namespace SwAgent.Plugins.Hooks
     /// The plugin runtime: hooks and MCP servers of the runnable plugins (IPluginRuntimeSource) and of the user's mcp.json,
     /// the session they share, and the panel's RPCs for them:
     ///   hooks.fire(event, ...)  the panel-side events (UserPromptSubmit, PreToolUse, PostToolUse, Stop)
-    ///   session.info()          { sessionId, hookEvents, mcpInstructions, sessionContext, sessionNotices, heldWakes }
+    ///   session.info({ panel? }) { sessionId, hookEvents, mcpInstructions, sessionContext, sessionNotices, heldWakes };
+    ///                           panel is the page's own id: a new one means the panel was reloaded (PanelReloaded)
     ///   session.takeWakes()     wakes not yet confirmed;  session.ackWake(id) confirms one
     ///   mcp.status(), mcp.restart(plugin, server)
     /// and events tools.changed, session.wake (a nudge: the wake itself is fetched with takeWakes) and session.changed.
@@ -37,6 +38,9 @@ namespace SwAgent.Plugins.Hooks
         private bool _sessionStartQueued;
         private bool _shutDown;
         private JArray _sessionContext = new JArray();
+
+        /// <summary>The id the panel page sends with session.info: another one means a reloaded page.</summary>
+        private string _panel;
 
         /// <summary>SessionStart systemMessage and exit-2 text: for the user (the panel's notice bar), never the model.</summary>
         private JArray _sessionNotices = new JArray();
@@ -107,7 +111,7 @@ namespace SwAgent.Plugins.Hooks
         public void Attach(WebBridge bridge)
         {
             bridge.RegisterAsync("hooks.fire", async p => await FireAsync(p as JObject ?? new JObject()));
-            bridge.Register("session.info", p => Info());
+            bridge.Register("session.info", p => Info(p?["panel"]?.Type == JTokenType.String ? (string)p["panel"] : null));
             bridge.Register("session.takeWakes", p => Session.PendingWakes());
             bridge.Register("session.ackWake", p => new JObject { ["ok"] = Session.AckWake((string)p?["id"]) });
             bridge.Register("mcp.status", p => Mcp.Status());
@@ -218,9 +222,10 @@ namespace SwAgent.Plugins.Hooks
         /// session.info. The first call (the panel is ready) queues SessionStart: it waits for the MCP servers' initialize
         /// (agent-bridge's server registers this session with its hub there), at most 45 s.
         /// </summary>
-        public JObject Info()
+        public JObject Info(string panel = null)
         {
             var queue = false;
+            var reloaded = false;
             lock (_sync)
             {
                 if (!_sessionStartQueued && !_shutDown)
@@ -228,8 +233,18 @@ namespace SwAgent.Plugins.Hooks
                     _sessionStartQueued = true;
                     queue = true;
                 }
+                if (panel != null && panel != _panel)
+                {
+                    reloaded = _panel != null;
+                    _panel = panel;
+                }
             }
             if (queue) _ = Task.Run(FireSessionStartAsync);
+            if (reloaded)
+            {
+                Log.Info("The panel was reloaded");
+                PanelReloaded?.Invoke();
+            }
             JArray context, notices;
             lock (_sync)
             {
@@ -346,7 +361,27 @@ namespace SwAgent.Plugins.Hooks
             return new JObject { ["content"] = content, ["isError"] = (bool?)response?["isError"] == true };
         }
 
+        /// <summary>A reloaded panel page called session.info: whatever the old page was running is gone.</summary>
+        public event Action PanelReloaded;
+
         // ---- wakes ----
+
+        /// <summary>
+        /// A message from Claude Desktop or Codex over the local link (LinkHost, already counted against the hour's
+        /// allowance): queued for the panel, which delivers it into the open chat like any wake. False once SolidWorks is
+        /// closing.
+        /// </summary>
+        public bool QueueLinkWake(Session.Wake wake)
+        {
+            lock (_sync)
+            {
+                if (_shutDown) return false;
+            }
+            Session.AddLinkWake(wake);
+            Log.Info($"Wake from {wake.From} (ticket {wake.Ticket}) queued for the panel");
+            _emit("session.wake", wake.ToJson());
+            return true;
+        }
 
         private void OnRewake(PluginRuntime plugin, string ev, string text)
         {
