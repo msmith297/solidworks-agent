@@ -1,10 +1,13 @@
 // End-to-end checks of the provider seams (docs/providers/design.md 9.1 step 4): full agent turns with tool calls on
 // each provider through the mock host's fake streams, a chat that switches provider both ways, keys that reach only
 // their own provider, sub-agent aliases on the chat's provider, speed for sub-agents and capability flags.
+// Then the local link (docs/plugins/local-mcp.md 10.1 A7): the real store against a fake add-in, from a ticketed wake to
+// the answer it reports.
 // Run from the ui folder:  node src/lib/checks/integration.check.mjs
 // No network: fetch is the fake one (agent/providers/fake.ts), and the keys are fakes.
 import assert from "node:assert/strict";
-import { BASE, KEY, OPENAI_KEY, PNG, prompt, recorder, runAgent, runner } from "./harness.mjs";
+import { registerHooks } from "node:module";
+import { BASE, KEY, OPENAI_KEY, PNG, prompt, recorder, runAgent, runner, TOOLS } from "./harness.mjs";
 
 const { fakeFetch, defaultFakeScript, anthropicStream, openaiStream, openaiResponse } = await import("../../agent/providers/fake.ts");
 const { readableHistory, unreadableNote } = await import("../../agent/providers/media.ts");
@@ -216,4 +219,212 @@ await t("A model without web tools: no web tool and no web wording in the prompt
   assert.ok(r.log[0].body.input[0].content[0].text.includes("web_search"), "and the prompt names it");
 });
 
+// ---- the local link in the panel (docs/plugins/local-mcp.md 10.1 A7): the real store against a fake add-in ----
+// Messages from Claude Desktop / Codex arrive as ticketed wakes; the panel reports queued / working / paused and, when the
+// turn ends, the answer (localLink.answer). The store runs under node: a fake chrome.webview answers its RPCs, the model
+// API is the fake fetch, and the two browser-only modules it loads are stubbed (ribbon icons, Vite's import.meta.env).
+
+registerHooks({
+  load(url, context, nextLoad) {
+    if (url.endsWith("/lib/toolIcons.ts")) return { format: "module", shortCircuit: true, source: "export function syncRibbonIcons() {} export function svgDataUrl(s) { return s; }" };
+    const r = nextLoad(url, context);
+    if (url.includes("/ui/src/") && r.source && String(r.source).includes("import.meta.env"))
+      return { ...r, source: String(r.source).replace(/import\.meta\.env\.DEV/g, "false").replace(/import\.meta\.env/g, "({})") };
+    return r;
+  },
+});
+
+/** The add-in as the panel sees it: RPC answers, wakes to hand over, and every localLink.* report in order. */
+const addIn = (() => {
+  const listeners = [];
+  const reports = [];
+  let pending = [];
+  let stopBlocks = 0;
+  const saved = {};
+  const handlers = {
+    "app.getState": () => ({
+      version: "0.2.0",
+      solidworksVersion: "2026 SP1.0",
+      apiKeySource: "stored",
+      apiKeySources: { anthropic: "stored" },
+      // "auto" approval: a woken turn must still ask before a write tool.
+      settings: { tourDone: true, settingsVersion: 99, defaultModel: "claude-opus-5-5", approval: "auto", pluginWakesPerHour: 20 },
+      scratchKey: "scratch",
+      activeDoc: null,
+      docs: [],
+      logFile: "",
+      sessionStart: new Date().toISOString(),
+    }),
+    "tools.list": () => TOOLS,
+    "apiKey.get": () => ({ key: KEY }),
+    "chat.load": (p) => ({ docKey: p.docKey, docId: p.docKey, recovered: false, data: saved[p.docKey] ?? { threads: [], activeThreadId: null } }),
+    "chat.save": (p) => {
+      saved[p.docKey] = p.data;
+      return { revision: 1 };
+    },
+    "session.info": () => ({ sessionId: "s", hookEvents: { Stop: [""] }, mcpInstructions: [], sessionContext: [], sessionNotices: [], heldWakes: 0 }),
+    "session.takeWakes": () => pending,
+    "session.ackWake": (p) => {
+      pending = pending.filter((w) => w.id !== p.id);
+      return { ok: true };
+    },
+    "hooks.fire": (p) => {
+      const block = p.event === "Stop" && stopBlocks > 0;
+      if (block) stopBlocks--;
+      return { block, reason: block ? "Reply to Bridge Manager too." : null, continue: true, additionalContext: [], systemMessages: [] };
+    },
+    "tools.run": () => ({ content: [{ type: "text", text: "ok" }], isError: false }),
+    "localLink.answer": (p) => (reports.push({ answer: p }), { ok: true }),
+    "localLink.state": (p) => (reports.push({ state: p }), { ok: true }),
+    "localLink.panel": (p) => (reports.push({ panel: p }), { ok: true }),
+  };
+  globalThis.window = globalThis;
+  globalThis.location = { search: "", href: "https://swagent.local/index.html" };
+  const mem = new Map();
+  globalThis.localStorage = { getItem: (k) => mem.get(k) ?? null, setItem: (k, v) => void mem.set(k, String(v)), removeItem: (k) => void mem.delete(k), clear: () => mem.clear(), key: () => null, length: 0 };
+  globalThis.chrome = {
+    webview: {
+      addEventListener: (type, l) => listeners.push(l),
+      postMessage: (msg) => {
+        setTimeout(async () => {
+          let result = null;
+          let error;
+          try {
+            result = (await handlers[msg.method]?.(msg.params ?? {})) ?? null;
+          } catch (e) {
+            error = e.message;
+          }
+          for (const l of listeners) l({ data: { kind: "rpc-result", id: msg.id, ok: !error, result, error } });
+        }, 0);
+      },
+    },
+  };
+  return {
+    reports,
+    /** A message from Claude Desktop, queued as LinkHost does, then the session.wake nudge. */
+    wake(ticket, message) {
+      const w = { id: `w_${ticket}`, text: `Message from Claude Desktop, sent through the Claude MCP plugin: another AI assistant on this PC.\n\n<message>\n${message}\n</message>`, source: "claude-desktop", plugin: "claude-mcp", from: "Claude Desktop", ticket };
+      pending.push(w);
+      for (const l of listeners) l({ data: { kind: "event", name: "session.wake", data: w } });
+    },
+    blockNextStop() {
+      stopBlocks = 1;
+    },
+    of: (ticket) => reports.filter((r) => (r.answer ?? r.state)?.tickets?.includes(ticket)).map((r) => (r.answer ? { answer: r.answer.state, text: r.answer.text, error: r.answer.error } : r.state.state)),
+  };
+})();
+
+/** The model API: each request answered by `reply`, held while `gate` is set (a turn that is still going). */
+let reply = () => ({ sse: anthropicStream([{ type: "text", text: "Hello." }]) });
+let gate = null;
+const fake = fakeFetch((req) => reply(req));
+globalThis.fetch = async (input, init) => {
+  if (gate) await gate.promise;
+  return fake(input, init);
+};
+const hold = () => {
+  let open;
+  gate = { promise: new Promise((r) => (open = r)) };
+  return () => {
+    gate = null;
+    open();
+  };
+};
+const text = (s) => ({ sse: anthropicStream([{ type: "text", text: s }]) });
+
+/** Polls until the condition holds (the store works through timers and promises). */
+async function until(cond, what, ms = 5000) {
+  const end = Date.now() + ms;
+  while (!cond()) {
+    if (Date.now() > end) throw new Error(`timed out waiting for ${what}`);
+    await new Promise((r) => setTimeout(r, 5));
+  }
+}
+
+const { useStore } = await import("../../store.ts");
+const S = () => useStore.getState();
+const active = () => S().chats.workspace.data;
+const thread = () => active().threads.find((x) => x.id === active().activeThreadId);
+const idle = () => thread() && !S().runs[thread().id];
+await S().boot();
+await until(() => S().booted, "boot");
+
+await t("Link: a message into the new-chat page starts a chat named after the sender, and its answer goes back", async () => {
+  reply = () => text("The wall is 4 mm.");
+  addIn.wake("u3d_a", "How thick is the wall?");
+  await until(() => addIn.of("u3d_a").some((r) => r.answer), "the answer");
+  assert.deepEqual(addIn.of("u3d_a"), ["working", { answer: "done", text: "The wall is 4 mm.", error: null }]);
+  assert.equal(thread().title, "Claude Desktop");
+  const wakeMsg = thread().messages[0].content[0].text;
+  assert.ok(wakeMsg.startsWith('<system_event kind="wake" source="claude-mcp" from="Claude Desktop" ticket="u3d_a">'));
+  assert.ok(addIn.reports.some((r) => r.panel?.chat?.title === "Claude Desktop" && r.panel.chat.busy === true), "the panel reported the busy chat");
+  await until(() => addIn.reports.filter((r) => r.panel).at(-1).panel.chat?.busy === false, "idle again");
+});
+
+await t("Link: a woken turn asks before execute_csharp even with approval on auto", async () => {
+  let step = 0;
+  reply = () =>
+    step++ === 0
+      ? { sse: anthropicStream([{ type: "tool_use", id: "toolu_w1", name: "execute_csharp", input: { title: "Fillet", code: "x" } }], "tool_use") }
+      : text("Filleted the top edges.");
+  addIn.wake("u3d_b", "Fillet the top edges.");
+  await until(() => S().runs[thread().id]?.approval, "the approval card");
+  assert.equal(S().runs[thread().id].approval.name, "execute_csharp");
+  S().answerApproval(thread().id, { decision: "run" });
+  await until(() => addIn.of("u3d_b").some((r) => r.answer), "the answer");
+  assert.deepEqual(addIn.of("u3d_b").at(-1), { answer: "done", text: "Filleted the top edges.", error: null });
+});
+
+await t("Link: a message to a busy chat is queued, goes when the turn ends, and gets its own turn's answer", async () => {
+  await until(idle, "an idle chat");
+  const open = hold();
+  reply = () => text("Your own answer.");
+  const sent = S().send("A question of my own.");
+  await until(() => S().runs[thread().id], "the user's turn");
+  addIn.wake("u3d_c", "And mine?");
+  await until(() => addIn.of("u3d_c").includes("queued"), "queued");
+  reply = (req) => (JSON.stringify(req.body.messages.at(-1)).includes("u3d_c") ? text("Yours: yes.") : text("Your own answer."));
+  open();
+  await sent;
+  await until(() => addIn.of("u3d_c").some((r) => r.answer), "the answer");
+  assert.deepEqual(addIn.of("u3d_c"), ["queued", "working", { answer: "done", text: "Yours: yes.", error: null }]);
+});
+
+await t("Link: a Stop-hook continuation answers once, at its very end", async () => {
+  await until(idle, "an idle chat");
+  let step = 0;
+  reply = () => text(step++ === 0 ? "First answer." : "Also told Bridge Manager.");
+  addIn.blockNextStop();
+  addIn.wake("u3d_d", "Status?");
+  await until(() => addIn.of("u3d_d").some((r) => r.answer), "the answer");
+  await until(idle, "the continuation's end");
+  assert.deepEqual(addIn.of("u3d_d"), ["working", { answer: "done", text: "Also told Bridge Manager.", error: null }]);
+});
+
+await t("Link: Stop reports stopped", async () => {
+  await until(idle, "an idle chat");
+  const open = hold();
+  addIn.wake("u3d_e", "Do a long job.");
+  await until(() => S().runs[thread().id] && addIn.of("u3d_e").includes("working"), "the woken turn");
+  S().stop(thread().id);
+  open();
+  await until(() => addIn.of("u3d_e").some((r) => r.answer), "the answer");
+  assert.deepEqual(addIn.of("u3d_e").at(-1), { answer: "stopped", text: "", error: null });
+});
+
+await t("Link: with automatic turns paused the message waits in the chat and the user's next turn answers it", async () => {
+  await S().saveSettings({ pluginWakesPerHour: 0 });
+  await S().newChat();
+  addIn.wake("u3d_f", "When you can: the hole sizes?");
+  await until(() => addIn.of("u3d_f").includes("paused"), "paused");
+  assert.equal(thread().title, "Claude Desktop");
+  assert.equal(S().runs[thread().id], undefined, "no turn started");
+  reply = () => text("Holes: 6 x M8.");
+  await S().send("Go ahead.");
+  await until(() => addIn.of("u3d_f").some((r) => r.answer), "the answer");
+  assert.deepEqual(addIn.of("u3d_f"), ["paused", { answer: "done", text: "Holes: 6 x M8.", error: null }]);
+});
+
 console.log(`integration: ${t.count} checks passed`);
+// The booted store keeps its timers (update and idle polls) running: end here.
+process.exit(0);

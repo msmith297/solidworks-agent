@@ -389,6 +389,12 @@ export async function mockRpc(method: string, params: any): Promise<unknown> {
     case "session.ackWake":
       store.set("wakes", store.get<Wake[]>("wakes", []).filter((w) => w.id !== params?.id));
       return { ok: true };
+    // The local link (Claude MCP / Codex MCP): the panel's reports; the mock has no pipe, so they only show in the console.
+    case "localLink.answer":
+    case "localLink.state":
+    case "localLink.panel":
+      console.info(method, params);
+      return { ok: true };
     case "mcp.status":
       return mockMcp();
     case "mcp.restart":
@@ -951,9 +957,24 @@ function mockKeySource(provider: string | undefined): "stored" | "none" {
 // ?fake: the model APIs answer from canned streams; nothing leaves the browser.
 if (!(window as any).chrome?.webview && location.search.includes("fake")) window.fetch = fakeFetch(defaultFakeScript);
 
-/** Queue a wake as the add-in would (an async hook exited with code 2) and nudge the panel. Also: ?wake in the URL. */
-function mockWake(text = '"Claude Code - laptop": the drawings are done - can you check the bracket\'s hole pattern against them?') {
-  const w: Wake = { id: `w${Date.now()}`, text: `New message from ${text}`, source: "Stop hook", plugin: "agent-bridge" };
+/**
+ * Queue a wake as the add-in would (an async hook exited with code 2) and nudge the panel. Also: ?wake in the URL.
+ * `{ from: "Claude Desktop", ticket?, text? }`: a message over the local link (Claude MCP / Codex MCP), with a ticket.
+ */
+function mockWake(arg: string | { from: string; ticket?: string; text?: string } = '"Claude Code - laptop": the drawings are done - can you check the bracket\'s hole pattern against them?') {
+  const id = `w${Date.now()}`;
+  const link = typeof arg === "string" ? null : arg;
+  const codex = link?.from === "Codex";
+  const w: Wake = link
+    ? {
+        id,
+        text: `Message from ${link.from}, sent through the ${codex ? "Codex MCP" : "Claude MCP"} plugin: another AI assistant on this PC, working for the user. (mock)\n\n<message>\n${link.text ?? "What is the wall thickness of the open part?"}\n</message>`,
+        source: codex ? "codex" : "claude-desktop",
+        plugin: codex ? "codex-mcp" : "claude-mcp",
+        from: link.from,
+        ticket: link.ticket ?? `u3d_${Date.now().toString(16).padStart(16, "0")}`,
+      }
+    : { id, text: `New message from ${arg}`, source: "Stop hook", plugin: "agent-bridge" };
   store.set("wakes", [...store.get<Wake[]>("wakes", []), w]);
   emitLocal("session.wake", w);
 }

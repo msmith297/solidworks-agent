@@ -22,6 +22,7 @@ import { breakdown, highlights as pickHighlights } from "../agent/workSummary";
 import { EVENT_TAG, HOOK_TAG, MODEL_TAG, VOICE_TAG, WATCH_TAG, cellIdsAfter, currentThread, isPrompt, promptText, useStore, writesAfter, type RunState } from "../store";
 import { parseTagged } from "../lib/hooks";
 import { bridgeMessages, reminderSenders } from "../lib/mcpView";
+import { parseLinkMessage } from "../lib/localLink";
 import { ask } from "./Dialog";
 import { rpc } from "../lib/bridge";
 import { modelOption } from "../lib/models";
@@ -469,7 +470,9 @@ function parseExtra(raw: string): Extra {
     return { kind: "hook", title: `Plugin context${event ? ` · ${event}` : ""}${tool ? ` · ${tool}` : ""}`, body: tagged.body, images: [] };
   }
   if (tagged?.tag === "event") {
-    const { kind, source } = tagged.attrs;
+    const { kind, source, from } = tagged.attrs;
+    // Claude Desktop or Codex (the local link): who sent it and the message, not the add-in's note to the agent.
+    if (kind === "wake" && from) return { kind: "event", title: `Message from ${from}`, body: parseLinkMessage(tagged.body) ?? tagged.body, images: [] };
     // agent-bridge: who wrote and what they said, not its instructions to the model (those are one click away).
     const msgs = kind === "wake" ? bridgeMessages(tagged.body) : [];
     if (msgs.length) {

@@ -60,6 +60,7 @@ import { WRITE_TOOLS, runAgent, type ApprovalDecision, type ApprovalRequest, typ
 import { BUILTIN_COMMANDS, commandHead, parseSlash, resolveSlash, tagLines, type CommandSources, type TagKind } from "./lib/commands";
 import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, isConsoleWake, systemEventText, wakeApproval, wakesMayFollow } from "./lib/hooks";
 import { SECRET_SAVED, SECRET_SKIPPED, secretTarget, type SecretAsk } from "./lib/creator";
+import { NO_WRITTEN_REPLY, linkAnswerText, linkState } from "./lib/localLink";
 import type { MemoryIndex } from "./lib/memory";
 
 export interface ChatSlot {
@@ -611,6 +612,8 @@ let lastVoice: VoicePayload | null = null;
 
 /** Plugin wakes already taken (a nudge and session.takeWakes can hand the same one over twice before it is acked). */
 const seenWakes = new Set<string>();
+/** This page's id for session.info: the add-in sees a new one after a reload (the old page's link turns are gone). */
+const PANEL_ID = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
 /** When automatic turns (plugin wakes, Stop-hook continuations) started: at most settings.pluginWakesPerHour an hour. */
 let autoTimes: number[] = [];
 /** The tags of the message being sent: back on the composer with its text if a hook blocks it. */
@@ -707,7 +710,7 @@ export function noKeyNotice(model: string, anyKeyAtAll: boolean): string {
 // Saves are serialized per document so an older snapshot never overwrites a newer one.
 const saveChains = new Map<string, Promise<unknown>>();
 
-export const useStore = create<State>((set, get) => {
+export const useStore = create<State>((set, get, api) => {
   const persist = (docKey: string) => {
     const slot = get().chats[docKey];
     if (!slot) return Promise.resolve();
@@ -852,6 +855,7 @@ export const useStore = create<State>((set, get) => {
     const provider = inferProvider(runModel);
     if (!keys.has(provider)) {
       set({ panel: "settings", keyFocus: provider, notice: noKeyNotice(runModel, anyKey(get())) });
+      reportLinkAnswer(docKey, threadId, "error", noKeyNotice(runModel, anyKey(get())));
       return;
     }
     if (get().runs[threadId]) {
@@ -873,6 +877,7 @@ export const useStore = create<State>((set, get) => {
     let stopHook: HookResult | null = null;
     const started = performance.now();
     let outcome = "end_turn";
+    let failure: string | undefined; // why the turn failed, for a local-link answer
     const selDoc = get().activeDocKey ?? "";
     const selectionAtStart = selSig(get().selection[selDoc] ?? []);
     rpc("agent.activity", { running: true }).catch(() => {});
@@ -1004,6 +1009,7 @@ export const useStore = create<State>((set, get) => {
       });
       patchTurn({ stop: result.stop, error: result.error, durationMs: Math.round(performance.now() - started) });
       outcome = result.stop;
+      failure = result.error;
       // The turn ended normally: the plugins' Stop hooks run while the chat still shows the agent as working.
       if ((outcome === "end_turn" || outcome === "stop_sequence") && !controller.signal.aborted) {
         stopHook = await fireHook("Stop", docKey, threadId, { stop_hook_active: !!run.continuation });
@@ -1021,6 +1027,7 @@ export const useStore = create<State>((set, get) => {
         : status === 529 || status === 503 ? "The API is overloaded right now. Press Retry in a moment."
         : err?.message ?? String(err);
       patchTurn({ stop: "error", error: message, durationMs: Math.round(performance.now() - started) });
+      failure = message;
     } finally {
       set((s) => {
         const runs = { ...s.runs };
@@ -1045,6 +1052,8 @@ export const useStore = create<State>((set, get) => {
       // Wakes only after a turn that ended by itself: after Stop or an error they wait for the user's next message (a
       // wake must not restart what the user just stopped, nor retry a failed request at once).
       const continued = !!stopHook?.block && stopHook.continue && continueAfterStop(docKey, threadId, stopHook.reason ?? "", run);
+      // Messages from Claude Desktop / Codex in this chat get the turn's answer; a continuation answers at its own end.
+      if (!continued) reportLinkAnswer(docKey, threadId, outcome, failure);
       if (!continued && !flushQueue(docKey, threadId, outcome) && wakesMayFollow(outcome)) flushWakes(threadId);
     }
   };
@@ -1170,7 +1179,7 @@ export const useStore = create<State>((set, get) => {
     if (!threadId) {
       // The new-chat page is open: the wake starts that chat (named after the plugin) and it stays the open one, with
       // anything the user had typed there moved into it.
-      const label = get().plugins.find((p) => p.name === w.plugin)?.displayName ?? w.plugin;
+      const label = w.from ?? get().plugins.find((p) => p.name === w.plugin)?.displayName ?? w.plugin;
       const created: Thread = {
         id: uid(),
         title: label || "Plugin",
@@ -1193,6 +1202,7 @@ export const useStore = create<State>((set, get) => {
     if (busy(threadId) || endsOnUser(threadId)) {
       const id = threadId;
       set((s) => ({ wakes: { ...s.wakes, [id]: [...(s.wakes[id] ?? []), w] } }));
+      reportLinkState([w], "queued");
       return;
     }
     await deliverWakes(threadId, [w]);
@@ -1234,7 +1244,44 @@ export const useStore = create<State>((set, get) => {
     return t?.messages[t.messages.length - 1]?.role === "user";
   };
 
-  const wakeBlocks = (list: Wake[]): ContentBlockParam[] => list.map((w) => ({ type: "text", text: systemEventText("wake", w.plugin || w.source, w.text) }));
+  const wakeBlocks = (list: Wake[]): ContentBlockParam[] =>
+    list.map((w) => ({ type: "text", text: systemEventText("wake", w.plugin || w.source, w.text, { from: w.from, ticket: w.ticket }) }));
+
+  /**
+   * Tickets of messages from Claude Desktop or Codex (the local link) per chat, with the index of the message they went
+   * into: the chat's next turn that ends without a Stop-hook continuation reports its answer for them
+   * (localLink.answer). Not saved: after a reload the add-in fails the tickets the old page had taken.
+   */
+  const linkTickets = new Map<string, { tickets: string[]; from: number }>();
+
+  const ticketsOf = (list: Wake[]) => list.map((w) => w.ticket).filter((t): t is string => !!t);
+
+  /** The add-in's tickets follow their wakes: queued (held in a busy chat), working (in a turn) or paused. */
+  const reportLinkState = (list: Wake[], state: "queued" | "working" | "paused") => {
+    const tickets = ticketsOf(list);
+    if (tickets.length) rpc("localLink.state", { tickets, state }).catch(() => {});
+  };
+
+  /** Wakes just added to a chat's last message: their tickets wait for that chat's answer. */
+  const holdLinkTickets = (docKey: string, threadId: string, list: Wake[], state: "working" | "paused") => {
+    const tickets = ticketsOf(list);
+    if (!tickets.length) return;
+    const at = Math.max(0, (get().chats[docKey]?.data.threads.find((t) => t.id === threadId)?.messages.length ?? 1) - 1);
+    const held = linkTickets.get(threadId);
+    linkTickets.set(threadId, { tickets: [...(held?.tickets ?? []), ...tickets], from: Math.min(held?.from ?? at, at) });
+    reportLinkState(list, state);
+  };
+
+  /** A turn in the chat ended: its final reply goes to every ticket the chat holds (done, stopped or failed). */
+  const reportLinkAnswer = (docKey: string, threadId: string, outcome: string, error?: string) => {
+    const held = linkTickets.get(threadId);
+    if (!held) return;
+    linkTickets.delete(threadId);
+    const state = linkState(outcome);
+    const answer = linkAnswerText(get().chats[docKey]?.data.threads.find((t) => t.id === threadId)?.messages ?? [], held.from);
+    const text = state === "done" || answer !== NO_WRITTEN_REPLY ? answer : "";
+    rpc("localLink.answer", { tickets: held.tickets, threadId, state, text, error: state === "failed" ? error || "unknown error" : null }).catch(() => {});
+  };
 
   /** Wakes saved in a chat are acked: the add-in stops handing them over again. */
   const ackWakes = (list: Wake[]) => {
@@ -1252,10 +1299,14 @@ export const useStore = create<State>((set, get) => {
     const blocks = wakeBlocks(list);
     const ack = () => ackWakes(list);
     if (allowAutoTurn()) {
+      const appended = () => {
+        ack();
+        holdLinkTickets(WORKSPACE, threadId, list, "working");
+      };
       const release = beginPreparing(WORKSPACE, threadId);
       try {
         const consoleWake = get().settings.trustConsoleWakes !== false && list.every(isConsoleWake);
-        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true, consoleWake }, ack);
+        await submitBlocks(WORKSPACE, threadId, blocks, {}, { autoApprove: false, fromWake: true, consoleWake }, appended);
       } finally {
         release();
       }
@@ -1269,6 +1320,7 @@ export const useStore = create<State>((set, get) => {
     });
     await persist(WORKSPACE);
     ack();
+    holdLinkTickets(WORKSPACE, threadId, list, "paused"); // answered at the end of the user's next turn here
     set({ notice: `${list[0].plugin || "A plugin"} added news to the chat, but automatic turns are paused (${get().settings.pluginWakesPerHour ?? 20} per hour): the agent sees it with your next message.` });
   };
 
@@ -1556,7 +1608,11 @@ export const useStore = create<State>((set, get) => {
       noView: hasVoice,
     });
     blocks.push(...ctx.blocks);
-    await submitBlocks(docKey, threadId, [...wakeBlocks(held), ...blocks], { ...voiceRefs, ...ctx.refs }, run, held.length ? () => ackWakes(held) : undefined);
+    const appended = () => {
+      ackWakes(held);
+      holdLinkTickets(docKey, threadId, held, "working"); // the user's turn answers them too
+    };
+    await submitBlocks(docKey, threadId, [...wakeBlocks(held), ...blocks], { ...voiceRefs, ...ctx.refs }, run, held.length ? appended : undefined);
   };
 
   /**
@@ -1752,7 +1808,7 @@ export const useStore = create<State>((set, get) => {
       list<AgentInfo>("plugins.agents"),
       list<McpServerStatus>("mcp.status"),
       // The first session.info of a session starts its SessionStart hooks (the add-in fires them once).
-      rpc<SessionInfo | null>("session.info").catch(() => null),
+      rpc<SessionInfo | null>("session.info", { panel: PANEL_ID }).catch(() => null),
     ]);
     set({ plugins, marketplaces, commands, skills, agents, mcpServers });
     applySession(session);
@@ -2004,12 +2060,26 @@ export const useStore = create<State>((set, get) => {
       on("session.wake", () => void pullWakes());
       // SessionStart context arrived, plugins or servers changed (hook events, MCP instructions), or a wake was held back.
       on("session.changed", () => {
-        rpc<SessionInfo | null>("session.info")
+        rpc<SessionInfo | null>("session.info", { panel: PANEL_ID })
           .then(applySession)
           .catch(() => {});
       });
       // The panel is ready: plugin state (its first session.info starts the session's hooks), then any waiting wakes.
       void loadPluginState().then(() => pullWakes());
+      // The local link's status: the chat open here and whether it is busy, at ready and on every change.
+      let lastPanel: string | null = null;
+      const reportPanel = () => {
+        const s = get();
+        const d = s.chats[WORKSPACE]?.data;
+        const t = d?.threads.find((x) => x.id === d.activeThreadId);
+        const chat = t ? { title: t.title, busy: !!s.runs[t.id] } : null;
+        const key = JSON.stringify(chat);
+        if (key === lastPanel) return;
+        lastPanel = key;
+        rpc("localLink.panel", { chat }).catch(() => {});
+      };
+      reportPanel();
+      api.subscribe(reportPanel);
       // The agent's helpers and API notes for the system prompt: at boot, and again when it saves one (or a plugin brings some).
       const loadKnowledge = () =>
         rpc<KnowledgeIndex | null>("knowledge.index")

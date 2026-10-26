@@ -28,9 +28,13 @@ export function hookContextText(event: HookEvent, texts: string[], tool?: string
   return `${HOOK_TAG} event="${event}"${tool ? ` tool="${escapeAttr(tool)}"` : ""}>\n${texts.join("\n\n")}\n</hook_context>`;
 }
 
-/** A system-event text block: `<system_event source="agent-bridge" kind="wake">...</system_event>`. */
-export function systemEventText(kind: "wake" | "stop", source: string, text: string): string {
-  return `${EVENT_TAG} kind="${kind}" source="${escapeAttr(source)}">\n${text}\n</system_event>`;
+/**
+ * A system-event text block: `<system_event source="agent-bridge" kind="wake">...</system_event>`. A message from Claude
+ * Desktop or Codex also names its sender and ticket: `from="Claude Desktop" ticket="u3d_..."`.
+ */
+export function systemEventText(kind: "wake" | "stop", source: string, text: string, attrs?: { from?: string | null; ticket?: string | null }): string {
+  const extra = (attrs?.from ? ` from="${escapeAttr(attrs.from)}"` : "") + (attrs?.ticket ? ` ticket="${escapeAttr(attrs.ticket)}"` : "");
+  return `${EVENT_TAG} kind="${kind}" source="${escapeAttr(source)}"${extra}>\n${text}\n</system_event>`;
 }
 
 /** The parts of a hook_context / system_event block, for the chat's cards. */
