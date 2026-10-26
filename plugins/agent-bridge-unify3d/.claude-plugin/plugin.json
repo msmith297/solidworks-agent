@@ -1,6 +1,6 @@
 {
   "name": "agent-bridge-unify3d",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "displayName": "Agent Bridge for Unify3D",
   "description": "Agent Bridge inside SolidWorks: the unify3d-bridge skill (how the Unify3D agent acts on bridge messages without putting the user's model or data at risk) and the /bridge command (peers, inbox, listening, the bridge name). Companion of the agent-bridge plugin, which brings the MCP server and hooks.",
   "author": {

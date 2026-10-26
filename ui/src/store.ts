@@ -617,8 +617,6 @@ let autoTimes: number[] = [];
 let sentTags: { text: string; tags: Tag[] } | null = null;
 /** SessionStart notices (session.info sessionNotices) already shown in the notice bar. */
 let shownSessionNotices = 0;
-/** The thread a run last started in: plugin wakes go there while it exists. */
-let lastActiveThread: string | null = null;
 /**
  * Threads whose next run is being put together (prompt hooks, selection and view, saving) but isn't in `runs` yet. They
  * count as busy: a wake arriving meanwhile is held and a send is queued, so two runs never start on one thread.
@@ -863,7 +861,6 @@ export const useStore = create<State>((set, get) => {
     }
 
     const controller = new AbortController();
-    lastActiveThread = threadId;
     set((s) => ({
       runs: { ...s.runs, [threadId]: { docKey, threadId, live: null, runningToolId: null, approval: null, question: null, controller, inToolRun: !!run.inToolRun, ...extra } },
     }));
@@ -1145,12 +1142,15 @@ export const useStore = create<State>((set, get) => {
     return true;
   };
 
-  /** The chat plugin wakes go to: the last one a run started in, else the latest one used this session; null: none. */
+  /**
+   * The chat plugin wakes go to: the one open in the panel, with or without history (agent-bridge is one connection per
+   * SolidWorks that talks to whatever chat the user has open). null: the new-chat page is showing, so the wake starts a
+   * chat there.
+   */
   const wakeThread = (): string | null => {
-    const threads = get().chats[WORKSPACE]?.data.threads ?? [];
-    if (lastActiveThread && threads.some((t) => t.id === lastActiveThread)) return lastActiveThread;
-    const session = get().sessionStart;
-    return threads.filter((t) => t.turns.some((m) => (m.session ?? 0) >= session)).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0]?.id ?? null;
+    const d = get().chats[WORKSPACE]?.data;
+    const id = d?.activeThreadId;
+    return id && d.threads.some((t) => t.id === id) ? id : null;
   };
 
   /** Wakes the add-in holds (session.takeWakes): taken at panel start and on every session.wake nudge. */
@@ -1166,7 +1166,8 @@ export const useStore = create<State>((set, get) => {
     await loadChat(WORKSPACE);
     let threadId = wakeThread();
     if (!threadId) {
-      // No chat was used this session: a new one, named after the plugin, shown if the user isn't in another chat.
+      // The new-chat page is open: the wake starts that chat (named after the plugin) and it stays the open one, with
+      // anything the user had typed there moved into it.
       const label = get().plugins.find((p) => p.name === w.plugin)?.displayName ?? w.plugin;
       const created: Thread = {
         id: uid(),
@@ -1178,7 +1179,12 @@ export const useStore = create<State>((set, get) => {
         messages: [],
         turns: [],
       };
-      updateSlot(WORKSPACE, (d) => ({ ...d, threads: [created, ...d.threads], activeThreadId: d.activeThreadId ?? created.id }));
+      updateSlot(WORKSPACE, (d) => ({ ...d, threads: [created, ...d.threads], activeThreadId: created.id }));
+      const draft = `new:${WORKSPACE}`;
+      set((s) => ({
+        drafts: { ...s.drafts, [created.id]: s.drafts[draft] ?? "", [draft]: "" },
+        tags: { ...s.tags, [created.id]: s.tags[draft] ?? [], [draft]: [] },
+      }));
       threadId = created.id;
     }
     // Busy (a run, or one being prepared), or its last turn was stopped or failed: held, shown in the composer.

@@ -23,7 +23,8 @@ namespace SwAgent.Tests
         private static readonly Regex Semver = new Regex(@"^\d+\.\d+\.\d+([-+][0-9A-Za-z.-]+)?$");
 
         /// <summary>The variables the runtime expands (authoring.md section 4), besides ${user_config.*} and environment variables.</summary>
-        private static readonly string[] Variables = { "CLAUDE_PLUGIN_ROOT", "UNIFY3D_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA", "UNIFY3D_DEVICE", "UNIFY3D_PID" };
+        // CLAUDE_CODE_SESSION_ID: set and expanded by Session.EnvFor (AgentBridgeSessionTests).
+        private static readonly string[] Variables = { "CLAUDE_PLUGIN_ROOT", "UNIFY3D_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA", "UNIFY3D_DEVICE", "UNIFY3D_PID", "CLAUDE_CODE_SESSION_ID" };
 
         private static string RepoRoot()
         {
@@ -120,6 +121,9 @@ namespace SwAgent.Tests
             var env = (JObject)u["env"];
             Assert.Equal("Unify3D SolidWorks - ${UNIFY3D_DEVICE}", (string)env["AGENT_BRIDGE_NAME"]);
             Assert.Equal("${UNIFY3D_PID}", (string)env["AGENT_BRIDGE_OWNER_PID"]);
+            // One connection per SolidWorks: the PC's session id (agent-bridge keeps one peer and chat for it), always listening.
+            Assert.Equal("${CLAUDE_CODE_SESSION_ID}", (string)env["AGENT_BRIDGE_SESSION_ID"]);
+            Assert.Equal("always", (string)env["AGENT_BRIDGE_LISTEN"]);
             // Never point agent-bridge at another hub or identity from here; never pass a key.
             Assert.All(env.Properties(), p =>
             {

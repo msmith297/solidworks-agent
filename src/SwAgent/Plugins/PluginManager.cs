@@ -327,7 +327,7 @@ namespace SwAgent.Plugins
 
             // Entry env first, then plugin.json's unify3d.env, then the user's options (design critique 3).
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var source in new[] { p.Record.Unify3d?["env"] as JObject, m.Unify3d?["env"] as JObject })
+            foreach (var source in new[] { EntryEnv(p), m.Unify3d?["env"] as JObject })
             {
                 foreach (var kv in source?.Properties() ?? Enumerable.Empty<JProperty>())
                 {
@@ -712,6 +712,25 @@ namespace SwAgent.Plugins
                 else if (name == BuiltInMarketplace) s.Marketplaces.Remove(name); // the built-in one has no record: always on
                 return 0;
             });
+        }
+
+        /// <summary>
+        /// The marketplace entry's unify3d.env for a plugin. The built-in marketplace ships with the add-in, so its current
+        /// entry applies at once (e.g. agent-bridge's session id and listening); others use the copy made at install/update.
+        /// </summary>
+        private JObject EntryEnv(LoadedPlugin p)
+        {
+            var saved = p.Record.Unify3d?["env"] as JObject;
+            if (p.Record.Marketplace != BuiltInMarketplace) return saved;
+            try
+            {
+                return Entry(BuiltInMarketplace, p.Name).Entry.Unify3d?["env"] as JObject ?? saved;
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"Reading the built-in entry of {p.Name} failed: {ex.Message}");
+                return saved;
+            }
         }
 
         private (MarketplaceInfo Market, MarketplaceEntry Entry) Entry(string marketplace, string name)

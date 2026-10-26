@@ -254,7 +254,14 @@ installed: the Release build SolidWorks loads is in section 2.
 2. **The live agent-bridge acceptance, design section 6**, with the real hub: the agent shows in `list_peers` as
    "Unify3D SolidWorks - <device>"; a console message arrives (UserPromptSubmit context, or a wake when idle); it
    replies with `send_message`; "listen always" survives a SolidWorks restart - **this last one fails until item 3**.
-3. **agent-bridge needs a change** (not made: it is another repository, and changing it means a push): its
+3. **Done 2026-10-26: one persistent agent-bridge connection per PC.** agent-bridge main `70feb8b` (made by Bridge
+   Manager@Windows Desktop) registers non-Claude/Codex hosts with `AGENT_BRIDGE_SESSION_ID`; the hub already takes over
+   a known session's row (name, renames, listening, project, DM thread). Unify3D's built-in entry sets
+   `AGENT_BRIDGE_SESSION_ID=${CLAUDE_CODE_SESSION_ID}` (the PC id from `plugins\session.json`) and
+   `AGENT_BRIDGE_LISTEN=always`; built-in entry env now applies to an existing install at once
+   (`PluginManager.EntryEnv`). Wakes go to the chat open in the panel (store `wakeThread`), or start the new-chat page's
+   chat. Live check (restart SolidWorks twice: one "Unify3D SolidWorks - <device>" chat, listening) still to do.
+   The original note, kept for history: **agent-bridge needs a change** (not made: it is another repository, and changing it means a push): its
    `client/mcp.mjs` trusts `CLAUDE_CODE_SESSION_ID` only for clients named "claude". Proposed: in `register()`,
    `SESSION_ID = kind === 'claude' || process.env.UNIFY3D === '1' ? CLAUDE_SESSION_ID : null;` (or the hub's
    `requirePeer` re-links a stale row for any kind but Claude, as it does for Codex). Until then, after a SolidWorks or
