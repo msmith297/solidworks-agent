@@ -19,6 +19,7 @@ import {
 import type { ImageBlockParam, TextBlockParam, ToolResultBlockParam } from "../lib/types";
 import type { RunState } from "../store";
 import { webTitle } from "../lib/creator";
+import { mcpTitle } from "../lib/mcpView";
 
 export type ToolStatus = "streaming" | "queued" | "approval" | "running" | "ok" | "error" | "retried" | "stopped";
 
@@ -101,7 +102,7 @@ export function toolTitle(name: string, input: any, partial?: string): string {
     case "add_to_design_library":
       return `Add to Design Library: ${field("folder") ?? "…"}`;
     default:
-      return name;
+      return mcpTitle(name, input) ?? name;
   }
 }
 

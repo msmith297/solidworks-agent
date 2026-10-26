@@ -21,6 +21,7 @@ import { assistantItems } from "./chatItems";
 import { breakdown, highlights as pickHighlights } from "../agent/workSummary";
 import { EVENT_TAG, HOOK_TAG, MODEL_TAG, VOICE_TAG, WATCH_TAG, cellIdsAfter, currentThread, isPrompt, promptText, useStore, writesAfter, type RunState } from "../store";
 import { parseTagged } from "../lib/hooks";
+import { bridgeMessages, reminderSenders } from "../lib/mcpView";
 import { ask } from "./Dialog";
 import { rpc } from "../lib/bridge";
 import { modelOption } from "../lib/models";
@@ -36,6 +37,8 @@ interface Extra {
   title: string;
   body: string;
   images: string[];
+  /** A plugin's housekeeping (e.g. agent-bridge's "you haven't replied" reminder): one muted line, not a card. */
+  quiet?: boolean;
 }
 
 type Item =
@@ -467,6 +470,15 @@ function parseExtra(raw: string): Extra {
   }
   if (tagged?.tag === "event") {
     const { kind, source } = tagged.attrs;
+    // agent-bridge: who wrote and what they said, not its instructions to the model (those are one click away).
+    const msgs = kind === "wake" ? bridgeMessages(tagged.body) : [];
+    if (msgs.length) {
+      const from = [...new Set(msgs.map((m) => (m.console ? m.from : m.from.replace(/@.*$/, ""))))];
+      const title = `Message${msgs.length > 1 ? "s" : ""} from ${from.join(", ")}`;
+      return { kind: "event", title, body: msgs.map((m) => (from.length > 1 ? `${m.from}: ${m.body}` : m.body)).join("\n\n"), images: [] };
+    }
+    const owed = kind === "stop" ? reminderSenders(tagged.body) : [];
+    if (owed.length) return { kind: "event", title: `agent-bridge reminded the agent to reply to ${owed.join(", ")}`, body: tagged.body, images: [], quiet: true };
     return { kind: "event", title: kind === "stop" ? "Continued by a plugin" : source || "Plugin", body: tagged.body, images: [] };
   }
   if (raw.startsWith(VOICE_TAG)) {
@@ -522,7 +534,24 @@ function SystemEventPrompt({ extras }: { extras: Extra[] }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="mt-2 flex min-w-0 flex-col gap-1 first:mt-0">
-      {extras.map((x, i) => (
+      {extras.map((x, i) =>
+        x.quiet ? (
+          <button
+            key={i}
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            title={open ? "Show less" : "Show what the plugin said"}
+            className="flex min-w-0 items-start gap-1.5 self-start px-1 text-left text-[11px] text-text-3 hover:text-text"
+          >
+            <span className="mt-px shrink-0">
+              <IconPlugin size={12} />
+            </span>
+            <span className="min-w-0 flex-1">
+              {x.title}
+              {open && <span className="mt-0.5 block whitespace-pre-wrap break-words">{x.body}</span>}
+            </span>
+          </button>
+        ) : (
         <button
           key={i}
           type="button"
@@ -537,7 +566,8 @@ function SystemEventPrompt({ extras }: { extras: Extra[] }) {
             <b>{x.title}:</b> <span className={`whitespace-pre-wrap break-words ${open ? "" : "line-clamp-3"}`}>{x.body}</span>
           </span>
         </button>
-      ))}
+        ),
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import type { ToolCall } from "../components/ToolCard";
+import { isBridgeTool, mcpParts } from "../lib/mcpView";
 
 /**
  * How a finished turn is summarized. Reads, API lookups, captures, checks, scratch tests and failed attempts are how
@@ -60,6 +61,8 @@ export function isHighlight(call: ToolCall): boolean {
   if (ASKS.has(call.name)) return true;
   if (!call.result || call.result.is_error) return false;
   if (MINOR_TOOLS.has(call.name)) return false;
+  // agent-bridge housekeeping (messages, inbox, listening): counted in the summary line, not shown as cards.
+  if (isBridgeTool(call.name)) return false;
   if (call.name === "execute_csharp") return !isCheck(call);
   return true; // save_user_tool, edit_user_tool, add_to_design_library, and anything new
 }
@@ -82,11 +85,16 @@ export function highlights(calls: ToolCall[]): ToolCall[] & { more?: number } {
   return result;
 }
 
-/** "9 lookups · 6 checks · 3 changes · 1 retry" - what the folded steps were. */
+/** "9 lookups · 6 checks · 3 changes · 2 messages · 1 retry" - what the folded steps were. */
 export function breakdown(calls: ToolCall[]): string {
-  let lookups = 0, checks = 0, changes = 0, retries = 0, saves = 0;
+  let lookups = 0, checks = 0, changes = 0, retries = 0, saves = 0, messages = 0;
   for (const c of calls) {
     if (ASKS.has(c.name)) continue;
+    if (isBridgeTool(c.name)) {
+      // Messages sent count; checking the inbox, listening and the like are housekeeping, not work to report.
+      if (mcpParts(c.name)?.tool === "send_message" && !c.result?.is_error) messages++;
+      continue;
+    }
     if (c.result?.is_error) retries++;
     else if (LOOKUPS.has(c.name)) lookups++;
     else if (OUTCOMES.has(c.name)) saves++;
@@ -99,6 +107,7 @@ export function breakdown(calls: ToolCall[]): string {
     part(checks, "check", "checks"),
     part(lookups, "lookup", "lookups"),
     part(saves, "save", "saves"),
+    part(messages, "message", "messages"),
     part(retries, "retry", "retries"),
   ]
     .filter(Boolean)

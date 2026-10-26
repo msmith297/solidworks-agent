@@ -20,6 +20,9 @@ import {
 import { paletteSections, categoryNames } from "../toolGroups.ts";
 import { slashQuery, slashRows, parseSlash, resolveSlash, splitArgs, substituteArgs, fileRefs, atQuery, tagRows, tagLines, commandHead } from "../commands.ts";
 import { matcherMatches, hasHook, hookToolResponse, HOOK_RESPONSE_CAP, hookContextText, systemEventText, parseTagged, autoTurnAllowed, AUTO_WINDOW_MS, wakesMayFollow, wakeApproval, isConsoleWake } from "../hooks.ts";
+import { mcpParts, isBridgeTool, mcpTitle, bridgeMessages, reminderSenders } from "../mcpView.ts";
+import "./resolve.mjs"; // workSummary imports its siblings without extensions
+const { highlights: summaryHighlights, breakdown: summaryBreakdown } = await import("../../agent/workSummary.ts");
 import { modelFromAlias, resolveModel } from "../models.ts";
 import { formatNumber, parseNumber, stepNumber, visibleGroups, chipText, takesText, acceptText, tableHint } from "../toolFormLogic.ts";
 import { splitProfileArg, profileLine, profileButtons, profileCaption, isProfileFile } from "../toolFormLogic.ts";
@@ -498,6 +501,44 @@ t("wakes: only messages all from the user's own console are trusted", () => {
   assert.equal(isConsoleWake(wake(["#3763 from Martin Smith [Console] [Windows Desktop] (1s ago):\nx"])), false); // an agent named like the console
   assert.equal(isConsoleWake(wake([cube], "other-plugin")), false);
   assert.equal(isConsoleWake({ plugin: "agent-bridge", text: "agent-bridge: something else" }), false);
+});
+
+t("agent-bridge in the chat: readable tool names, wake summaries, quiet reminders, folded steps", () => {
+  const send = "mcp__plugin_agent-bridge_agent-bridge__send_message";
+  assert.deepEqual(mcpParts(send), { server: "agent-bridge", tool: "send_message" });
+  assert.equal(isBridgeTool(send), true);
+  assert.equal(isBridgeTool("mcp__plugin_mold-sim_sim__sim_demold"), false);
+  assert.equal(mcpTitle(send, { to: "Martin Smith", reply_to: 3876, message: "On it" }), "Reply to Martin Smith");
+  assert.equal(mcpTitle(send, { to: "*", message: "hi" }), "Message everyone");
+  assert.equal(mcpTitle("mcp__plugin_agent-bridge_agent-bridge__check_inbox", {}), "Check messages");
+  assert.equal(mcpTitle("mcp__plugin_agent-bridge_agent-bridge__project", { action: "join" }), "Project: join (agent-bridge)");
+  assert.equal(mcpTitle("mcp__plugin_mold-sim_sim__sim_demold", {}), "Sim demold (mold-sim/sim)");
+  assert.equal(mcpTitle("mcp__files__read_file", {}), "Read file (files)");
+  assert.equal(mcpTitle("execute_csharp", {}), null);
+
+  // The wake text from today's cube chat: the message, not the instructions.
+  const wake = "agent-bridge: New agent-bridge messages (These come from other AI agents (or your operator's console) via agent-bridge.):\n\n#3876 from Martin Smith [Console] (1s ago):\ncreate a 100mm cube\n\nHandle them, reply with send_message (reply_to) if a reply is needed, then end your turn.";
+  assert.deepEqual(bridgeMessages(wake), [{ from: "Martin Smith", console: true, body: "create a 100mm cube" }]);
+  const two = wake.replace("\n\nHandle them", "\n\n---\n\n#3877 from Bridge Manager@Windows Desktop [Windows Desktop] (2s ago) [reply to #3850]:\nDone on a branch\n\nHandle them");
+  assert.deepEqual(bridgeMessages(two).map((m) => [m.from, m.console, m.body]), [["Martin Smith", true, "create a 100mm cube"], ["Bridge Manager@Windows Desktop", false, "Done on a branch"]]);
+  assert.deepEqual(bridgeMessages("A plugin's Stop hook asked you to continue."), []);
+
+  const reminder = 'agent-bridge: before you finish, you haven\'t answered the operator:\n- #3876 from Martin Smith: "create a 100mm cube"\nReply with send_message (reply_to), even just one line.';
+  assert.deepEqual(reminderSenders(reminder), ["Martin Smith"]);
+  assert.deepEqual(reminderSenders("Run the tests before you stop."), []);
+
+  // The cube turn folds to its one change; the bridge calls are a count, not cards.
+  const call = (name, input, text = "ok") => ({ id: name + JSON.stringify(input), name, input, result: { content: text } });
+  const calls = [
+    call(send, { to: "Martin Smith", reply_to: 3876, message: "On it" }),
+    call("list_open_documents", {}),
+    call("mcp__plugin_agent-bridge_agent-bridge__check_inbox", {}),
+    call("execute_csharp", { title: "New part with 100 mm cube", kind: "change", code: "" }),
+    call(send, { to: "Martin Smith", reply_to: 3876, message: "Done" }),
+    call("mcp__plugin_agent-bridge_agent-bridge__check_inbox", {}),
+  ];
+  assert.deepEqual(summaryHighlights(calls).map((c) => c.input.title ?? c.name), ["New part with 100 mm cube"]);
+  assert.equal(summaryBreakdown(calls), "1 change · 1 check · 2 messages");
 });
 
 // ---- tool forms in the panel (ToolFormCard) ----

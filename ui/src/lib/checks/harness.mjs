@@ -1,22 +1,6 @@
 // Shared set-up for the agent loop checks (agent.check.mjs, providers.check.mjs): runs the panel's TypeScript under
 // node, with no network, no real keys and synchronous animation frames. Not a check itself.
-import { registerHooks } from "node:module";
-
-// The panel's sources import without extensions (vite resolves them); node needs the .ts.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    if (/^\.\.?\//.test(specifier) && !/\.[cm]?[jt]sx?$/.test(specifier)) {
-      for (const ext of [".ts", ".tsx", "/index.ts"]) {
-        try {
-          return nextResolve(specifier + ext, context);
-        } catch {
-          /* next */
-        }
-      }
-    }
-    return nextResolve(specifier, context);
-  },
-});
+import "./resolve.mjs"; // the panel's extensionless imports
 
 // Nothing from this PC's environment may change the requests (base URLs, keys).
 for (const k of Object.keys(process.env)) if (k.startsWith("ANTHROPIC_") || k.startsWith("OPENAI_")) delete process.env[k];

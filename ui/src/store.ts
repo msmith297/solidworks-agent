@@ -1122,7 +1122,9 @@ export const useStore = create<State>((set, get) => {
     const next: RunOverride = { model: run.model, effort: run.effort, autoApprove: run.autoApprove, label: run.label, maxSteps: run.maxSteps, longRun: run.longRun, continuation: true, fromWake: run.fromWake, fromHook: true };
     const release = beginPreparing(docKey, threadId);
     void (async () => {
-      const blocks: ContentBlockParam[] = [{ type: "text", text: systemEventText("stop", "Stop hook", reason || "A plugin's Stop hook asked you to continue.") }];
+      // The user already has the answer above: the continuation does only what the plugin asks, without a recap.
+      const note = "\n\n(Unify3D: the user already sees your answer above. Do only what this asks, then end your turn without repeating or summarising it.)";
+      const blocks: ContentBlockParam[] = [{ type: "text", text: systemEventText("stop", "Stop hook", (reason || "A plugin's Stop hook asked you to continue.") + note) }];
       let refs: Record<string, string> = {};
       if (batch.length) {
         // The queued follow-ups are the user's words: UserPromptSubmit fires for them (a block sends them back).
