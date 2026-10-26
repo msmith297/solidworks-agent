@@ -264,7 +264,7 @@ namespace SwAgent.Tests.Plugins
                 var files = Directory.GetFiles(backups);
                 Assert.Equal(ClientConfigFile.KeepBackups, files.Length);
                 Assert.All(files, f => Assert.StartsWith("claude_desktop_config.json-", Path.GetFileName(f)));
-                Assert.Empty(Directory.GetFiles(roots.ClaudeDir).Where(f => f != roots.ClaudeConfig)); // nothing next to the client's file
+                Assert.Equal(new[] { roots.ClaudeConfig }, Directory.GetFiles(roots.ClaudeDir)); // nothing next to the client's file
             }
         }
 

@@ -115,8 +115,14 @@ namespace SwAgent.Tests.LocalLink
         private readonly List<JObject> _seen = new List<JObject>();
 
         public McpProcess(string pipe, string client = "claude-desktop")
+            : this(pipe, Path.Combine(LocalMcpDeployerTests.BuiltDir(), LocalMcpDeployer.ExeName), "--client " + client)
         {
-            var psi = new ProcessStartInfo(Path.Combine(LocalMcpDeployerTests.BuiltDir(), LocalMcpDeployer.ExeName), "--client " + client)
+        }
+
+        /// <summary>A given exe and command line, as a client config names them (the integration tests run the deployed copy).</summary>
+        public McpProcess(string pipe, string exe, string arguments)
+        {
+            var psi = new ProcessStartInfo(exe, arguments)
             {
                 UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true,
                 StandardOutputEncoding = new UTF8Encoding(false), StandardErrorEncoding = new UTF8Encoding(false),
