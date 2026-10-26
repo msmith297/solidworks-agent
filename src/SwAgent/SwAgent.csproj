@@ -39,6 +39,17 @@
     <ProjectReference Include="..\SwAgent.Speech\SwAgent.Speech.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
+  <!-- The local MCP server Claude Desktop and Codex run (Claude MCP / Codex MCP plugins), built into bin\...\local-mcp
+       (see SwAgent.LocalMcp and docs/plugins/local-mcp.md). The add-in copies it to %LOCALAPPDATA%\SwAgent\local-mcp. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SwAgent.LocalMcp\SwAgent.LocalMcp.csproj" ReferenceOutputAssembly="false" Private="false" />
+  </ItemGroup>
+
+  <!-- The add-in <-> Unify3D.LocalMcp.exe pipe contract, compiled into both. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\LocalLinkProtocol.cs" Link="LocalLink\LocalLinkProtocol.cs" />
+  </ItemGroup>
+
   <!-- Headless tests (tests/SwAgent.Tests) exercise the parts that don't need SolidWorks. -->
   <ItemGroup>
     <InternalsVisibleTo Include="SwAgent.Tests" />

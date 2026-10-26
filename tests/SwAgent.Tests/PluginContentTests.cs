@@ -59,11 +59,12 @@ namespace SwAgent.Tests
         public void The_built_in_marketplace_lists_agent_bridge_first_and_its_overlay()
         {
             var m = Marketplace();
-            Assert.Equal("unify3d", (string)m["name"]);
+            Assert.Equal("unify3d", (string)m["name"]); // the id in installed ids such as agent-bridge@unify3d
+            Assert.Equal("Unify3D", (string)m["unify3d"]["displayName"]); // what the Plugins screen shows
             Assert.False(string.IsNullOrWhiteSpace((string)m["owner"]?["name"]));
             var plugins = m["plugins"].OfType<JObject>().ToList();
             Assert.Equal(m["plugins"].Count(), plugins.Count);
-            Assert.Equal(new[] { "agent-bridge", "agent-bridge-unify3d" }, plugins.Select(p => (string)p["name"]));
+            Assert.Equal(new[] { "agent-bridge", "agent-bridge-unify3d", "claude-mcp", "codex-mcp" }, plugins.Select(p => (string)p["name"]));
 
             foreach (var p in plugins)
             {
@@ -178,6 +179,39 @@ namespace SwAgent.Tests
             Assert.False(File.Exists(Path.Combine(dir, "hooks", "hooks.json")));
             Assert.False(File.Exists(Path.Combine(dir, ".mcp.json")));
             Assert.True(File.Exists(Path.Combine(dir, "README.md")));
+        }
+
+        [Theory]
+        [InlineData("claude-mcp", "Claude MCP", "claude-desktop", "Claude Desktop")]
+        [InlineData("codex-mcp", "Codex MCP", "codex", "Codex")]
+        public void The_link_plugins_register_in_their_app_and_run_nothing_themselves(string name, string displayName, string client, string app)
+        {
+            var entry = Entry(name);
+            Assert.Equal("./" + name, (string)entry["source"]);
+            Assert.Equal("Connections", (string)entry["category"]);
+            Assert.True(JToken.DeepEquals(new JObject { ["registerMcpIn"] = client }, entry["unify3d"]), "only registerMcpIn: the command is always Unify3D's own exe");
+            Assert.Contains("\"unify3d\"", (string)entry["description"]);
+
+            var dir = Path.Combine(PluginsDir, name);
+            var manifest = ReadJson(Path.Combine(dir, ".claude-plugin", "plugin.json"));
+            Assert.Equal(name, (string)manifest["name"]);
+            Assert.Equal(displayName, (string)manifest["displayName"]);
+            Assert.Equal((string)entry["version"], (string)manifest["version"]);
+            Assert.Equal("Unify3D", (string)manifest["author"]["name"]);
+            var option = manifest["userConfig"]["allowModelRead"];
+            Assert.Equal("boolean", (string)option["type"]);
+            Assert.True((bool)option["default"]);
+            Assert.Equal($"Let {app} read the open model", (string)option["title"]);
+            Assert.Equal("Connections", (string)manifest["unify3d"]["category"]);
+            AssertPng(Path.Combine(dir, "icon.png"));
+            Assert.True(File.Exists(Path.Combine(dir, "icon.svg")));
+            Assert.True(File.Exists(Path.Combine(dir, "README.md")));
+
+            // No components: no hooks, MCP servers, skills, commands, agents or tools of its own.
+            Assert.Null(manifest["hooks"]);
+            Assert.Null(manifest["mcpServers"]);
+            Assert.Equal(new[] { ".claude-plugin" }, Directory.GetDirectories(dir).Select(Path.GetFileName));
+            Assert.False(File.Exists(Path.Combine(dir, ".mcp.json")));
         }
 
         [Fact]

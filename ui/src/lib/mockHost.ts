@@ -332,7 +332,13 @@ export async function mockRpc(method: string, params: any): Promise<unknown> {
     case "plugins.uninstall":
       setPluginState(params.id, { installed: false, enabled: false, trusted: false });
       pluginsChanged();
-      return null;
+      return { ok: true, note: null };
+    case "plugins.repairLink": {
+      await new Promise((r) => setTimeout(r, 400));
+      store.set("linkRepaired", { ...store.get<Record<string, boolean>>("linkRepaired", {}), [params?.id]: true });
+      pluginsChanged();
+      return mockPlugins().find((x) => x.id === params?.id) ?? null;
+    }
     case "plugins.addMarketplace": {
       await new Promise((r) => setTimeout(r, 900));
       const source = String(params?.source ?? "").trim();
@@ -691,6 +697,9 @@ const PLUGIN_TOOLS: ToolDef[] = [
 ];
 
 const ROOT = "C:\\Users\\you\\AppData\\Roaming\\SwAgent\\plugins";
+const CLAUDE_CONFIG = "C:\\Users\\you\\AppData\\Roaming\\Claude\\claude_desktop_config.json";
+const CODEX_CONFIG = "C:\\Users\\you\\.codex\\config.toml";
+const LOCAL_MCP = "C:\\Users\\you\\AppData\\Local\\SwAgent\\local-mcp\\Unify3D.LocalMcp.exe";
 
 /** What each plugin's trust dialog lists (the add-in expands ${CLAUDE_PLUGIN_ROOT} before showing them). */
 const TRUST: Record<string, TrustRequest> = {
@@ -706,6 +715,16 @@ const TRUST: Record<string, TrustRequest> = {
     mcp: [`"${ROOT}\\cache\\mold-sim\\0.3.1\\bin\\moldsim-mcp.exe" --stdio`],
     tools: ["mold-sim:fill-check (macro.cs, preview.cs)"],
   },
+  "claude-mcp@unify3d": {
+    hooks: [],
+    mcp: [],
+    links: [`Claude Desktop: adds the MCP server "unify3d" to ${CLAUDE_CONFIG}, which runs ${LOCAL_MCP} --client claude-desktop`],
+  },
+  "codex-mcp@unify3d": {
+    hooks: [],
+    mcp: [],
+    links: [`Codex: adds the MCP server "unify3d" to ${CODEX_CONFIG}, which runs ${LOCAL_MCP} --client codex`],
+  },
 };
 
 const BASE_PLUGINS: PluginInfo[] = [
@@ -713,6 +732,7 @@ const BASE_PLUGINS: PluginInfo[] = [
     id: "agent-bridge@unify3d",
     name: "agent-bridge",
     marketplace: "unify3d",
+    marketplaceDisplayName: "Unify3D",
     displayName: "Agent Bridge",
     description: "Talk to other AI agents - Claude Code, Codex, agents on other PCs - and the operator's console through the agent-bridge hub.",
     version: "3f9c2e1",
@@ -731,6 +751,7 @@ const BASE_PLUGINS: PluginInfo[] = [
     id: "agent-bridge-unify3d@unify3d",
     name: "agent-bridge-unify3d",
     marketplace: "unify3d",
+    marketplaceDisplayName: "Unify3D",
     displayName: "Agent Bridge for SolidWorks",
     description: "How the agent acts on bridge messages inside SolidWorks, its name on the bridge, and /bridge.",
     version: "1.0.0",
@@ -766,6 +787,7 @@ const BASE_PLUGINS: PluginInfo[] = [
     id: "shop-standards@local",
     name: "shop-standards",
     marketplace: "local",
+    marketplaceDisplayName: "Your plugins",
     displayName: "Shop standards",
     description: "Our flash-groove rules, the mold review checklist and the tools that apply them.",
     version: "0.1.0",
@@ -778,7 +800,58 @@ const BASE_PLUGINS: PluginInfo[] = [
     updateAvailable: null,
     components: { tools: 2, commands: 1, skills: 1, agents: 1, hooks: 0, mcpServers: 0 },
   },
+  linkPlugin("claude-mcp", "Claude MCP", "claude-desktop", "Claude Desktop", CLAUDE_CONFIG),
+  linkPlugin("codex-mcp", "Codex MCP", "codex", "Codex", CODEX_CONFIG),
 ];
+
+/** Claude MCP / Codex MCP (docs/plugins/local-mcp.md 7.1): no components; the link is their whole job. */
+function linkPlugin(name: string, displayName: string, client: "claude-desktop" | "codex", app: string, configPath: string): PluginInfo {
+  return {
+    id: `${name}@unify3d`,
+    name,
+    marketplace: "unify3d",
+    marketplaceDisplayName: "Unify3D",
+    displayName,
+    description: `Lets ${app} on this PC talk to Unify3D: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the Unify3D panel. Adds an MCP server named "unify3d" to ${app}'s settings. Works on this PC only; no agent-bridge needed.`,
+    version: "1.0.0",
+    author: { name: "Unify3D" },
+    category: "Connections",
+    keywords: [client === "codex" ? "codex" : "claude", "mcp", "local"],
+    installed: false,
+    enabled: false,
+    trusted: false,
+    components: { tools: 0, commands: 0, skills: 0, agents: 0, hooks: 0, mcpServers: 0 },
+    userConfig: {
+      allowModelRead: { type: "boolean", title: `Let ${app} read the open model`, description: "The unify3d_* tools: model summary, feature tree, selection, open documents.", default: true },
+    },
+    link: { client, label: app, found: true, configPath },
+  };
+}
+
+/**
+ * The link status the add-in reports for an installed Claude MCP / Codex MCP; ?link=missing|restart|connected in the URL
+ * picks one (restart by default; Repair turns missing into restart).
+ */
+function mockLink(p: PluginInfo): PluginInfo["link"] {
+  const base = p.link!;
+  if (!p.installed) return base;
+  const app = base.label;
+  const where = base.client === "codex" ? "Codex's config.toml" : "Claude Desktop's settings";
+  if (!p.enabled) return { ...base, entry: "missing", note: `Off: ${app} can't reach Unify3D. Turn it on to add the "unify3d" entry to ${where}.` };
+  let mode = new URLSearchParams(window.location.search).get("link") ?? "restart";
+  if (mode === "missing" && store.get<Record<string, boolean>>("linkRepaired", {})[p.id]) mode = "restart";
+  const writtenAt = new Date(Date.now() - 600000).toISOString();
+  if (mode === "missing")
+    return { ...base, entry: "missing", writtenAt, note: `The "unify3d" entry isn't in ${where} any more (it was removed or the file was replaced). Press Repair to add it again.` };
+  if (mode === "connected")
+    return { ...base, entry: "present", running: true, writtenAt, lastSeen: new Date(Date.now() - 180000).toISOString(), note: `Connected: ${app} last used it 3 min ago.` };
+  return {
+    ...base,
+    entry: "present",
+    writtenAt,
+    note: base.client === "codex" ? "Added to Codex. Restart Codex (or start a new CLI session) to load it." : "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it.",
+  };
+}
 
 type PluginState = Partial<Pick<PluginInfo, "installed" | "enabled" | "trusted" | "updateAvailable" | "version" | "updatedAt">>;
 
@@ -795,6 +868,7 @@ function mockPlugins(): PluginInfo[] {
   return BASE_PLUGINS.filter((p) => markets.has(p.marketplace)).map((p) => {
     const merged = { ...p, ...(state[p.id] ?? {}) };
     if (p.id === "agent-bridge@unify3d" && merged.installed && merged.updateAvailable === undefined) merged.updateAvailable = "8d41a07";
+    if (merged.link) merged.link = mockLink(merged);
     const values = config[p.id] ?? {};
     merged.config = Object.fromEntries(
       Object.entries(p.userConfig ?? {}).map(([k, f]) => [k, f.sensitive ? { set: !!values[k] } : ((values[k] as string | number | boolean | undefined) ?? f.default ?? null)]),
@@ -807,8 +881,8 @@ function mockMarketplaces(): MarketplaceInfo[] {
   const plugins = mockPlugins();
   const count = (m: string) => plugins.filter((p) => p.marketplace === m).length;
   return [
-    { name: "unify3d", source: "Built into Unify3D Agent", builtIn: true, pluginCount: count("unify3d"), autoUpdate: true, updatedAt: new Date().toISOString() },
-    { name: "local", source: `${ROOT}\\local`, builtIn: true, pluginCount: count("local") },
+    { name: "unify3d", displayName: "Unify3D", source: "Built in", builtIn: true, pluginCount: count("unify3d"), autoUpdate: true, updatedAt: new Date().toISOString() },
+    { name: "local", displayName: "Your plugins", source: `${ROOT}\\local`, builtIn: true, pluginCount: count("local") },
     ...store.get<string[]>("marketplaces", ["acme-tools"]).map((m) => ({
       name: m,
       source: m === "acme-tools" ? "acme/unify3d-plugins" : m,

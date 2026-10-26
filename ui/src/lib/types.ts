@@ -237,7 +237,10 @@ export interface PluginInfo {
   /** "name@marketplace" */
   id: string;
   name: string;
+  /** The marketplace id ("unify3d"): the value the add-in's RPCs take. */
   marketplace: string;
+  /** What to show for the marketplace ("Unify3D", "Your plugins"). */
+  marketplaceDisplayName?: string | null;
   displayName?: string | null;
   description?: string | null;
   version?: string | null;
@@ -268,10 +271,30 @@ export interface PluginInfo {
   updatedAt?: string | null;
   /** Why it can't be installed or loaded, if so. */
   error?: string | null;
+  /** Claude MCP / Codex MCP: the "unify3d" entry in the other app's config (docs/plugins/local-mcp.md 7.6). */
+  link?: PluginLink | null;
+}
+
+/** A link plugin's status: where its entry goes and the one line to show. */
+export interface PluginLink {
+  client: "claude-desktop" | "codex";
+  /** "Claude Desktop" / "Codex" */
+  label: string;
+  found: boolean;
+  configPath?: string | null;
+  entry?: "present" | "missing" | "conflict" | "unreadable";
+  running?: boolean;
+  /** ISO times: the client last connected / Unify3D last wrote the entry. */
+  lastSeen?: string | null;
+  writtenAt?: string | null;
+  note?: string | null;
 }
 
 export interface MarketplaceInfo {
+  /** The id ("unify3d", "local", ...): the value plugins.* RPCs take. */
   name: string;
+  /** What to show ("Unify3D", "Your plugins"). */
+  displayName?: string | null;
   /** What the user added: "owner/repo", a git or https URL, a folder. */
   source: string;
   /** "unify3d" (ships with the add-in) and "local" (the user's own plugins) can't be removed. */
@@ -289,6 +312,8 @@ export interface TrustRequest {
   mcp: string[];
   /** Tools whose C# runs inside SolidWorks: "plugin:tool (macro.cs, preview.cs)". */
   tools?: string[];
+  /** Another app's config the plugin changes: "Claude Desktop: adds the MCP server "unify3d" to <file>, which runs <exe> ...". */
+  links?: string[];
 }
 
 /** plugins.install / plugins.enable / plugins.update: needsTrust is set when the user must approve first (call again with trustHash: hash). */

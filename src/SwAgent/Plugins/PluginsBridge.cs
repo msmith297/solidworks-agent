@@ -25,7 +25,9 @@ namespace SwAgent.Plugins
     ///   needsTrust: show the trust dialog, then call again with trustHash = hash. update without id updates every enabled
     ///   plugin: { ok, updated: [id], needsTrust: [{ id, needsTrust, hash }], errors: [text] }.
     ///   plugins.checkUpdates() -> { id: newer version | null } (reads only; git sources ask the remote).</item>
-    /// <item>plugins.uninstall({ id, deleteData? }), plugins.setConfig({ id, values: { key: value | null } }) -> plugin</item>
+    /// <item>plugins.uninstall({ id, deleteData? }) -> { ok, note? } (note: what to remove by hand when a link plugin's entry
+    ///   couldn't be); plugins.setConfig({ id, values: { key: value | null } }) -> plugin;
+    ///   plugins.repairLink({ id }) -> plugin (adds a Claude MCP / Codex MCP entry to the other app's config again)</item>
     /// <item>plugins.addMarketplace({ source }) -> marketplace; plugins.removeMarketplace({ name });
     ///   plugins.updateMarketplace({ name? }) -> marketplaces; plugins.setMarketplaceAutoUpdate({ name, autoUpdate })</item>
     /// <item>plugins.commands() / plugins.skills() / plugins.agents() -> the enabled plugins' components (CommandIndex,
@@ -57,13 +59,11 @@ namespace SwAgent.Plugins
                 new JObject(pm.Installed().Where(x => !x.Local).Select(x => new JProperty(x.Id, pm.AvailableUpdate(x.Id))))));
             bridge.RegisterAsync("plugins.uninstall", async p =>
             {
-                await Background(() =>
-                {
-                    pm.Uninstall(Id(p), (bool?)p["deleteData"] == true);
-                    return 0;
-                });
-                return null;
+                var warnings = await Background(() => pm.Uninstall(Id(p), (bool?)p["deleteData"] == true));
+                return new JObject { ["ok"] = true, ["note"] = warnings.Count > 0 ? string.Join(" ", warnings) : null };
             });
+            // A link plugin's Repair button: add its "unify3d" entry to Claude Desktop's or Codex's config again.
+            bridge.RegisterAsync("plugins.repairLink", async p => pm.PluginJson(await Background(() => pm.RepairLink(Id(p)))));
             bridge.Register("plugins.setConfig", p =>
             {
                 pm.SetConfig(Id(p), p["values"] as JObject ?? new JObject());
@@ -119,6 +119,8 @@ namespace SwAgent.Plugins
                 try
                 {
                     pm.CleanUp();
+                    // The per-user copy of the Claude/Codex link program (files only; never a client config write).
+                    pm.Links.Deployer.Ensure();
                     await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
                     var updated = pm.AutoUpdate();
                     if (updated.Count > 0) Log.Info("Plugins updated at start-up: " + string.Join(", ", updated));

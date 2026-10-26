@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The local MCP server behind the Claude MCP and Codex MCP plugins (docs/plugins/local-mcp.md section 6). Claude Desktop or
+    Codex starts it over stdio; it talks to the running add-in over a per-user named pipe. No Node, no network. It ships in a
+    "local-mcp" folder next to SwAgent.dll, and the add-in copies it to %LOCALAPPDATA%\SwAgent\local-mcp, the path the client
+    configs point at.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>AnyCPU</PlatformTarget>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <RootNamespace>SwAgent.LocalMcp</RootNamespace>
+    <AssemblyName>Unify3D.LocalMcp</AssemblyName>
+    <Version>0.2.0</Version>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <OutputPath>..\SwAgent\bin\$(Configuration)\net48\local-mcp\</OutputPath>
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591;MSB3270</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Core" />
+  </ItemGroup>
+
+  <!-- The add-in <-> exe pipe contract, shared with SwAgent.dll. -->
+  <ItemGroup>
+    <Compile Include="..\Shared\LocalLinkProtocol.cs" Link="LocalLink\LocalLinkProtocol.cs" />
+  </ItemGroup>
+
+</Project>

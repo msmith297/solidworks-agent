@@ -443,6 +443,11 @@ A marketplace entry may carry a `unify3d` object for plugins whose own files you
 | `env` | Environment for that plugin's hooks and MCP servers, applied before the plugin's own `unify3d.env` and its `userConfig` |
 | `installWith` | Names of plugins in the same marketplace that are installed together with this one (companions) |
 | `hideSkills` | The plugin's skills Unify3D should not offer (e.g. ones written for Claude Code only) |
+| `registerMcpIn` | **Built-in marketplace only.** `"claude-desktop"` or `"codex"`: installing the plugin adds an MCP server named `unify3d` (Unify3D's own `Unify3D.LocalMcp.exe`) to that app's config, after the user confirms it in the install dialog; turning it off or uninstalling removes it. Used by Claude MCP and Codex MCP (`docs/plugins/local-mcp.md`). Elsewhere the plugin installs as an ordinary one and the field is reported as unused. |
+
+A marketplace may also carry a top-level `"unify3d": { "displayName": "..." }` (at most 48 characters): the name the
+Plugins screen shows for it, while its `name` stays the id in plugin ids (`plugin@name`). The built-in marketplace shows
+as "Unify3D" and the local one as "Your plugins".
 
 ### Packaging
 

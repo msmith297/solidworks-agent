@@ -64,6 +64,18 @@ namespace SwAgent.Plugins
         private List<LoadedPlugin> _snapshot;
         private DateTime _snapshotAt;
 
+        private ClientLinks _links;
+
+        /// <summary>
+        /// Claude Desktop's and Codex's configs for the Claude MCP and Codex MCP plugins (docs/plugins/local-mcp.md 7). Tests swap
+        /// it for one over temp folders.
+        /// </summary>
+        internal ClientLinks Links
+        {
+            get => _links ?? (_links = new ClientLinks(ClientLocator.Default, new LocalMcpDeployer(), DataRoot));
+            set => _links = value;
+        }
+
         /// <summary>Install, uninstall, enable, trust, update, options or a local plugin's files changed. Raised on the calling (often a background) thread.</summary>
         public event Action Changed;
 
@@ -276,12 +288,20 @@ namespace SwAgent.Plugins
         internal string CurrentHash(LoadedPlugin p)
         {
             if (p.Manifest == null) return "";
-            if (!p.Manifest.HasRuntime && (p.Local || !p.Manifest.HasToolCode)) return "";
+            var client = LinkClientOf(p);
+            if (!p.Manifest.HasRuntime && (p.Local || !p.Manifest.HasToolCode)) return client == null ? "" : Links.Combine("", client);
             var files = p.Local && Directory.Exists(p.Root)
                 ? Directory.GetFiles(p.Root, "*", SearchOption.AllDirectories).Where(f => !f.Substring(p.Root.Length).Replace('\\', '/').Contains("/.git/"))
                 : null;
-            return p.Manifest.TrustHash(files, toolCode: !p.Local);
+            var hash = p.Manifest.TrustHash(files, toolCode: !p.Local);
+            return client == null ? hash : Links.Combine(hash, client);
         }
+
+        /// <summary>
+        /// The app a link plugin (Claude MCP, Codex MCP) registers in, from the record's copy of its marketplace entry (so uninstall
+        /// still knows when the marketplace changed later); null for every other plugin.
+        /// </summary>
+        internal static string LinkClientOf(LoadedPlugin p) => p.Local ? null : ClientLinks.ClientOf(p.Record.Marketplace, p.Record.Unify3d);
 
         public bool IsTrusted(LoadedPlugin p)
         {
@@ -536,6 +556,15 @@ namespace SwAgent.Plugins
             public string UpdatedAt;
             public MarketplaceManifest Manifest;
             public string Error;
+
+            /// <summary>
+            /// What the panel shows (docs/plugins/local-mcp.md 4): the built-in one's unify3d.displayName, else "Unify3D" (an older
+            /// builtin-plugins copy too); "Your plugins" for local; an added one's display name, else its id.
+            /// </summary>
+            public string DisplayName =>
+                Name == BuiltInMarketplace ? Manifest?.DisplayName ?? "Unify3D" :
+                Name == LocalMarketplace ? "Your plugins" :
+                Manifest?.DisplayName ?? Name;
         }
 
         /// <summary>The built-in "unify3d", the "local" marketplace and every added one, with their plugin lists.</summary>
@@ -809,29 +838,44 @@ namespace SwAgent.Plugins
                 if (other != null && other.Record.Marketplace != marketplace)
                     throw new InvalidOperationException($"A plugin named \"{name}\" is already installed from \"{other.Record.Marketplace}\". Uninstall it first.");
                 var (market, entry) = Entry(marketplace, name);
+                // A link plugin (Claude MCP, Codex MCP): the app must be there and its "unify3d" free before the dialog shows.
+                var client = ClientLinks.ClientOf(marketplace, entry.Unify3d);
+                if (client != null) Links.Preflight(client);
                 var staged = Stage(id, market, entry, cancel);
                 var manifest = PluginManifest.Load(staged.Dir);
                 if (manifest.Name != name)
                     throw new InvalidOperationException($"The marketplace lists \"{name}\" but the plugin calls itself \"{manifest.Name}\".");
                 var outcome = new Outcome();
+                if (client == null && ClientLinks.Declares(entry.Unify3d)) outcome.Warnings.Add(ClientLinks.NotHonoured);
                 CheckNode(manifest, outcome);
-                if (staged.Hash != "" && trustHash != staged.Hash)
+                var hash = client == null ? staged.Hash : Links.Combine(staged.Hash, client);
+                if (hash != "" && trustHash != hash)
                 {
-                    outcome.NeedsTrust = TrustList(manifest, staged.Dir);
-                    outcome.Hash = staged.Hash;
+                    outcome.NeedsTrust = TrustList(manifest, staged.Dir, client);
+                    outcome.Hash = hash;
                     return outcome;
                 }
                 var version = VersionOf(manifest, entry, staged);
                 var dest = Path.Combine(CacheDir, name, version);
                 var previous = other?.Record.Path;
-                Place(staged, dest);
+                // Register first: when the other app's config can't be changed, nothing is installed.
+                if (client != null) Links.Register(client, name, addIfMissing: true);
+                try
+                {
+                    Place(staged, dest);
+                }
+                catch
+                {
+                    if (client != null) Links.Unregister(client, name);
+                    throw;
+                }
                 _staged.Remove(id);
                 Mutate(s =>
                 {
                     s.Plugins[id] = new PluginRecord
                     {
                         Name = name, Marketplace = marketplace, Version = version, Sha = staged.Sha, Path = dest, Enabled = true,
-                        TrustedHash = staged.Hash, Source = entry.Source.ToJson(), InstalledAt = other?.Record.InstalledAt ?? Now(), UpdatedAt = Now(),
+                        TrustedHash = hash, Source = entry.Source.ToJson(), InstalledAt = other?.Record.InstalledAt ?? Now(), UpdatedAt = Now(),
                         UserConfig = other?.Record.UserConfig ?? new JObject(), Unify3d = (JObject)entry.Unify3d.DeepClone(),
                     };
                     return 0;
@@ -967,15 +1011,28 @@ namespace SwAgent.Plugins
         {
             var p = Find(id) ?? throw new InvalidOperationException($"No installed plugin \"{id}\".");
             var outcome = new Outcome();
+            var client = LinkClientOf(p);
+            if (client != null && fromAgent)
+            {
+                var label = p.Manifest?.DisplayName ?? p.Name;
+                throw new InvalidOperationException($"{label} changes {Unify3D.LocalLink.LinkProtocol.Label(client)}'s settings, so only the user can turn it on or off in Plugins.");
+            }
             var hash = CurrentHash(p);
             var trusted = hash == "" || hash == p.Record.TrustedHash || trustHash == hash;
             if (enabled && !trusted && !fromAgent)
             {
+                if (client != null) Links.Preflight(client);
                 CheckNode(p.Manifest, outcome);
-                outcome.NeedsTrust = TrustList(p.Manifest, p.Root);
+                outcome.NeedsTrust = TrustList(p.Manifest, p.Root, client);
                 outcome.Hash = hash;
                 outcome.Plugin = p;
                 return outcome;
+            }
+            // A link plugin: turning on adds its entry to the other app's config (a failure leaves it off), turning off removes it.
+            if (client != null)
+            {
+                if (enabled) Links.Register(client, p.Name, addIfMissing: true);
+                else if (Links.Unregister(client, p.Name) is string warning) outcome.Warnings.Add(warning);
             }
             Mutate(s =>
             {
@@ -1048,16 +1105,19 @@ namespace SwAgent.Plugins
                 if (manifest.Name != p.Name) throw new InvalidOperationException($"The new version calls itself \"{manifest.Name}\".");
                 var version = VersionOf(manifest, entry, staged);
                 var dest = Path.Combine(CacheDir, p.Name, version);
+                var client = ClientLinks.ClientOf(p.Record.Marketplace, entry.Unify3d);
                 if (SamePath(dest, p.Root) && Directory.Exists(dest) && ContentHash(dest) == ContentHash(staged.Dir))
                 {
                     Fetcher.TryDelete(staged.Dir);
                     _staged.Remove(p.Id);
                     Mutate(s => { if (s.Plugins.TryGetValue(p.Id, out var r)) { r.Sha = staged.Sha ?? r.Sha; r.Unify3d = (JObject)entry.Unify3d.DeepClone(); r.PendingUpdate = null; } return 0; });
+                    if (!autoUpdate) RefreshLink(p, client, outcome);
                     outcome.Ok = outcome.UpToDate = true;
                     outcome.Plugin = Find(p.Id);
                     return outcome;
                 }
-                if (staged.Hash != "" && staged.Hash != p.Record.TrustedHash && trustHash != staged.Hash)
+                var hash = client == null ? staged.Hash : Links.Combine(staged.Hash, client);
+                if (hash != "" && hash != p.Record.TrustedHash && trustHash != hash)
                 {
                     if (autoUpdate)
                     {
@@ -1065,8 +1125,8 @@ namespace SwAgent.Plugins
                         Fetcher.TryDelete(staged.Dir);
                         _staged.Remove(p.Id);
                     }
-                    outcome.NeedsTrust = TrustList(manifest, staged.Dir);
-                    outcome.Hash = staged.Hash;
+                    outcome.NeedsTrust = TrustList(manifest, staged.Dir, client);
+                    outcome.Hash = hash;
                     return outcome;
                 }
                 CheckNode(manifest, outcome);
@@ -1080,16 +1140,52 @@ namespace SwAgent.Plugins
                     r.Sha = staged.Sha;
                     r.Path = dest;
                     r.UpdatedAt = Now();
-                    r.TrustedHash = staged.Hash;
+                    r.TrustedHash = hash;
                     r.Unify3d = (JObject)entry.Unify3d.DeepClone();
                     r.PendingUpdate = null;
                     return 0;
                 });
                 if (!SamePath(old, dest)) RemoveFiles(old);
                 Log.Info($"Updated plugin {p.Id} to {version}");
+                if (!autoUpdate) RefreshLink(p, client, outcome);
                 outcome.Ok = true;
                 outcome.Plugin = Find(p.Id);
                 return outcome;
+            }
+        }
+
+        /// <summary>
+        /// After an update the user asked for: refresh an entry Unify3D owns (normally no write). A missing entry isn't added
+        /// again (the status offers Repair); the start-up auto-update never writes another app's config.
+        /// </summary>
+        private void RefreshLink(LoadedPlugin p, string client, Outcome outcome)
+        {
+            if (client == null || !p.Enabled) return;
+            try
+            {
+                Links.Register(client, p.Name, addIfMissing: false);
+            }
+            catch (InvalidOperationException ex)
+            {
+                outcome.Warnings.Add(ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// plugins.repairLink: add a link plugin's entry to the other app's config again (the user pressed Repair). Only for an
+        /// installed, turned-on and approved link plugin.
+        /// </summary>
+        public LoadedPlugin RepairLink(string id)
+        {
+            lock (_op)
+            {
+                var p = Find(id) ?? throw new InvalidOperationException($"No installed plugin \"{id}\".");
+                var client = LinkClientOf(p) ?? throw new InvalidOperationException($"{p.Name} doesn't connect another app.");
+                if (!p.Enabled) throw new InvalidOperationException($"Turn {p.Manifest?.DisplayName ?? p.Name} on first.");
+                if (!IsTrusted(p)) throw new InvalidOperationException($"Approve the change to {p.Manifest?.DisplayName ?? p.Name} first (Review in Plugins).");
+                Links.Register(client, p.Name, addIfMissing: true);
+                Invalidate();
+                return Find(p.Id);
             }
         }
 
@@ -1130,13 +1226,17 @@ namespace SwAgent.Plugins
 
         /// <summary>
         /// Uninstall: its files go (a local plugin's folder is moved to plugins\trash, so the user's work can be recovered); its
-        /// data folder stays (Claude Code keeps it too) unless deleteData.
+        /// data folder stays (Claude Code keeps it too) unless deleteData. A link plugin's entry in the other app's config is removed
+        /// first; when that fails the plugin is still uninstalled and the returned warnings say what to remove by hand.
         /// </summary>
-        public void Uninstall(string id, bool deleteData = false)
+        public List<string> Uninstall(string id, bool deleteData = false)
         {
             lock (_op)
             {
                 var p = Find(id) ?? throw new InvalidOperationException($"No installed plugin \"{id}\".");
+                var warnings = new List<string>();
+                var client = LinkClientOf(p);
+                if (client != null && Links.Unregister(client, p.Name) is string warning) warnings.Add(warning);
                 Mutate(s => s.Plugins.Remove(p.Id));
                 if (p.Local)
                 {
@@ -1160,14 +1260,15 @@ namespace SwAgent.Plugins
                 _staged.Remove(p.Id);
                 Invalidate();
                 Log.Info($"Uninstalled plugin {p.Id}");
+                return warnings;
             }
         }
 
         /// <summary>
         /// What the trust dialog shows: each hook command and MCP server command line (sensitive options left out), and the
-        /// tools whose C# runs inside SolidWorks.
+        /// tools whose C# runs inside SolidWorks; for a link plugin, the other app's config file it changes and what that runs.
         /// </summary>
-        private JObject TrustList(PluginManifest m, string root)
+        private JObject TrustList(PluginManifest m, string root, string client = null)
         {
             var vars = new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -1175,7 +1276,7 @@ namespace SwAgent.Plugins
                 ["UNIFY3D_DEVICE"] = Environment.MachineName, ["UNIFY3D_PID"] = Process.GetCurrentProcess().Id.ToString(),
             };
             var none = new Dictionary<string, (string, bool)>();
-            return new JObject
+            var list = new JObject
             {
                 ["hooks"] = new JArray(m.HookCommands().Select(h => $"{h.Event}: {Expand(h.Command, vars, none, false)}")),
                 ["mcp"] = new JArray(m.McpServers.Select(kv =>
@@ -1191,6 +1292,8 @@ namespace SwAgent.Plugins
                 })),
                 ["tools"] = new JArray(m.ToolCodeSummary()),
             };
+            if (client != null) list["links"] = new JArray(Links.TrustLine(client));
+            return list;
         }
 
         /// <summary>Hooks and MCP servers that run node need Node.js 18 or newer (global fetch, AbortSignal.timeout).</summary>
@@ -1224,13 +1327,17 @@ namespace SwAgent.Plugins
             var tools = m.Tools().ToList();
             var notes = new JArray();
             if (m.Hooks["PermissionRequest"] != null) notes.Add("Remote approvals (PermissionRequest hooks) don't run in Unify3D yet; Unify3D's own approval cards are used.");
+            markets = markets ?? SafeMarketplaces();
             var entry = MarketplaceEntryOf(p, markets);
+            var client = LinkClientOf(p);
+            if (client == null && !p.Local && ClientLinks.Declares(p.Record.Unify3d)) notes.Add(ClientLinks.NotHonoured);
             var errors = m.Findings.Where(f => f.StartsWith("error:", StringComparison.Ordinal)).ToList();
-            return new JObject
+            var json = new JObject
             {
                 ["id"] = p.Id,
                 ["name"] = p.Name,
                 ["marketplace"] = p.Record.Marketplace,
+                ["marketplaceDisplayName"] = DisplayNameOf(p.Record.Marketplace, markets),
                 ["displayName"] = m.DisplayName ?? p.Name,
                 ["description"] = m.Description ?? entry?.Description,
                 ["version"] = p.Record.Version ?? m.Version,
@@ -1287,7 +1394,42 @@ namespace SwAgent.Plugins
                 ["findings"] = new JArray(m.Findings),
                 ["notes"] = notes,
             };
+            if (client != null) json["link"] = LinkStatus(client, p.Name, p.Enabled);
+            return json;
         }
+
+        /// <summary>A link plugin's status for the Plugins screen; a failure to read it is a note, never an error for the list.</summary>
+        private JObject LinkStatus(string client, string plugin, bool enabled)
+        {
+            try
+            {
+                return Links.Status(client, plugin, enabled);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"The link status of {plugin} can't be read: {ex.Message}");
+                return new JObject { ["client"] = client, ["label"] = Unify3D.LocalLink.LinkProtocol.Label(client), ["found"] = false, ["entry"] = "unreadable", ["note"] = ex.Message };
+            }
+        }
+
+        /// <summary>The marketplaces, or none when they can't be read (the list still shows).</summary>
+        private List<MarketplaceInfo> SafeMarketplaces()
+        {
+            try
+            {
+                return Marketplaces();
+            }
+            catch (Exception ex)
+            {
+                Log.Warn($"The marketplaces can't be read: {ex.Message}");
+                return new List<MarketplaceInfo>();
+            }
+        }
+
+        /// <summary>A marketplace id's display name ("Unify3D" for "unify3d", "Your plugins" for "local").</summary>
+        private static string DisplayNameOf(string marketplace, List<MarketplaceInfo> markets) =>
+            markets?.FirstOrDefault(x => x.Name == marketplace)?.DisplayName ??
+            (marketplace == BuiltInMarketplace ? "Unify3D" : marketplace == LocalMarketplace ? "Your plugins" : marketplace);
 
         /// <summary>The marketplace entry's unify3d.hideSkills: Claude Code-only skills that would mislead the agent here.</summary>
         internal static HashSet<string> HiddenSkills(LoadedPlugin p) =>
@@ -1300,6 +1442,7 @@ namespace SwAgent.Plugins
             return new JArray(Marketplaces().Select(m => new JObject
             {
                 ["name"] = m.Name,
+                ["displayName"] = m.DisplayName,
                 ["source"] = m.SourceText,
                 ["builtIn"] = m.BuiltIn,
                 ["removable"] = m.Removable,
@@ -1319,6 +1462,7 @@ namespace SwAgent.Plugins
                         ["id"] = id,
                         ["name"] = e.Name,
                         ["marketplace"] = m.Name,
+                        ["marketplaceDisplayName"] = m.DisplayName,
                         ["description"] = e.Description,
                         ["version"] = e.Version,
                         ["category"] = e.Category,
@@ -1353,7 +1497,7 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>A marketplace plugin that isn't installed. A "./folder" entry is read for its manifest; a remote one shows what the entry says.</summary>
-        private static JObject EntryJson(MarketplaceInfo market, MarketplaceEntry e, string id)
+        private JObject EntryJson(MarketplaceInfo market, MarketplaceEntry e, string id)
         {
             PluginManifest m = null;
             if (e.Source?.Kind == PluginSource.SourceKind.Relative && market.Root != null)
@@ -1362,11 +1506,24 @@ namespace SwAgent.Plugins
                 if (PluginManifest.IsInside(market.Root, dir)) m = PluginManifest.Load(dir);
             }
             var hidden = new HashSet<string>((e.Unify3d["hideSkills"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null), StringComparer.Ordinal);
-            return new JObject
+            // A link plugin: where it would write, or why it can't (that also disables Install, as any error does).
+            var client = ClientLinks.ClientOf(market.Name, e.Unify3d);
+            JObject link = null;
+            if (client != null)
+            {
+                var loc = Links.Locate(client);
+                link = new JObject
+                {
+                    ["client"] = client, ["label"] = Unify3D.LocalLink.LinkProtocol.Label(client), ["found"] = loc.Found,
+                    ["configPath"] = loc.ConfigPath, ["note"] = loc.Note,
+                };
+            }
+            var json = new JObject
             {
                 ["id"] = id,
                 ["name"] = e.Name,
                 ["marketplace"] = market.Name,
+                ["marketplaceDisplayName"] = market.DisplayName,
                 ["displayName"] = m?.DisplayName ?? e.Name,
                 ["description"] = e.Description ?? m?.Description,
                 ["version"] = e.Version ?? m?.Version,
@@ -1377,7 +1534,7 @@ namespace SwAgent.Plugins
                 ["keywords"] = new JArray(e.Keywords),
                 ["installed"] = false,
                 ["enabled"] = false,
-                ["trusted"] = m == null || (!m.HasRuntime && !m.HasToolCode),
+                ["trusted"] = client == null && (m == null || (!m.HasRuntime && !m.HasToolCode)),
                 ["local"] = false,
                 ["components"] = new JObject
                 {
@@ -1389,8 +1546,11 @@ namespace SwAgent.Plugins
                     ["mcpServers"] = m?.McpServers.Count ?? 0,
                 },
                 ["installWith"] = InstallWithIds(e.Unify3d, market.Name),
-                ["error"] = e.Source == null ? e.SourceError : market.Error,
+                ["error"] = e.Source == null ? e.SourceError : market.Error ?? (link != null && !(bool)link["found"] ? (string)link["note"] : null),
             };
+            if (link != null) json["link"] = link;
+            if (client == null && ClientLinks.Declares(e.Unify3d)) json["notes"] = new JArray(ClientLinks.NotHonoured);
+            return json;
         }
 
         /// <summary>A marketplace entry's unify3d.installWith as plugin ids (the companions come from the same marketplace).</summary>
