@@ -212,6 +212,12 @@ namespace Unify3D.LocalLink
     option, and this is the documented way to get `PIPE_REJECT_REMOTE_CLIENTS` behaviour.
   - Nothing else: no Everyone, no ALL APPLICATION PACKAGES. AppContainer and low-integrity processes can't connect.
     Medium-integrity full-trust MSIX children (Claude Desktop's) can, because they run as the user (hand check H2).
+- **Squatting (review fix):** the name can be guessed and the pipe namespace is machine-wide, so another Windows user
+  could create it first. The add-in creates its first instance (none of its own open) with
+  `FILE_FLAG_FIRST_PIPE_INSTANCE` through `CreateNamedPipe` (.NET Framework's constructor refuses that flag): a taken
+  name fails and is logged ("Another program already holds the Claude/Codex link's pipe name"), then retried every
+  30 s. The exe checks after connecting that the pipe's owner is the current user's SID (`GetAccessControl().GetOwner`)
+  and sends nothing otherwise (`ToolCatalog.NotOurPipe`). Only the user (or an admin) can set that owner.
 - **Logging:** On each connection, `GetNamedPipeClientProcessId` gives the client's PID and image path, which go to
   the log. The client isn't pinned to an image path: any process of the same user could already drive the panel files.
   The ACL is the boundary that matters.
@@ -251,7 +257,7 @@ namespace Unify3D.LocalLink
                                                   "modelRead": true } }
 
 { "id": 3, "method": "ask",                   { "id": 3, "result": { "ticket": "u3d_9f2c4e0b1a7d3e55",
-  "params": { "message": "...",                 "state": "done" | "working" | "queued" | "paused"
+  "params": { "message": "...",                 "state": "done" | "working" | "approval" | "queued" | "paused"
               "waitMs": 50000 } }                        | "stopped" | "failed",
                                                 "answer": "..." /* when done */,
                                                 "note": "<plain text when not done>" } }
@@ -328,6 +334,8 @@ namespace Unify3D.LocalLink
     `send` with held wakes (`wakeBlocks(held)`).
   - `deliverWakes` reports `state: "working"` when it starts the turn. With automatic turns paused, it reports
     `state: "paused"` and appends the wake without a turn.
+  - `updateRun` reports `state: "approval"` when an approval or question card opens in a chat holding tickets, and
+    `"working"` when it closes, so the client can tell its user to look at the Unify3D panel.
 - **Reporting the answer:** In `startRun`'s `finally`, when the turn is *not* continued by a Stop hook (a continuation
   keeps the tickets for its own end), the thread's tickets are taken and reported:
   ```ts
@@ -362,6 +370,7 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 |---|---|
 | `done` | The answer is returned as it is. |
 | `working` | "Unify3D is still working on it. Call get_unify3d_answer with ticket "u3d_..." to get the answer." |
+| `approval` | "Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. Tell the user, then call get_unify3d_answer with ticket "u3d_..."." |
 | `queued` | "The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket "u3d_..." later." |
 | `paused` | "Unify3D has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_unify3d_answer with ticket "u3d_..." later." |
 | `stopped` | "The user stopped the agent before it finished. Partial reply: ..." (when there is text). |
@@ -454,14 +463,20 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
   - `notifications/initialized` is ignored. `ping` returns `{}`.
   - `tools/list` and `tools/call` work in both eras. A legacy request before `initialize` is served anyway; the spec
     leaves that to the server.
-- **Errors:** Unknown methods get `-32601`. An unknown tool or bad arguments get `-32602`.
+- **Errors:** Unknown methods get `-32601`. An unknown or missing tool name gets `-32602`. Bad arguments to a known tool
+  come back as an `isError` tool result, so the model can correct the call. A message whose `method` isn't a string
+  gets `-32600` (no answer without an id), and no single stdin line can end the process.
 - **`clientInfo`** (from `initialize` or `_meta`) goes into `hello.clientInfo`, for the add-in's log only.
 
 `instructions`:
 
-> Unify3D Agent is an AI agent inside SolidWorks on this PC. It can see the user's open models and change them, and it
-> asks the user in its panel before any change. Use ask_unify3d for anything about the user's SolidWorks models; the
-> unify3d_* read tools give quick facts about the open model. If SolidWorks isn't running, say so to the user.
+> Unify3D Agent is an AI agent inside SolidWorks on this PC. It can create new parts, assemblies and drawings, change the
+> user's open models and answer questions about them, and it asks the user in its panel before any change. Use
+> ask_unify3d for any CAD work in SolidWorks, even when no document is open (it can start a new part). The unify3d_*
+> read tools only give quick facts about the open document. If SolidWorks isn't running, say so to the user.
+
+(ToolCatalog.cs holds the current tool descriptions; `ask_unify3d` leads with "Use for any CAD work in SolidWorks:
+create new parts...", and `unify3d_model_context` no longer says "Call this first".)
 
 ### 6.4 Tools
 

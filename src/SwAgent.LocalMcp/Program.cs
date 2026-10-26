@@ -51,7 +51,18 @@ namespace SwAgent.LocalMcp
             Log($"started {versionText} for {LinkProtocol.Label(client)}");
 
             string line;
-            while ((line = stdin.ReadLine()) != null) server.HandleLine(line);
+            while ((line = stdin.ReadLine()) != null)
+            {
+                // No single line may end the server: the client would lose every unify3d tool until it restarts it.
+                try
+                {
+                    server.HandleLine(line);
+                }
+                catch (Exception e)
+                {
+                    Log($"a message failed: {e.GetType().Name}: {e.Message}");
+                }
+            }
             Log("stdin closed; exiting");
             return 0;
         }

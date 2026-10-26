@@ -106,8 +106,24 @@ namespace SwAgent.Plugins
             return Serialize(root, text);
         }
 
-        /// <summary>Remove Unify3D's entry (and mcpServers when it was the last). A foreign one stays: conflict is set.</summary>
-        public static string Remove(string text, out bool conflict)
+        /// <summary>The file has an mcpServers key (false for invalid JSON).</summary>
+        public static bool HasServers(string text)
+        {
+            try
+            {
+                return Parse(text)["mcpServers"] != null;
+            }
+            catch (ClientConfigException)
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Remove Unify3D's entry, and mcpServers when it was the last one and dropEmptyServers (Unify3D added mcpServers itself).
+        /// A foreign one stays: conflict is set.
+        /// </summary>
+        public static string Remove(string text, out bool conflict, bool dropEmptyServers = true)
         {
             conflict = false;
             var root = Parse(text);
@@ -118,7 +134,7 @@ namespace SwAgent.Plugins
                 return text;
             }
             servers.Remove("unify3d");
-            if (!servers.HasValues) root.Remove("mcpServers");
+            if (!servers.HasValues && dropEmptyServers) root.Remove("mcpServers");
             return Serialize(root, text);
         }
 

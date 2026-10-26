@@ -59,6 +59,26 @@ namespace SwAgent.Tests.LocalLink
         }
 
         [Fact]
+        public void A_pipe_name_another_program_holds_is_refused_not_joined()
+        {
+            var name = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+            // A squatter: the same name, created first, with room for more instances.
+            using (new System.IO.Pipes.NamedPipeServerStream(name, System.IO.Pipes.PipeDirection.InOut, LinkServer.MaxConnections,
+                       System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous))
+            {
+                Assert.Throws<UnauthorizedAccessException>(() => LinkServer.Create(name, first: true));
+            }
+            using (var first = LinkServer.Create(name, first: true))
+            using (var second = LinkServer.Create(name))
+            {
+                var user = WindowsIdentity.GetCurrent().User;
+                Assert.Equal(user, first.GetAccessControl().GetOwner(typeof(SecurityIdentifier)));
+                Assert.Equal(2, first.GetAccessControl().GetAccessRules(true, true, typeof(SecurityIdentifier)).Count);
+                Assert.Throws<UnauthorizedAccessException>(() => LinkServer.Create(name, first: true)); // ours is there now
+            }
+        }
+
+        [Fact]
         public async Task One_server_serves_and_a_second_takes_over_when_it_closes()
         {
             var pipe = "Unify3D.Test." + Guid.NewGuid().ToString("N");

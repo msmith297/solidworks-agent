@@ -40,7 +40,9 @@ namespace SwAgent.Tests.LocalLink
         {
             while (!_stop.IsCancellationRequested)
             {
-                var pipe = new NamedPipeServerStream(Name, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+                // Owned by the current user, as the add-in's pipe is (the exe checks).
+                var pipe = new NamedPipeServerStream(Name, PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous,
+                    0, 0, SwAgent.Plugins.LocalLink.LinkServer.Security());
                 lock (_open) _open.Add(pipe);
                 try
                 {
@@ -348,11 +350,18 @@ namespace SwAgent.Tests.LocalLink
                 Assert.Equal("u3d_0123456789abcdef", (string)fake.Received.Last(r => (string)r["method"] == "answer")["params"]["ticket"]);
 
                 // Bad arguments are protocol errors; an unknown tool too.
-                Assert.Equal(-32602, (int)mcp.Tool(4, "ask_unify3d", new JObject())["error"]["code"]);
-                Assert.Equal(-32602, (int)mcp.Tool(5, "ask_unify3d", new JObject { ["message"] = new string('x', 20001) })["error"]["code"]);
-                Assert.Equal(-32602, (int)mcp.Tool(6, "ask_unify3d", new JObject { ["message"] = "x", ["wait_seconds"] = 90 })["error"]["code"]);
+                // Bad arguments to a known tool are tool errors the model can correct; only an unknown tool is a protocol error.
+                void ToolError(JObject r, string text)
+                {
+                    Assert.True((bool)r["result"]["isError"]);
+                    Assert.Equal(text, Text(r));
+                }
+                ToolError(mcp.Tool(4, "ask_unify3d", new JObject()), "ask_unify3d needs \"message\".");
+                ToolError(mcp.Tool(5, "ask_unify3d", new JObject { ["message"] = new string('x', 20001) }), "\"message\" is longer than 20000 characters.");
+                ToolError(mcp.Tool(6, "ask_unify3d", new JObject { ["message"] = "x", ["wait_seconds"] = 90 }), "\"wait_seconds\" must be between 0 and 55.");
                 Assert.Equal(-32602, (int)mcp.Tool(7, "execute_csharp", new JObject { ["code"] = "1" })["error"]["code"]);
-                Assert.Equal(-32602, (int)mcp.Tool(8, "unify3d_status", new JObject { ["x"] = 1 })["error"]["code"]);
+                ToolError(mcp.Tool(8, "unify3d_status", new JObject { ["x"] = 1 }), "unify3d_status has no argument \"x\".");
+                ToolError(mcp.Tool(9, "unify3d_feature_tree", new JObject { ["max_features"] = "10" }), "\"max_features\" must be a whole number.");
             }
         }
 
@@ -409,6 +418,60 @@ namespace SwAgent.Tests.LocalLink
                 var r = mcp.Tool(1, "unify3d_status");
                 Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. Active document: bushing.SLDPRT (part). Open chat: \"Bushing mold\" (idle). Automatic turns left this hour: 17 of 20.", Text(r));
                 Assert.Equal("bushing.SLDPRT", (string)r["result"]["structuredContent"]["document"]["title"]);
+            }
+        }
+
+        [Fact]
+        public void Status_says_when_SolidWorks_is_busy_or_reading_the_model_is_off()
+        {
+            using (var fake = Fake(r => FakeLinkServer.Result(new JObject
+            {
+                ["solidWorks"] = "2026 SP1.0", ["addIn"] = "0.2.0", ["panel"] = "ready", ["document"] = null,
+                ["chat"] = new JObject { ["title"] = "Claude Desktop", ["busy"] = true }, ["solidWorksBusy"] = true, ["modelRead"] = true,
+            })))
+            using (var mcp = new McpProcess(fake.Name))
+            {
+                Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. SolidWorks is busy (a rebuild or a dialog), so the active document couldn't be read. " +
+                             "Open chat: \"Claude Desktop\" (busy).", Text(mcp.Tool(1, "unify3d_status")));
+            }
+            using (var fake = Fake(r => FakeLinkServer.Result(new JObject
+            {
+                ["solidWorks"] = "2026 SP1.0", ["addIn"] = "0.2.0", ["panel"] = "ready", ["document"] = null,
+                ["chat"] = new JObject { ["busy"] = false }, ["modelRead"] = false,
+            })))
+            using (var mcp = new McpProcess(fake.Name))
+            {
+                Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. A chat is open in the Unify3D panel (idle). " +
+                             "Reading the open model is turned off for Claude Desktop in Unify3D, so the active document isn't shown.", Text(mcp.Tool(1, "unify3d_status")));
+            }
+        }
+
+        [Fact]
+        public void A_message_with_a_non_string_method_is_refused_and_the_server_keeps_going()
+        {
+            using (var mcp = new McpProcess("Unify3D.Test.none-" + Guid.NewGuid().ToString("N")))
+            {
+                mcp.Call(1, "initialize", new JObject { ["protocolVersion"] = "2025-11-25" });
+                mcp.SendRaw("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":{\"x\":1}}");
+                Assert.Equal(-32600, (int)mcp.Wait(2)["error"]["code"]);
+                mcp.SendRaw("{\"jsonrpc\":\"2.0\",\"method\":[1,2]}"); // a notification: no answer
+                mcp.SendRaw("{\"jsonrpc\":\"2.0\",\"id\":3,\"method\":\"tools/call\",\"params\":{\"name\":{\"a\":1}}}");
+                Assert.Equal(-32602, (int)mcp.Wait(3)["error"]["code"]);
+                Assert.True(JToken.DeepEquals(new JObject(), mcp.Call(4, "ping")["result"]));
+                Assert.False(mcp.Process.HasExited);
+            }
+        }
+
+        [Fact]
+        public void Tool_descriptions_point_cad_work_at_ask_unify3d()
+        {
+            using (var mcp = new McpProcess("Unify3D.Test.none-" + Guid.NewGuid().ToString("N")))
+            {
+                var init = mcp.Call(1, "initialize", new JObject { ["protocolVersion"] = "2025-11-25" });
+                Assert.Contains("even when no document is open", (string)init["result"]["instructions"]);
+                var tools = (JArray)mcp.Call(2, "tools/list")["result"]["tools"];
+                Assert.StartsWith("Use for any CAD work in SolidWorks: create new parts", (string)tools.Single(t => (string)t["name"] == "ask_unify3d")["description"]);
+                Assert.DoesNotContain("Call this first", (string)tools.Single(t => (string)t["name"] == "unify3d_model_context")["description"]);
             }
         }
 

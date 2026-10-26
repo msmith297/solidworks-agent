@@ -18,7 +18,7 @@
     "allowModelRead": {
       "type": "boolean",
       "title": "Let Claude Desktop read the open model",
-      "description": "The unify3d_* tools: model summary, feature tree, selection, open documents.",
+      "description": "The unify3d_* tools (model summary, feature tree, selection, open documents), and the open document and chat names in unify3d_status.",
       "default": true
     }
   },

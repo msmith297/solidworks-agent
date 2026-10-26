@@ -23,12 +23,28 @@ namespace SwAgent.Plugins
 
         public static string UnreadableText => "Codex's config.toml couldn't be read safely. Unify3D won't change it.";
 
+        public static string InlineText =>
+            "Codex's mcp_servers is written inline (mcp_servers = { ... }) in config.toml, so Unify3D can't add to it. Write it as [mcp_servers.<name>] tables, then try again.";
+
+        /// <summary>Why Inspect says Unreadable: the inline mcp_servers text, or the general one.</summary>
+        public static string UnreadableReason(string text)
+        {
+            try
+            {
+                return Analyze(Scan(text)).Inline ? InlineText : UnreadableText;
+            }
+            catch (ClientConfigException)
+            {
+                return UnreadableText;
+            }
+        }
+
         /// <summary>A TOML string: 'literal' unless the text holds a quote; then "basic" with \\ and \" escaped.</summary>
         public static string TomlString(string s) =>
             s.IndexOf('\'') < 0 && s.IndexOf('\n') < 0 ? "'" + s + "'" : "\"" + s.Replace("\\", "\\\\").Replace("\"", "\\\"") + "\"";
 
-        /// <summary>The managed block, each line ending with eol.</summary>
-        public static string Block(string exe, string eol) => string.Join(eol, new[]
+        /// <summary>The managed block, each line ending with eol (the last one too unless final is false).</summary>
+        public static string Block(string exe, string eol, bool final = true) => string.Join(eol, new[]
         {
             StartMarker,
             HeaderText,
@@ -37,12 +53,15 @@ namespace SwAgent.Plugins
             "startup_timeout_sec = 20",
             "tool_timeout_sec = 120",
             EndMarker,
-        }) + eol;
+        }) + (final ? eol : "");
 
         /// <summary>What the file says about "unify3d".</summary>
         private sealed class Analysis
         {
             public bool Conflict;
+
+            /// <summary>mcp_servers is an inline table (mcp_servers = { ... }): no [mcp_servers.unify3d] table can be added.</summary>
+            public bool Inline;
 
             /// <summary>Unify3D's own [mcp_servers.unify3d] header, when there is one.</summary>
             public TomlScan.Header Main;
@@ -77,7 +96,11 @@ namespace SwAgent.Plugins
             {
                 // A dotted key that reaches mcp_servers.unify3d from outside its table (the root, [mcp_servers]), or an inline table.
                 if (IsOurs(s.Table.Concat(s.Key).ToArray()) && !IsOurs(s.Table)) a.Conflict = true;
-                if (s.Table.Length == 0 && s.Key.Length == 1 && s.Key[0] == "mcp_servers" && s.RawValue.Contains("unify3d")) a.Conflict = true;
+                if (s.Table.Length == 0 && s.Key.Length == 1 && s.Key[0] == "mcp_servers")
+                {
+                    if (s.RawValue.Contains("unify3d")) a.Conflict = true;
+                    else a.Inline = true; // TOML can't extend an inline table: adding [mcp_servers.unify3d] would break the file
+                }
             }
             if (mains.Count > 1 || mains.Any(h => h.IsArray || h.Raw != HeaderText) || ours.Count > 0 && mains.Count == 0) a.Conflict = true;
             if (a.Conflict || mains.Count == 0) return a;
@@ -135,7 +158,7 @@ namespace SwAgent.Plugins
             {
                 return LinkEntryState.Unreadable;
             }
-            return a.Conflict ? LinkEntryState.Conflict : a.Main != null ? LinkEntryState.Present : LinkEntryState.Missing;
+            return a.Conflict ? LinkEntryState.Conflict : a.Inline ? LinkEntryState.Unreadable : a.Main != null ? LinkEntryState.Present : LinkEntryState.Missing;
         }
 
         /// <summary>
@@ -147,6 +170,7 @@ namespace SwAgent.Plugins
             var scan = Scan(text);
             var a = Analyze(scan);
             if (a.Conflict) throw new ClientConfigException(ConflictText);
+            if (a.Inline) throw new ClientConfigException(InlineText);
             var eol = ClientConfigFile.EolOf(text);
             if (a.Main != null)
             {
@@ -157,7 +181,8 @@ namespace SwAgent.Plugins
             }
             if (!addIfMissing) return text;
             if (text.Length == 0) return Block(exe, eol);
-            return text + (text.EndsWith("\n") ? "" : eol) + eol + Block(exe, eol);
+            // A file without a final line ending gets a block without one too, so Remove can tell and give the bytes back.
+            return text.EndsWith("\n") ? text + eol + Block(exe, eol) : text + eol + eol + Block(exe, eol, final: false);
         }
 
         /// <summary>Remove Unify3D's lines and nothing else (a foreign "unify3d" stays: conflict is set).</summary>
@@ -175,10 +200,13 @@ namespace SwAgent.Plugins
                 var atEnd = Enumerable.Range(to, scan.Lines.Count - to).All(drop.Contains);
                 if (atEnd && from > 0 && scan.Lines[from - 1].Trim().Length == 0) drop.Add(from - 1);
             }
+            // The file ended inside our block without a line ending: the original's last line had none either (Add).
+            var keptLast = Enumerable.Range(0, scan.Lines.Count).Where(k => !drop.Contains(k)).DefaultIfEmpty(-1).Max();
+            var unterminated = scan.Lines.Count > 0 && drop.Contains(scan.Lines.Count - 1) && scan.Terminators[scan.Lines.Count - 1].Length == 0;
             var sb = new StringBuilder();
             for (var k = 0; k < scan.Lines.Count; k++)
             {
-                if (!drop.Contains(k)) sb.Append(scan.Lines[k]).Append(scan.Terminators[k]);
+                if (!drop.Contains(k)) sb.Append(scan.Lines[k]).Append(k == keptLast && unterminated ? "" : scan.Terminators[k]);
             }
             return sb.ToString();
         }

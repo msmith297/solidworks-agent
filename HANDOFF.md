@@ -38,7 +38,7 @@ All commands run from the working folder.
 | Purpose | Command |
 |---|---|
 | Debug build | `"/c/Program Files/Microsoft Visual Studio/2022/Community/MSBuild/Current/Bin/MSBuild.exe" src/SwAgent/SwAgent.csproj -restore -nologo -v:minimal -p:Configuration=Debug` |
-| Tests | `dotnet test tests/SwAgent.Tests`. Expect **797 passed, 0 failed, 4 skipped** (2026-10-26, after the Claude MCP / Codex MCP integration, section 14; about 9-10 minutes). The skipped four are the long FE sweeps; run them with `MOLD_SWEEP=1`. Some plugin tests need node, Git for Windows or a local agent-bridge clone and skip without them (section 7). Tests set `SWAGENT_DATA_DIR` through `tests/SwAgent.Tests/test.runsettings`, so they never touch the user's real data. Keep it that way. |
+| Tests | `dotnet test tests/SwAgent.Tests`. Expect **805 passed, 0 failed, 4 skipped** (2026-10-26, after the Claude MCP / Codex MCP review fixes, section 14; about 12 minutes). `WorkspaceChatsTests.Chats_survive_a_restart_one_file_each_and_deleted_ones_go` failed once in a full run (0 thread files right after Flush) and passed alone and in the next full run: a flake, not yet looked into. The skipped four are the long FE sweeps; run them with `MOLD_SWEEP=1`. Some plugin tests need node, Git for Windows or a local agent-bridge clone and skip without them (section 7). Tests set `SWAGENT_DATA_DIR` through `tests/SwAgent.Tests/test.runsettings`, so they never touch the user's real data. Keep it that way. |
 | UI | `cd ui && npx tsc -b && npm run build` (node_modules is installed). Panel logic checks: `node ui/src/lib/checks/<name>.check.mjs` for agent, providers, integration, lib, models, creator and cheatsheet (section 13). |
 | Mold data generators | `python -I tools/dev/mold-data/<gen>.py --check`. Each must report that its output matches the shipped files. See `tools/dev/mold-data/README.md`. |
 | FE sweeps / Monte Carlo | `tools/dev/MoldSweep` (README inside). Build it in Release **from a scratch copy**, never into `src/SwAgent/bin/Release`. |
@@ -495,43 +495,83 @@ longer Claude's by default for a new provider.
    as sentences.
 4. A third provider is not wired in: the list above is the work.
 
-## 14. Claude MCP and Codex MCP: a local link from Claude Desktop and Codex (built 2026-10-26; ADDIN and CLIENT tracks, then integration)
+## 14. Claude MCP and Codex MCP (local link) (built 2026-10-26; ADDIN and CLIENT tracks, integration, then a review pass)
 
 **What it is.** Two plugins in the built-in marketplace (which now shows as "Unify3D"; the id stays `unify3d`, so
 `agent-bridge@unify3d` is unchanged). Installing **Claude MCP** or **Codex MCP** adds one local stdio MCP server named
-`unify3d` to Claude Desktop's `claude_desktop_config.json` or Codex's `config.toml`, after the trust dialog names the
-file and the program. Turning the plugin off or uninstalling it removes exactly that entry. No hub, no network port:
-the MCP program (`Unify3D.LocalMcp.exe`, net48, built into `bin\...\local-mcp`, copied to
-`%LOCALAPPDATA%\SwAgent\local-mcp`) talks to the running add-in over a per-user named pipe (current user only, NETWORK
-denied). Tools: `ask_unify3d` (the message arrives in the open chat as "Message from Claude Desktop", follows the wake
-rules and never auto-approves; the answer comes back when the turn ends, or a ticket for `get_unify3d_answer`),
-`unify3d_status`, and four read-only model tools. When SolidWorks isn't running the tools say so. Design and contract:
-`docs/plugins/local-mcp.md` (section 1 is the one-page summary; section 10 the build split and tests).
+`unify3d` to Claude Desktop's or Codex's config, after the trust dialog names the file and the program. Turning the
+plugin off or uninstalling it removes exactly that entry. No hub, no network port, no Node: most users won't run
+agent-bridge, and this needs none of it. Tools: `ask_unify3d` (the message arrives in the open chat as "Message from
+Claude Desktop", follows the wake rules - hourly limit, a busy chat holds it - and never auto-approves; the answer
+comes back when the turn ends, or a ticket for `get_unify3d_answer`), `unify3d_status`, and four read-only model tools
+(model summary, feature tree, selection, open documents). When SolidWorks isn't running the tools say so. Design and
+contract: `docs/plugins/local-mcp.md` (section 1 is the one-page summary; section 10 the build split and tests).
 
-| Area | Where |
+**Where things are.**
+
+| What | Where |
 |---|---|
+| The pipe | `\\.\pipe\Unify3D.Agent.Link.<user SID>.<session id>` (`LinkProtocol.DefaultPipeName`), current user only, NETWORK denied, owner = the user. Served by one SolidWorks at a time (mutex `Local\Unify3D.Agent.Link.<SID>`), only while a link plugin is on and approved. |
+| The MCP program | `Unify3D.LocalMcp.exe` (net48), built into `bin\<config>\net48\local-mcp\`, copied on install to `%LOCALAPPDATA%\SwAgent\local-mcp\` (the path the configs name). Log: its stderr, which the client keeps (Claude Desktop: `%APPDATA%\Claude\logs\mcp-server-unify3d.log`). |
+| Claude Desktop's config | `%APPDATA%\Claude\claude_desktop_config.json`, or the MSIX copy `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\` when that one is newer (`ClientLocator`). Entry: `mcpServers.unify3d = { command: <exe>, args: ["--client", "claude-desktop"] }`. |
+| Codex's config | `%CODEX_HOME%\config.toml`, else `%USERPROFILE%\.codex\config.toml`. Entry: a marked block `# >>> unify3d ... >>>` / `[mcp_servers.unify3d]` / `# <<< unify3d <<<`. |
+| Unify3D's own records | `%APPDATA%\SwAgent\plugins\data\claude-mcp\` (or `codex-mcp\`): `backups\` (the client's file before each change, newest 5; may hold other servers' keys, never logged), `link-written.json` (when Unify3D last wrote it; `createdMcpServers` when Unify3D added Claude Desktop's `mcpServers` object), `link-seen.json` (the client's last hello: "Connected"). |
 | Shared pipe contract (both sides compile it) | `src/Shared/LocalLinkProtocol.cs` |
-| Add-in: pipe server (ACL, one SolidWorks serves, mutex takeover), tickets, the request handler (policy, wakes, status and read tools on the UI thread, `localLink.*` RPCs, `link-seen.json`) | `src/SwAgent/Plugins/LocalLink/{LinkServer,LinkTickets,LinkHost}.cs`; wiring in `AgentController.cs` (`AttachBridge`, the `RunToolAsync` overload), `RuntimeHost.QueueLinkWake`, `Session` (wake `ticket` and `from`) |
-| The MCP program (both MCP protocol eras, 7 tools) | `src/SwAgent.LocalMcp/` (a ProjectReference of SwAgent.csproj, like the speech helper) |
-| Config writers, locator, deployer, status | `src/SwAgent/Plugins/ClientLinks/*.cs` (namespace `SwAgent.Plugins`); the install/enable/uninstall hooks, the trust link hash and `RepairLink` in `PluginManager.cs`; `plugins.repairLink` in `PluginsBridge.cs` |
+| Add-in: pipe server, tickets, the request handler (policy, wakes, status and read tools on the UI thread, `localLink.*` RPCs) | `src/SwAgent/Plugins/LocalLink/{LinkServer,LinkTickets,LinkHost}.cs`; wiring in `AgentController.cs` (`AttachBridge`, the `RunToolAsync` overload), `RuntimeHost.QueueLinkWake`, `Session` (wake `ticket` and `from`) |
+| The MCP program's source (both MCP protocol eras, 7 tools, all model-facing text) | `src/SwAgent.LocalMcp/` (`ToolCatalog.cs` has every description and message) |
+| Config writers, locator, deployer, status notes | `src/SwAgent/Plugins/ClientLinks/*.cs`; the install/enable/uninstall hooks, the trust link hash and `RepairLink` in `PluginManager.cs`; `plugins.repairLink` in `PluginsBridge.cs` |
 | Content | `plugins/claude-mcp/`, `plugins/codex-mcp/`, their entries (`unify3d.registerMcpIn`) and `unify3d.displayName` in `plugins/.claude-plugin/marketplace.json` |
-| Panel | `ui/src/lib/localLink.ts`, `store.ts` (ticketed wakes, the answer report), `ChatView.tsx` ("Message from Claude Desktop"), `PluginsScreen.tsx` (link notes, Repair, "Changes to another app" in the trust dialog), `mockHost.ts` (`?link=missing|restart|connected`, `__mockWake({ from, ticket, text })`) |
+| Panel | `ui/src/lib/localLink.ts`, `store.ts` (ticketed wakes, the answer report, the `approval` state while a card is open), `ChatView.tsx` ("Message from Claude Desktop"), `PluginsScreen.tsx` (link notes, Repair, "Changes to another app" in the trust dialog, the restart notice after install and uninstall), `mockHost.ts` (`?link=missing|restart|connected`, `__mockWake({ from, ticket, text })`) |
 
-**How to test.** `tests/SwAgent.Tests/LocalLink/` (pipe server, host, tickets, the exe over stdio against a fake server,
-and `LocalLinkIntegrationTests`: the real exe started from the written config entry, the real pipe server, a fake
-panel's answer) and `tests/SwAgent.Tests/Plugins/{ClaudeDesktopConfig,CodexConfig,ClientLinkPlugin,LocalMcpDeployer,MarketplaceDisplayName}Tests.cs`.
+**Automated tests.** `tests/SwAgent.Tests/LocalLink/` (pipe server incl. the squatting refusal, host, tickets, the exe
+over stdio against a fake server, and `LocalLinkIntegrationTests`: the real exe started from the written config entry,
+the real pipe server, a fake panel's answer) and
+`tests/SwAgent.Tests/Plugins/{ClaudeDesktopConfig,CodexConfig,ClientLinkPlugin,LocalMcpDeployer,MarketplaceDisplayName}Tests.cs`.
 The exe tests need the Debug build first (they run `bin\Debug\net48\local-mcp\Unify3D.LocalMcp.exe`). Tests use test
 pipe and mutex names and fake client folders; `ClientLocator.Default` uses `<test root>\Clients` under
-`SWAGENT_DATA_DIR`, and a guard test fails if a test names the real Claude Desktop folder. Panel: `lib.check.mjs` and
-`integration.check.mjs`.
+`SWAGENT_DATA_DIR`, and a guard test fails if a test names the real Claude Desktop folder. **Never write the real
+`%APPDATA%\Claude` or `~\.codex` files from a test.** Panel: `lib.check.mjs` and `integration.check.mjs`.
+
+**How to test by hand** (needs a Release install, so only when the user asks for one; SolidWorks closed for the build):
+1. Claude Desktop: in SolidWorks, Unify3D > Plugins > Discover > Unify3D > Claude MCP > Install. The trust dialog names
+   the config file and the exe. After install the notice says to quit Claude Desktop from the tray and open it again.
+   Check the file has `mcpServers.unify3d` and nothing else changed (compare with the newest file in `backups\`).
+2. Restart Claude Desktop; Settings > Developer should list `unify3d` as running. Ask it "Ask the SolidWorks agent to
+   make a 100 mm cube". The message shows in the Unify3D panel as "Message from Claude Desktop"; the agent's change
+   asks for approval in the panel (Claude Desktop is told "waiting for the user to approve"); approve; Claude Desktop
+   gets the answer. Try `unify3d_status` and "what's in my feature tree" with a part open, then with
+   "Let Claude Desktop read the open model" off (Plugins > Claude MCP > Settings): no document or chat title.
+3. Close SolidWorks and ask again: "SolidWorks isn't running..." quickly. Open two SolidWorks windows: one serves
+   (log: "Another SolidWorks window serves the Claude/Codex link"), the other takes over when the first closes.
+4. Codex: the same with Codex MCP; Codex's `config.toml` gains the marked block at the end; restart Codex (or a new
+   CLI session); `codex mcp list` shows `unify3d`. Then turn the plugin off: the block goes and the file is byte for
+   byte what it was (diff against `backups\`).
+5. Uninstall each: the entry goes, the notice says to restart the app to drop its Unify3D tools.
+
+**Review fixes (2026-10-26).** The exe survives any JSON-RPC line (a non-string `method` got -32600 instead of
+killing it); bad arguments to a known tool are `isError` results; the exe refuses a pipe not owned by the current user,
+and the add-in creates its first instance with `FILE_FLAG_FIRST_PIPE_INSTANCE` (pipe-name squatting); Codex: an inline
+`mcp_servers = { ... }` is refused with a plain message instead of being broken, and a file without a final newline
+round-trips byte for byte; Claude Desktop: an `mcpServers` the user had is kept on uninstall, and the trust dialog no
+longer claims the file stays byte-identical (it may be re-indented); `unify3d_status` hides the document and chat title
+when model reading is off, and says "SolidWorks is busy" rather than "No document is open"; tool texts steer CAD work
+(including new parts with nothing open) to `ask_unify3d`; tickets have an `approval` state while a card waits in the
+panel; the panel shows turn-off warnings, the restart step after install and uninstall, "Claude Desktop sent a
+message" when turns are paused, and no doubled "Unify3D · Unify3D" subtitle.
 
 **What is open:**
-1. **Nothing has run in SolidWorks, Claude Desktop or Codex.** Hand checks H1-H10 are in design section 10.4. The
-   important ones: H2 (Claude Desktop's MSIX package and Codex's sandbox can open the pipe), H4 (Claude Desktop's tool
-   timeout), H6 (a running Claude Desktop overwriting its file), H7 (two SolidWorks windows; SolidWorks closed).
+1. **Nothing has run in SolidWorks, Claude Desktop or Codex**, and nothing touched the real Claude Desktop or Codex
+   configs. Hand checks H1-H10 are in design section 10.4. The important ones: H2 (Claude Desktop's MSIX package and
+   Codex's sandbox can open the pipe and read its owner), H4 (Claude Desktop's tool timeout), H6 (a running Claude
+   Desktop overwriting its file), H7 (two SolidWorks windows; SolidWorks closed).
 2. Not checked in Release (no Release build was made): `local-mcp\` should reach `bin\Release\net48` through the
    ProjectReference, and the installer copies that folder whole (`recursesubdirs`).
 3. With every link plugin off the pipe closes, so a client that still has the entry gets "SolidWorks isn't running"
    rather than "the plugin is turned off".
-4. Later (design section 11): removing the entries when Unify3D itself is uninstalled, an `.mcpb` fallback, Claude Code
+4. The cross-user squatting case was reasoned about, not run (it needs a second logged-on Windows account). If a
+   lingering client handle ever keeps the name alive across a SolidWorks takeover, the new server retries every 30 s.
+5. Claude Desktop's file is still re-serialized (2-space indent, numbers as read): values are kept, formatting may not
+   be. A text splice like Codex's would make it byte-exact.
+6. "Connected" appears only after the client's first tool call (the exe connects lazily); the note says so.
+7. Later (design section 11): removing the entries when Unify3D itself is uninstalled, an `.mcpb` fallback, Claude Code
    as a third client.

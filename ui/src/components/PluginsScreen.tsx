@@ -114,7 +114,13 @@ async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Pro
             <b className="text-text">{label(p)}</b> runs code on this PC with your Windows account's rights. Only continue if you trust {by}.
           </p>
         )}
-        {list("Changes to another app", "Unify3D edits this file now and removes the entry when you turn the plugin off or uninstall it. Nothing else in the file changes.", links)}
+        {list(
+          "Changes to another app",
+          `Unify3D edits this file now and removes the entry when you turn the plugin off or uninstall it. ${
+            p.link?.client === "codex" ? "Nothing else in the file changes." : "Other settings in it keep their values, though the file may be re-indented."
+          }`,
+          links,
+        )}
         {list("Hooks", "Programs that run outside SolidWorks when something happens: you send a message, the agent uses a tool or finishes.", req.hooks)}
         {list("MCP servers", "Programs that run outside SolidWorks while the plugin is on and give the agent extra tools.", req.mcp)}
         {list("Tools with code", "C# that runs inside SolidWorks, with full access to your models, when the tool runs or shows a preview.", req.tools ?? [])}
@@ -142,7 +148,13 @@ async function pluginAction(p: PluginInfo, action: "install" | "enable" | "updat
     res = await rpc<PluginActionResult | null>(method, { ...params, trustHash: res.hash });
   }
   const also = (res?.installed ?? []).map((id) => useStore.getState().plugins.find((x) => x.id === id)).filter(Boolean) as PluginInfo[];
-  const notes = [res?.note, also.length ? `Also installed: ${also.map(label).join(", ")}.` : null].filter(Boolean);
+  // Claude MCP / Codex MCP: the next step (restart the other app) right away, not only on the Installed tab.
+  let linkNote: string | null = null;
+  if (p.link && action !== "update" && !res?.note) {
+    await useStore.getState().loadPlugins();
+    linkNote = useStore.getState().plugins.find((x) => x.id === p.id && x.installed)?.link?.note ?? null;
+  }
+  const notes = [res?.note, linkNote, also.length ? `Also installed: ${also.map(label).join(", ")}.` : null].filter(Boolean);
   if (notes.length) useStore.setState({ notice: notes.join(" ") });
   return true;
 }
@@ -229,7 +241,7 @@ function Title({ p, onOpen }: { p: PluginInfo; onOpen?: (id: string) => void }) 
       <div className="truncate text-[10.5px] text-text-3">
         {p.name}
         {p.version ? ` · ${p.version}` : ""} · {p.marketplace === "local" ? "your plugin" : marketLabel(p)}
-        {p.author?.name ? ` · ${p.author.name}` : ""}
+        {p.author?.name && p.author.name !== marketLabel(p) ? ` · ${p.author.name}` : ""}
       </div>
     </div>
   );
@@ -421,7 +433,12 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
           disabled={busy[p.id]}
           title={p.enabled ? "On - click to turn it off" : "Off - click to turn it on"}
           onChange={(e) =>
-            run(p.id, () => (e.target.checked ? pluginAction(p, "enable") : rpc("plugins.enable", { id: p.id, enabled: false })))
+            run(p.id, async () => {
+              if (e.target.checked) return pluginAction(p, "enable");
+              // Turning off a link plugin removes its entry from the other app's settings: say so when that didn't happen.
+              const res = await rpc<{ note?: string | null } | null>("plugins.enable", { id: p.id, enabled: false });
+              if (res?.note) useStore.setState({ notice: res.note });
+            })
           }
           className="mt-1 shrink-0 accent-[var(--accent)]"
         />
@@ -489,7 +506,15 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
             className="sw-btn !h-[22px]"
             disabled={busy[p.id]}
             onClick={() =>
-              confirmAction(`Uninstall ${label(p)}?`, <p>Its files are removed{companionsOf(p).length ? `, with ${companionsOf(p).map(label).join(", ")}` : ""}; its settings and data on this PC are kept for a reinstall.</p>, "Uninstall", true).then(
+              confirmAction(
+                `Uninstall ${label(p)}?`,
+                <p>
+                  Its files are removed{companionsOf(p).length ? `, with ${companionsOf(p).map(label).join(", ")}` : ""}; its settings and data on this PC are kept for a reinstall.
+                  {p.link ? ` It also removes the "unify3d" entry from ${p.link.label}'s settings. Restart ${p.link.label} to drop its Unify3D tools.` : ""}
+                </p>,
+                "Uninstall",
+                true,
+              ).then(
                 (ok) => {
                   if (ok)
                     void run(p.id, async () => {
@@ -497,6 +522,7 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
                       const res = await rpc<{ note?: string | null } | null>("plugins.uninstall", { id: p.id });
                       for (const c of companions) await rpc("plugins.uninstall", { id: c.id });
                       if (res?.note) useStore.setState({ notice: res.note });
+                      else if (p.link) useStore.setState({ notice: `${label(p)} uninstalled. Restart ${p.link.label} to drop its Unify3D tools.` });
                     });
                 },
               )

@@ -346,16 +346,19 @@ namespace SwAgent.Plugins.LocalLink
                 chat = _panelChat;
                 solidWorks = _solidWorks;
             }
+            // With "read the open model" off, the document and the chat's title stay in Unify3D too.
+            var modelRead = ModelReadAllowed(plugin);
+            if (!modelRead && chat != null) chat = new JObject { ["busy"] = chat["busy"]?.DeepClone() };
             var status = new JObject
             {
                 ["solidWorks"] = solidWorks,
                 ["addIn"] = _addInVersion,
                 ["panel"] = ready ? "ready" : "loading",
-                ["document"] = ui?["document"]?.DeepClone(),
+                ["document"] = modelRead ? ui?["document"]?.DeepClone() : null,
                 ["chat"] = chat?.DeepClone(),
                 ["autoTurnsLeft"] = _session.AutomaticLeft(Now()),
                 ["autoTurnsPerHour"] = _session.AutomaticPerHour,
-                ["modelRead"] = ModelReadAllowed(plugin),
+                ["modelRead"] = modelRead,
             };
             if (ui == null) status["solidWorksBusy"] = true; // the UI thread didn't answer: no document facts
             return status;
@@ -455,7 +458,7 @@ namespace SwAgent.Plugins.LocalLink
             return new JObject { ["ok"] = true };
         }
 
-        /// <summary>localLink.state({ tickets, state }): queued, working or paused.</summary>
+        /// <summary>localLink.state({ tickets, state }): queued, working, paused or approval (a card waits for the user).</summary>
         internal JObject OnState(JObject p)
         {
             Tickets.SetState(TicketIds(p), (string)p["state"]);

@@ -9,13 +9,13 @@ namespace SwAgent.Plugins.LocalLink
 {
     /// <summary>
     /// The tickets of messages from Claude Desktop and Codex (docs/plugins/local-mcp.md 5.6): in memory only, thread-safe,
-    /// at most 200. A ticket follows its wake through the panel (queued, working, paused) until the turn's answer arrives
+    /// at most 200. A ticket follows its wake through the panel (queued, working, approval, paused) until the turn's answer arrives
     /// (done, stopped, failed). Finished tickets live an hour, unfinished ones until SolidWorks closes or a day.
     /// </summary>
     internal sealed class LinkTickets
     {
         public const int Max = 200;
-        public const string Queued = "queued", Working = "working", Paused = "paused", Done = "done", Stopped = "stopped", Failed = "failed";
+        public const string Queued = "queued", Working = "working", Approval = "approval", Paused = "paused", Done = "done", Stopped = "stopped", Failed = "failed";
 
         private static readonly TimeSpan FinishedLife = TimeSpan.FromHours(1), OpenLife = TimeSpan.FromHours(24);
         private readonly object _sync = new object();
@@ -60,10 +60,13 @@ namespace SwAgent.Plugins.LocalLink
             }
         }
 
-        /// <summary>The panel moved unfinished tickets on (queued, working, paused). Unknown and finished ones are left.</summary>
+        /// <summary>
+        /// The panel moved unfinished tickets on (queued, working, paused), or its turn waits for the user (approval: an approval
+        /// or question card is open). Unknown and finished ones are left.
+        /// </summary>
         public void SetState(IEnumerable<string> ids, string state)
         {
-            if (state != Queued && state != Working && state != Paused) return;
+            if (state != Queued && state != Working && state != Approval && state != Paused) return;
             lock (_sync)
             {
                 foreach (var id in ids ?? Enumerable.Empty<string>())
@@ -164,6 +167,9 @@ namespace SwAgent.Plugins.LocalLink
             {
                 case Working:
                     return $"Unify3D is still working on it. Call get_unify3d_answer with ticket \"{ticket}\" to get the answer.";
+                case Approval:
+                    return "Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. " +
+                           $"Tell the user, then call get_unify3d_answer with ticket \"{ticket}\".";
                 case Queued:
                     return $"The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket \"{ticket}\" later.";
                 case Paused:

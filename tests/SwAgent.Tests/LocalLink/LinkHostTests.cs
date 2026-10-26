@@ -318,7 +318,12 @@ namespace SwAgent.Tests.LocalLink
                 var off = c.Call(3, "tool", new JObject { ["name"] = "unify3d_model_context" });
                 Assert.Equal("not-allowed", (string)off["error"]["code"]);
                 Assert.Equal("Reading the open model is turned off for Claude Desktop in Unify3D (Plugins > Claude MCP > Settings).", (string)off["error"]["message"]);
-                Assert.False((bool)c.Call(4, "status", new JObject())["result"]["modelRead"]);
+                k.Host.OnPanel(new JObject { ["chat"] = new JObject { ["title"] = "Bushing mold", ["busy"] = true } });
+                var hidden = c.Call(4, "status", new JObject())["result"];
+                Assert.False((bool)hidden["modelRead"]);
+                Assert.Equal(JTokenType.Null, hidden["document"].Type); // nor the document's name and path
+                Assert.Null(hidden["chat"]["title"]);
+                Assert.True((bool)hidden["chat"]["busy"]);
                 Assert.Empty(k.ToolCalls);
                 k.Env.Pm.SetConfig(Claude, new JObject { ["allowModelRead"] = null });
 

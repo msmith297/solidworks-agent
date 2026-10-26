@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.IO;
 using System.IO.Pipes;
 using System.Runtime.InteropServices;
@@ -184,14 +185,18 @@ namespace SwAgent.Plugins.LocalLink
                     return;
                 }
                 NamedPipeServerStream pipe;
+                bool first;
+                lock (_sync) first = _open.Count == 0;
                 try
                 {
-                    pipe = Create(PipeName);
+                    pipe = Create(PipeName, first);
                 }
                 catch (Exception ex)
                 {
                     _slots.Release();
-                    Log.Warn("The local link's pipe couldn't be created: " + ex.Message);
+                    if (first && ex is UnauthorizedAccessException)
+                        Log.Warn($"Another program already holds the Claude/Codex link's pipe name, so this SolidWorks can't serve the link; trying again in {RetryInterval.TotalSeconds:0} s");
+                    else Log.Warn("The local link's pipe couldn't be created: " + ex.Message);
                     if (stop.WaitOne(RetryInterval)) return;
                     continue;
                 }
@@ -213,14 +218,42 @@ namespace SwAgent.Plugins.LocalLink
 
         private void Close(NamedPipeServerStream pipe)
         {
+            Quietly(pipe.Dispose); // before it leaves _open: an empty _open means no instance of ours exists
             lock (_sync) _open.Remove(pipe);
-            Quietly(pipe.Dispose);
             _slots.Release();
         }
 
-        /// <summary>One pipe instance with the link's ACL.</summary>
-        internal static NamedPipeServerStream Create(string name) =>
-            new NamedPipeServerStream(name, PipeDirection.InOut, MaxConnections, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, BufferSize, BufferSize, Security());
+        /// <summary>
+        /// One pipe instance with the link's ACL. first (no instance of ours is open): FILE_FLAG_FIRST_PIPE_INSTANCE, so a name
+        /// another program created first - perhaps another Windows user, with its own ACL - fails with UnauthorizedAccessException
+        /// instead of quietly adding instances to that program's pipe. .NET Framework's constructor refuses that flag, hence
+        /// CreateNamedPipe.
+        /// </summary>
+        internal static NamedPipeServerStream Create(string name, bool first = false)
+        {
+            if (!first)
+                return new NamedPipeServerStream(name, PipeDirection.InOut, MaxConnections, PipeTransmissionMode.Byte, PipeOptions.Asynchronous, BufferSize, BufferSize, Security());
+            var sd = Security().GetSecurityDescriptorBinaryForm();
+            var pin = GCHandle.Alloc(sd, GCHandleType.Pinned);
+            try
+            {
+                var sa = new SecurityAttributes { Length = Marshal.SizeOf(typeof(SecurityAttributes)), Descriptor = pin.AddrOfPinnedObject() };
+                var handle = CreateNamedPipe(@"\\.\pipe\" + name, PipeAccessDuplex | FileFlagOverlapped | FileFlagFirstPipeInstance, 0 /* byte, wait */,
+                    MaxConnections, BufferSize, BufferSize, 0, ref sa);
+                if (handle.IsInvalid)
+                {
+                    var error = Marshal.GetLastWin32Error();
+                    handle.Dispose();
+                    if (error == 5) throw new UnauthorizedAccessException($"The pipe name {name} is already in use.");
+                    throw new IOException(new Win32Exception(error).Message);
+                }
+                return new NamedPipeServerStream(PipeDirection.InOut, true, false, handle);
+            }
+            finally
+            {
+                pin.Free();
+            }
+        }
 
         /// <summary>
         /// Allow the current user (read, write, new instances), deny NETWORK everything, owner the current user, nothing else:
@@ -375,6 +408,19 @@ namespace SwAgent.Plugins.LocalLink
         }
 
         public void Dispose() => Stop();
+
+        private const uint PipeAccessDuplex = 0x3, FileFlagOverlapped = 0x40000000, FileFlagFirstPipeInstance = 0x00080000;
+
+        [StructLayout(LayoutKind.Sequential)]
+        private struct SecurityAttributes
+        {
+            public int Length;
+            public IntPtr Descriptor;
+            public bool Inherit;
+        }
+
+        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "CreateNamedPipeW")]
+        private static extern SafePipeHandle CreateNamedPipe(string name, uint openMode, uint pipeMode, int maxInstances, int outBuffer, int inBuffer, uint timeout, ref SecurityAttributes security);
 
         [DllImport("kernel32.dll", SetLastError = true)]
         private static extern bool GetNamedPipeClientProcessId(SafePipeHandle pipe, out uint clientProcessId);

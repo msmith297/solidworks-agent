@@ -104,7 +104,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Equal("Unify3D", (string)json["marketplaceDisplayName"]);
                 Assert.Equal("present", (string)json["link"]["entry"]);
                 Assert.Equal(env.Roots.ClaudeConfig, (string)json["link"]["configPath"]);
-                Assert.Equal("Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it.", (string)json["link"]["note"]);
+                Assert.Equal("Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it. It shows Connected once Claude Desktop first uses it.", (string)json["link"]["note"]);
                 Assert.True((bool)json["trusted"]);
             }
         }
@@ -163,6 +163,41 @@ namespace SwAgent.Tests.Plugins
                 }
                 Assert.Null(env.Pm.Find(Claude));
                 Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]); // left, as the warning says
+            }
+        }
+
+        [Fact]
+        public void An_mcpServers_the_user_had_stays_and_an_entry_left_behind_is_named()
+        {
+            using (var env = new Env())
+            {
+                const string mine = "{\n  \"mcpServers\": {}\n}\n";
+                ClientRoots.Write(env.Roots.ClaudeConfig, mine);
+                env.Install(Claude);
+                Assert.Empty(env.Pm.Enable(Claude, false).Warnings);
+                Assert.Equal(mine, File.ReadAllText(env.Roots.ClaudeConfig));
+                env.Pm.Enable(Claude, true);
+                Assert.Empty(env.Pm.Uninstall(Claude));
+                Assert.Equal(mine, File.ReadAllText(env.Roots.ClaudeConfig));
+
+                // One Unify3D added goes with its entry, also after the entry was refreshed (a moved exe).
+                ClientRoots.Write(env.Roots.ClaudeConfig, "{}");
+                env.Install(Claude);
+                var refreshed = env.ClaudeJson;
+                refreshed["mcpServers"]["unify3d"]["command"] = @"C:\old\Unify3D.LocalMcp.exe";
+                ClientRoots.Write(env.Roots.ClaudeConfig, refreshed.ToString());
+                env.Pm.Links.Register("claude-desktop", "claude-mcp", addIfMissing: false);
+                Assert.Equal(env.Exe, (string)env.ClaudeJson["mcpServers"]["unify3d"]["command"]);
+                env.Pm.Enable(Claude, false);
+                Assert.Null(env.ClaudeJson["mcpServers"]);
+
+                // Turning off while the file is locked: the entry stays, and the warning and the note say so.
+                env.Pm.Enable(Claude, true);
+                PluginManager.Outcome off;
+                using (new FileStream(env.Roots.ClaudeConfig, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) off = env.Pm.Enable(Claude, false);
+                Assert.Contains("by hand", Assert.Single(off.Warnings));
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]);
+                Assert.StartsWith("Off, but the \"unify3d\" entry is still in Claude Desktop's settings", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["note"]);
             }
         }
 
@@ -277,7 +312,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Contains($"Codex: adds the MCP server \"unify3d\" to {env.Roots.CodexConfig}, which runs {env.Exe} --client codex", ask.NeedsTrust["links"].Values<string>());
                 Assert.True(env.Pm.Install(Codex, ask.Hash).Ok);
                 Assert.Equal(CodexConfigTests.Realistic + "\n" + CodexConfig.Block(env.Exe, "\n"), File.ReadAllText(env.Roots.CodexConfig));
-                Assert.Equal("Added to Codex. Restart Codex (or start a new CLI session) to load it.", (string)env.Pm.PluginJson(env.Pm.Find(Codex))["link"]["note"]);
+                Assert.Equal("Added to Codex. Restart Codex (or start a new CLI session) to load it. It shows Connected once Codex first uses it.", (string)env.Pm.PluginJson(env.Pm.Find(Codex))["link"]["note"]);
                 Assert.Empty(env.Pm.Uninstall(Codex));
                 Assert.Equal(CodexConfigTests.Realistic, File.ReadAllText(env.Roots.CodexConfig));
                 Assert.NotEmpty(Directory.GetFiles(Path.Combine(env.Pm.DataRoot, "codex-mcp", "backups"), "config.toml-*"));

@@ -16,16 +16,17 @@ namespace SwAgent.LocalMcp
         public const int MaxMessage = 20000, MaxWaitSeconds = 55, DefaultWaitSeconds = 50;
 
         public const string Instructions =
-            "Unify3D Agent is an AI agent inside SolidWorks on this PC. It can see the user's open models and change them, and it " +
-            "asks the user in its panel before any change. Use ask_unify3d for anything about the user's SolidWorks models; the " +
-            "unify3d_* read tools give quick facts about the open model. If SolidWorks isn't running, say so to the user.";
+            "Unify3D Agent is an AI agent inside SolidWorks on this PC. It can create new parts, assemblies and drawings, change the " +
+            "user's open models and answer questions about them, and it asks the user in its panel before any change. Use " +
+            "ask_unify3d for any CAD work in SolidWorks, even when no document is open (it can start a new part). The unify3d_* " +
+            "read tools only give quick facts about the open document. If SolidWorks isn't running, say so to the user.";
 
         /// <summary>The read-only model tools: MCP name -> description (the add-in's, for the active document).</summary>
         private static readonly Dictionary<string, string> ReadDescriptions = new Dictionary<string, string>(StringComparer.Ordinal)
         {
             ["unify3d_model_context"] =
                 "Summary of the active SolidWorks document: name, path, type, units, configurations, material, mass properties, " +
-                "bounding box, component or sheet counts, feature count and current selection. Call this first.",
+                "bounding box, component or sheet counts, feature count and current selection. For quick facts only: use ask_unify3d to do work.",
             ["unify3d_feature_tree"] =
                 "FeatureManager design tree of the active SolidWorks document: every feature with its type name, suppression and " +
                 "rebuild errors, plus sub-features (sketches, mates).",
@@ -45,14 +46,18 @@ namespace SwAgent.LocalMcp
 
         public static bool IsModelTool(string name) => LinkProtocol.ModelTools.Any(t => t[0] == name);
 
+        /// <summary>One of the seven tools.</summary>
+        public static bool Exists(string name) => name == Ask || name == GetAnswer || name == Status || IsModelTool(name);
+
         /// <summary>tools/list: exactly seven tools.</summary>
         public static JArray List()
         {
             var tools = new JArray
             {
                 Tool(Ask,
-                    "Send a message to the Unify3D agent running inside SolidWorks on this PC and get its reply. It sees the user's open " +
-                    "models and can change them; any change waits for the user's OK in the Unify3D panel. If the reply takes longer than " +
+                    "Use for any CAD work in SolidWorks: create new parts, assemblies or drawings (e.g. \"make a 100 mm cube\"), edit the " +
+                    "open model, or answer questions that need the Unify3D agent running inside SolidWorks on this PC. It works with or " +
+                    "without an open document. Any change waits for the user's OK in the Unify3D panel. If the reply takes longer than " +
                     "wait_seconds you get a ticket: call get_unify3d_answer with it.",
                     new JObject
                     {
@@ -174,6 +179,9 @@ namespace SwAgent.LocalMcp
         public static string AccessDenied(string client) =>
             $"Windows refused the connection to Unify3D (a different Windows user, or an app sandbox). Run {LinkProtocol.Label(client)} as the same user as SolidWorks.";
 
+        public static string NotOurPipe =>
+            "Another program, not Unify3D, holds Unify3D's connection on this PC, so nothing was sent. Restart SolidWorks; if this keeps happening, restart Windows.";
+
         public static string SolidWorksSlow =>
             "SolidWorks didn't answer in 45 seconds (it may be in a long rebuild or a dialog). Try again in a moment.";
 
@@ -187,6 +195,9 @@ namespace SwAgent.LocalMcp
             {
                 case "working":
                     return $"Unify3D is still working on it. Call get_unify3d_answer with ticket \"{ticket}\" to get the answer.";
+                case "approval":
+                    return "Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. " +
+                           $"Tell the user, then call get_unify3d_answer with ticket \"{ticket}\".";
                 case "queued":
                     return $"The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket \"{ticket}\" later.";
                 case "paused":
@@ -209,15 +220,21 @@ namespace SwAgent.LocalMcp
             var addIn = (string)s["addIn"];
             if (addIn != null && addIn.IndexOf('+') > 0) addIn = addIn.Substring(0, addIn.IndexOf('+'));
             parts.Add($"SolidWorks {sw ?? "(version unknown)"} is running with Unify3D Agent {addIn ?? "(version unknown)"}.");
+            var modelRead = (bool?)s["modelRead"] != false;
             if (s["document"] is JObject d)
                 parts.Add($"Active document: {(string)d["title"]}{((string)d["type"] is string t ? $" ({t})" : "")}.");
-            else parts.Add("No document is open.");
+            else if ((bool?)s["solidWorksBusy"] == true) parts.Add("SolidWorks is busy (a rebuild or a dialog), so the active document couldn't be read.");
+            else if (modelRead) parts.Add("No document is open.");
             if ((string)s["panel"] == "loading") parts.Add("The Unify3D panel is still loading.");
-            else if (s["chat"] is JObject c) parts.Add($"Open chat: \"{(string)c["title"]}\" ({((bool?)c["busy"] == true ? "busy" : "idle")}).");
+            else if (s["chat"] is JObject c)
+            {
+                var busy = (bool?)c["busy"] == true ? "busy" : "idle";
+                parts.Add((string)c["title"] is string title ? $"Open chat: \"{title}\" ({busy})." : $"A chat is open in the Unify3D panel ({busy}).");
+            }
             else parts.Add("No chat is open in the Unify3D panel; a message starts a new one.");
             if (s["autoTurnsLeft"] != null && s["autoTurnsPerHour"] != null)
                 parts.Add($"Automatic turns left this hour: {(int)s["autoTurnsLeft"]} of {(int)s["autoTurnsPerHour"]}.");
-            if ((bool?)s["modelRead"] == false) parts.Add($"Reading the open model is turned off for {LinkProtocol.Label(client)} in Unify3D.");
+            if (!modelRead) parts.Add($"Reading the open model is turned off for {LinkProtocol.Label(client)} in Unify3D, so the active document isn't shown.");
             return string.Join(" ", parts);
         }
     }

@@ -190,7 +190,26 @@ namespace SwAgent.Tests.Plugins
                 var added = CodexConfig.Add(noNewline, Exe, true);
                 Assert.StartsWith("model = \"x\"\n\n" + CodexConfig.StartMarker, added);
                 CodexConfig.Check(noNewline, added);
+                Assert.Equal(Exe, (string)Toml(added)["mcp_servers"]["unify3d"]["command"]);
+                // ... and removal gives back the original bytes, without that newline.
+                foreach (var original in new[] { noNewline, "# only a comment", Realistic.TrimEnd('\n'), Realistic.Replace("\n", "\r\n").TrimEnd('\r', '\n') })
+                    Assert.Equal(original, CodexConfig.Remove(CodexConfig.Add(original, Exe, true), out _));
             }
+        }
+
+        [Theory]
+        [InlineData("model = \"o3\"\nmcp_servers = { other = { command = \"node\", args = [\"x.js\"] } }\n")]
+        [InlineData("mcp_servers = {}\n")]
+        public void An_inline_mcp_servers_is_never_extended(string text)
+        {
+            Toml(text); // valid as it is
+            Assert.Equal(LinkEntryState.Unreadable, CodexConfig.Inspect(text));
+            var ex = Assert.Throws<ClientConfigException>(() => CodexConfig.Add(text, Exe, true));
+            Assert.Equal(CodexConfig.InlineText, ex.Message);
+            Assert.Equal(CodexConfig.InlineText, CodexConfig.UnreadableReason(text));
+            Assert.Equal(CodexConfig.UnreadableText, CodexConfig.UnreadableReason("x = [1, 2\n"));
+            Assert.Equal(text, CodexConfig.Remove(text, out var conflict));
+            Assert.False(conflict);
         }
 
         [Fact]

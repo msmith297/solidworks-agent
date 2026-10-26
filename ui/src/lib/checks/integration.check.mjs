@@ -361,7 +361,7 @@ await t("Link: a message into the new-chat page starts a chat named after the se
   await until(() => addIn.reports.filter((r) => r.panel).at(-1).panel.chat?.busy === false, "idle again");
 });
 
-await t("Link: a woken turn asks before execute_csharp even with approval on auto", async () => {
+await t("Link: a woken turn asks before execute_csharp even with approval on auto, and the ticket says it waits for the user", async () => {
   let step = 0;
   reply = () =>
     step++ === 0
@@ -370,9 +370,10 @@ await t("Link: a woken turn asks before execute_csharp even with approval on aut
   addIn.wake("u3d_b", "Fillet the top edges.");
   await until(() => S().runs[thread().id]?.approval, "the approval card");
   assert.equal(S().runs[thread().id].approval.name, "execute_csharp");
+  await until(() => addIn.of("u3d_b").includes("approval"), "the approval state");
   S().answerApproval(thread().id, { decision: "run" });
   await until(() => addIn.of("u3d_b").some((r) => r.answer), "the answer");
-  assert.deepEqual(addIn.of("u3d_b").at(-1), { answer: "done", text: "Filleted the top edges.", error: null });
+  assert.deepEqual(addIn.of("u3d_b"), ["working", "approval", "working", { answer: "done", text: "Filleted the top edges.", error: null }]);
 });
 
 await t("Link: a message to a busy chat is queued, goes when the turn ends, and gets its own turn's answer", async () => {
@@ -418,6 +419,7 @@ await t("Link: with automatic turns paused the message waits in the chat and the
   addIn.wake("u3d_f", "When you can: the hole sizes?");
   await until(() => addIn.of("u3d_f").includes("paused"), "paused");
   assert.equal(thread().title, "Claude Desktop");
+  assert.equal(S().notice, "Claude Desktop sent a message, but automatic turns are paused (0 per hour): the agent answers it with your next message.");
   assert.equal(S().runs[thread().id], undefined, "no turn started");
   reply = () => text("Holes: 6 x M8.");
   await S().send("Go ahead.");

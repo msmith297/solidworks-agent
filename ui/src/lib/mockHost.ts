@@ -828,7 +828,7 @@ function linkPlugin(name: string, displayName: string, client: "claude-desktop" 
     trusted: false,
     components: { tools: 0, commands: 0, skills: 0, agents: 0, hooks: 0, mcpServers: 0 },
     userConfig: {
-      allowModelRead: { type: "boolean", title: `Let ${app} read the open model`, description: "The unify3d_* tools: model summary, feature tree, selection, open documents.", default: true },
+      allowModelRead: { type: "boolean", title: `Let ${app} read the open model`, description: "The unify3d_* tools (model summary, feature tree, selection, open documents), and the open document and chat names in unify3d_status.", default: true },
     },
     link: { client, label: app, found: true, configPath },
   };
@@ -855,7 +855,7 @@ function mockLink(p: PluginInfo): PluginInfo["link"] {
     ...base,
     entry: "present",
     writtenAt,
-    note: base.client === "codex" ? "Added to Codex. Restart Codex (or start a new CLI session) to load it." : "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it.",
+    note: base.client === "codex" ? "Added to Codex. Restart Codex (or start a new CLI session) to load it. It shows Connected once Codex first uses it." : "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it. It shows Connected once Claude Desktop first uses it.",
   };
 }
 

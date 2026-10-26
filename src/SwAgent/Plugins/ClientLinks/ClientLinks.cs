@@ -139,7 +139,17 @@ namespace SwAgent.Plugins
 
         private static string UnreadableText(string client, string path)
         {
-            if (client == LinkProtocol.Codex) return CodexConfig.UnreadableText;
+            if (client == LinkProtocol.Codex)
+            {
+                try
+                {
+                    return CodexConfig.UnreadableReason(ClientConfigFile.ReadText(path, CodexConfig.Label));
+                }
+                catch (ClientConfigException ex)
+                {
+                    return ex.Message;
+                }
+            }
             try
             {
                 ClaudeDesktopConfig.Parse(ClientConfigFile.ReadText(path, ClaudeDesktopConfig.Label));
@@ -162,14 +172,22 @@ namespace SwAgent.Plugins
             if (!loc.Found) throw new ClientConfigException(loc.Note);
             Deployer.Ensure();
             var exe = Exe;
+            bool? createdServers = null; // Claude Desktop: Unify3D added mcpServers itself (so removing the entry removes it too)
             var written = ClientConfigFile.Edit(loc.ConfigPath,
-                text => client == LinkProtocol.Codex ? CodexConfig.Add(text, exe, addIfMissing) : ClaudeDesktopConfig.Add(text, exe, addIfMissing),
+                text =>
+                {
+                    if (client == LinkProtocol.Codex) return CodexConfig.Add(text, exe, addIfMissing);
+                    var after = ClaudeDesktopConfig.Add(text, exe, addIfMissing);
+                    // A new entry sets it; a refreshed one keeps what the first install recorded.
+                    createdServers = ClaudeDesktopConfig.Inspect(text) == LinkEntryState.Missing && after != text ? !ClaudeDesktopConfig.HasServers(text) : (bool?)null;
+                    return after;
+                },
                 client == LinkProtocol.Codex ? (Action<string, string>)CodexConfig.Check : ClaudeDesktopConfig.Check,
                 Path.Combine(DataDir(plugin), "backups"),
                 LinkProtocol.Label(client));
             if (written)
             {
-                Written(plugin, loc.ConfigPath);
+                Written(plugin, loc.ConfigPath, createdServers ?? ReadFlag(plugin, CreatedServersKey));
                 Log.Info($"{plugin}: added the MCP server \"{ServerName}\" to {loc.ConfigPath}");
             }
             return written;
@@ -182,10 +200,11 @@ namespace SwAgent.Plugins
             if (!loc.Found) return null; // nothing to remove
             var label = LinkProtocol.Label(client);
             var conflict = false;
+            var dropServers = ReadFlag(plugin, CreatedServersKey); // an mcpServers the user had stays, even when empty
             try
             {
                 var written = ClientConfigFile.Edit(loc.ConfigPath,
-                    text => client == LinkProtocol.Codex ? CodexConfig.Remove(text, out conflict) : ClaudeDesktopConfig.Remove(text, out conflict),
+                    text => client == LinkProtocol.Codex ? CodexConfig.Remove(text, out conflict) : ClaudeDesktopConfig.Remove(text, out conflict, dropServers),
                     client == LinkProtocol.Codex ? (Action<string, string>)CodexConfig.Check : ClaudeDesktopConfig.Check,
                     Path.Combine(DataDir(plugin), "backups"),
                     label);
@@ -207,14 +226,32 @@ namespace SwAgent.Plugins
             return conflict ? $"{label}'s MCP server \"{ServerName}\" in {loc.ConfigPath} wasn't added by Unify3D, so it was left as it is." : null;
         }
 
-        private void Written(string plugin, string configPath)
+        /// <summary>link-written.json's flag: Unify3D added Claude Desktop's mcpServers object along with its entry.</summary>
+        internal const string CreatedServersKey = "createdMcpServers";
+
+        private bool ReadFlag(string plugin, string key)
+        {
+            try
+            {
+                var f = Path.Combine(DataDir(plugin), "link-written.json");
+                return File.Exists(f) && (bool?)JObject.Parse(File.ReadAllText(f))[key] == true;
+            }
+            catch (Exception ex) when (ex is IOException || ex is JsonException || ex is UnauthorizedAccessException || ex is InvalidCastException || ex is ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        private void Written(string plugin, string configPath, bool createdServers = false)
         {
             try
             {
                 var dir = Directory.CreateDirectory(DataDir(plugin)).FullName;
                 var file = Path.Combine(dir, "link-written.json");
                 var tmp = file + ".tmp";
-                File.WriteAllText(tmp, new JObject { ["writtenAt"] = DateTime.UtcNow.ToString("o"), ["configPath"] = configPath }.ToString(Formatting.Indented), new UTF8Encoding(false));
+                var o = new JObject { ["writtenAt"] = DateTime.UtcNow.ToString("o"), ["configPath"] = configPath };
+                if (createdServers) o[CreatedServersKey] = true;
+                File.WriteAllText(tmp, o.ToString(Formatting.Indented), new UTF8Encoding(false));
                 AtomicFile.Replace(tmp, file);
             }
             catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
@@ -272,13 +309,15 @@ namespace SwAgent.Plugins
             string note;
             if (entry == LinkEntryState.Conflict) note = client == LinkProtocol.Codex ? CodexConfig.ConflictText : ClaudeDesktopConfig.ConflictText;
             else if (entry == LinkEntryState.Unreadable) note = UnreadableText(client, loc.ConfigPath);
+            else if (!enabled && entry == LinkEntryState.Present)
+                note = $"Off, but the \"{ServerName}\" entry is still in {where} ({loc.ConfigPath}). Remove it there by hand, or turn the plugin on and off again.";
             else if (!enabled) note = $"Off: {label} can't reach Unify3D. Turn it on to add the \"{ServerName}\" entry to {where}.";
             else if (entry == LinkEntryState.Missing)
                 note = $"The \"{ServerName}\" entry isn't in {where} any more (it was removed or the file was replaced). Press Repair to add it again.";
             else if (seen == null || written != null && seen < written)
                 note = client == LinkProtocol.Codex
-                    ? "Added to Codex. Restart Codex (or start a new CLI session) to load it."
-                    : "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it.";
+                    ? "Added to Codex. Restart Codex (or start a new CLI session) to load it. It shows Connected once Codex first uses it."
+                    : "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it. It shows Connected once Claude Desktop first uses it.";
             else note = $"Connected: {label} last used it {Ago(seen.Value, now ?? DateTime.UtcNow)}.";
             o["note"] = note;
             return o;

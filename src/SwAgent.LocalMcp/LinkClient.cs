@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.IO.Pipes;
+using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -25,8 +26,9 @@ namespace SwAgent.LocalMcp
     }
 
     /// <summary>
-    /// One connection per MCP tool call (docs/plugins/local-mcp.md 5.3): connect to the add-in's pipe (2 s), send hello, check
-    /// the answer (5 s), send one request and wait for its answer. Newline-delimited UTF-8 JSON both ways.
+    /// One connection per MCP tool call (docs/plugins/local-mcp.md 5.3): connect to the add-in's pipe (2 s), check that the
+    /// current Windows user owns it, send hello, check the answer (5 s), send one request and wait for its answer.
+    /// Newline-delimited UTF-8 JSON both ways.
     /// </summary>
     internal sealed class LinkClient
     {
@@ -72,6 +74,9 @@ namespace SwAgent.LocalMcp
                     return LinkReply.Fail(ToolCatalog.NotRunning);
                 }
                 cancel.ThrowIfCancellationRequested();
+                // The pipe name can be guessed, and another Windows user could create it first. The add-in's pipe is owned
+                // by the current user (LinkServer.Security), which nobody else can fake: send nothing to any other.
+                if (!OwnedByCurrentUser(pipe)) return LinkReply.Fail(ToolCatalog.NotOurPipe);
 
                 var reader = new StreamReader(pipe, Utf8, false, 4096, leaveOpen: true);
                 var writer = new StreamWriter(pipe, Utf8, 4096, leaveOpen: true) { NewLine = "\n", AutoFlush = true };
@@ -110,6 +115,19 @@ namespace SwAgent.LocalMcp
                 {
                     throw new OperationCanceledException(cancel);
                 }
+            }
+        }
+
+        private static bool OwnedByCurrentUser(NamedPipeClientStream pipe)
+        {
+            try
+            {
+                var owner = pipe.GetAccessControl().GetOwner(typeof(SecurityIdentifier)) as SecurityIdentifier;
+                return owner != null && owner == WindowsIdentity.GetCurrent().User;
+            }
+            catch (Exception)
+            {
+                return false; // can't tell: refuse
             }
         }
 

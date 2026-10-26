@@ -76,10 +76,16 @@ namespace SwAgent.LocalMcp
                 _send(Error(JValue.CreateNull(), -32600, "Invalid Request: send one JSON-RPC object per line."));
                 return Task.CompletedTask;
             }
-            var method = (string)msg["method"];
             var id = msg["id"];
-            if (method == null) return Task.CompletedTask; // a response: this server sends no requests
-            if (id == null || id.Type == JTokenType.Null)
+            var hasId = id != null && id.Type != JTokenType.Null;
+            if (msg["method"] == null) return Task.CompletedTask; // a response: this server sends no requests
+            if (msg["method"].Type != JTokenType.String)
+            {
+                if (hasId) _send(Error(id, -32600, "Invalid Request: \"method\" must be a string."));
+                return Task.CompletedTask;
+            }
+            var method = (string)msg["method"];
+            if (!hasId)
             {
                 Notification(method, msg["params"] as JObject);
                 return Task.CompletedTask;
@@ -194,7 +200,7 @@ namespace SwAgent.LocalMcp
                     result = new JObject { ["tools"] = ToolCatalog.List() };
                     break;
                 case "tools/call":
-                    result = await CallToolAsync((string)p["name"], p["arguments"] as JObject ?? new JObject(), cancel).ConfigureAwait(false);
+                    result = await CallToolAsync(p["name"]?.Type == JTokenType.String ? (string)p["name"] : null, p["arguments"] as JObject ?? new JObject(), cancel).ConfigureAwait(false);
                     break;
                 default:
                     throw new McpError(-32601, $"Method not found: {method}");
@@ -213,8 +219,10 @@ namespace SwAgent.LocalMcp
         private async Task<JObject> CallToolAsync(string name, JObject args, CancellationToken cancel)
         {
             if (name == null) throw new McpError(-32602, "tools/call needs a tool name.");
+            if (!ToolCatalog.Exists(name)) throw new McpError(-32602, $"Unknown tool \"{name}\".");
+            // Bad arguments to a known tool are a tool error, so the model can correct the call.
             var problem = ToolCatalog.CheckArguments(name, args);
-            if (problem != null) throw new McpError(-32602, problem);
+            if (problem != null) return Text(problem, true);
             var watch = Stopwatch.StartNew();
             _log($"tool {name}");
             try

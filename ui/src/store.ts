@@ -739,7 +739,14 @@ export const useStore = create<State>((set, get, api) => {
   };
 
   const updateRun = (threadId: string, patch: Partial<RunState>) => {
+    const before = get().runs[threadId];
     set((s) => (s.runs[threadId] ? { runs: { ...s.runs, [threadId]: { ...s.runs[threadId], ...patch } } } : {}));
+    if (before && ("approval" in patch || "question" in patch)) {
+      const after = get().runs[threadId];
+      const was = !!(before.approval || before.question);
+      const now = !!(after?.approval || after?.question);
+      if (was !== now) reportLinkWaiting(threadId, now);
+    }
   };
 
   /**
@@ -1262,6 +1269,15 @@ export const useStore = create<State>((set, get, api) => {
     if (tickets.length) rpc("localLink.state", { tickets, state }).catch(() => {});
   };
 
+  /**
+   * An approval or question card opened (or closed) in a chat whose turn holds tickets: Claude Desktop / Codex hear that the
+   * answer waits for the user here (approval), not just that the agent is still working.
+   */
+  const reportLinkWaiting = (threadId: string, waiting: boolean) => {
+    const held = linkTickets.get(threadId);
+    if (held?.tickets.length) rpc("localLink.state", { tickets: held.tickets, state: waiting ? "approval" : "working" }).catch(() => {});
+  };
+
   /** Wakes just added to a chat's last message: their tickets wait for that chat's answer. */
   const holdLinkTickets = (docKey: string, threadId: string, list: Wake[], state: "working" | "paused") => {
     const tickets = ticketsOf(list);
@@ -1321,7 +1337,13 @@ export const useStore = create<State>((set, get, api) => {
     await persist(WORKSPACE);
     ack();
     holdLinkTickets(WORKSPACE, threadId, list, "paused"); // answered at the end of the user's next turn here
-    set({ notice: `${list[0].plugin || "A plugin"} added news to the chat, but automatic turns are paused (${get().settings.pluginWakesPerHour ?? 20} per hour): the agent sees it with your next message.` });
+    const perHour = get().settings.pluginWakesPerHour ?? 20;
+    set({
+      notice:
+        list[0].ticket && list[0].from
+          ? `${list[0].from} sent a message, but automatic turns are paused (${perHour} per hour): the agent answers it with your next message.`
+          : `${list[0].plugin || "A plugin"} added news to the chat, but automatic turns are paused (${perHour} per hour): the agent sees it with your next message.`,
+    });
   };
 
 
