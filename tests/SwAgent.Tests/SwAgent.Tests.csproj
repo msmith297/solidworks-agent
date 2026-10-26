@@ -17,6 +17,8 @@
     <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
     <!-- Test only: validates mold records against tools/builtin/design-compression-mold/data/mold.schema.json (draft 2020-12). -->
     <PackageReference Include="JsonSchema.Net" Version="7.3.4" />
+    <!-- Test only: a full TOML parse of Codex config.toml edits (the add-in edits the text with its own TomlScan). -->
+    <PackageReference Include="Tomlyn" Version="0.19.0" />
   </ItemGroup>
 
   <!-- Plugin fixtures (real agent-bridge manifests, read only) next to the test dll: Plugins\Fixtures\... -->

@@ -204,6 +204,12 @@ namespace SwAgent.Plugins
     internal sealed class MarketplaceManifest
     {
         public string Name;
+
+        /// <summary>
+        /// The name to show ("Unify3D" for the built-in "unify3d"): the top-level unify3d.displayName, trimmed, at most 48
+        /// characters; else null. The id (Name) stays what installed plugin ids use.
+        /// </summary>
+        public string DisplayName;
         public string Owner;
         public string Description;
         public List<MarketplaceEntry> Plugins = new List<MarketplaceEntry>();
@@ -221,6 +227,7 @@ namespace SwAgent.Plugins
                 Name = PluginManifest.Str(j["name"]),
                 Owner = j["owner"] is JObject o ? PluginManifest.Str(o["name"]) : PluginManifest.Str(j["owner"]),
                 Description = PluginManifest.Str(j["description"]) ?? PluginManifest.Str(j["metadata"]?["description"]),
+                DisplayName = DisplayNameOf((j["unify3d"] as JObject)?["displayName"]),
             };
             if (m.Name == null || !PluginManifest.NamePattern.IsMatch(m.Name)) throw new InvalidOperationException($"The marketplace name \"{m.Name}\" must be 2-48 characters: lowercase letters, digits and dashes.");
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -258,6 +265,12 @@ namespace SwAgent.Plugins
                 m.Plugins.Add(e);
             }
             return m;
+        }
+
+        private static string DisplayNameOf(JToken t)
+        {
+            var s = t?.Type == JTokenType.String ? ((string)t).Trim() : null;
+            return string.IsNullOrEmpty(s) || s.Length > 48 ? null : s;
         }
     }
 

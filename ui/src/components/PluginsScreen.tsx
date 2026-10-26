@@ -69,6 +69,9 @@ export function PluginsScreen() {
 
 const label = (p: PluginInfo) => p.displayName || p.name;
 
+/** The marketplace's name to show ("Unify3D", "Your plugins"); the id stays the value the RPCs take. */
+const marketLabel = (p: PluginInfo) => (p.marketplace === "local" ? "Your plugins" : p.marketplaceDisplayName || p.marketplace);
+
 /** Plugins that come along with another one (its marketplace entry's installWith) are shown under it in Discover. */
 function companions(plugins: PluginInfo[]): Set<string> {
   return new Set(plugins.flatMap((p) => p.installWith ?? []));
@@ -76,7 +79,12 @@ function companions(plugins: PluginInfo[]): Set<string> {
 
 /** The programs a plugin will run, for the user to approve; true when they do. */
 async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Promise<boolean> {
-  const by = p.author?.name ? `${p.author.name} (marketplace "${p.marketplace}")` : `the "${p.marketplace}" marketplace`;
+  const by = p.author?.name ? `${p.author.name} (marketplace "${marketLabel(p)}")` : `the "${marketLabel(p)}" marketplace`;
+  // Claude MCP / Codex MCP: the change to the other app's config comes first; a plugin with only that runs no code of its own.
+  const links = req.links ?? [];
+  const linkOnly = links.length > 0 && !req.hooks.length && !req.mcp.length && !(req.tools ?? []).length;
+  const app = p.link?.label ?? "the other app";
+  const provider = p.link?.client === "codex" ? "Codex's AI provider (OpenAI)" : `${app}'s AI provider`;
   const list = (title: string, note: string, items: string[]) =>
     items.length > 0 && (
       <div>
@@ -96,13 +104,23 @@ async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Pro
     icon: <IconShield size={15} />,
     message: (
       <div className="flex flex-col gap-2">
-        <p>
-          <b className="text-text">{label(p)}</b> runs code on this PC with your Windows account's rights. Only continue if you trust {by}.
-        </p>
+        {linkOnly ? (
+          <p>
+            <b className="text-text">{label(p)}</b> lets {app} on this PC send messages to the Unify3D agent and read your open model. Changes it asks for still need your OK in the Unify3D panel.
+            Messages and answers go to {provider}.
+          </p>
+        ) : (
+          <p>
+            <b className="text-text">{label(p)}</b> runs code on this PC with your Windows account's rights. Only continue if you trust {by}.
+          </p>
+        )}
+        {list("Changes to another app", "Unify3D edits this file now and removes the entry when you turn the plugin off or uninstall it. Nothing else in the file changes.", links)}
         {list("Hooks", "Programs that run outside SolidWorks when something happens: you send a message, the agent uses a tool or finishes.", req.hooks)}
         {list("MCP servers", "Programs that run outside SolidWorks while the plugin is on and give the agent extra tools.", req.mcp)}
         {list("Tools with code", "C# that runs inside SolidWorks, with full access to your models, when the tool runs or shows a preview.", req.tools ?? [])}
-        <p className="text-[11px] text-text-3">If an update changes these, Unify3D asks again before they run.</p>
+        <p className="text-[11px] text-text-3">
+          {linkOnly ? "If the settings file or the program changes, Unify3D asks again." : "If an update changes these, Unify3D asks again before they run."}
+        </p>
       </div>
     ),
     actions: [{ value: "ok", label: verb, primary: true }],
@@ -189,6 +207,19 @@ function Notes({ p }: { p: PluginInfo }) {
   );
 }
 
+/** Claude MCP / Codex MCP: the state of the "unify3d" entry in the other app's config, one line. */
+function LinkNote({ p }: { p: PluginInfo }) {
+  const l = p.link;
+  if (!l?.note) return null;
+  const bad = !l.found || l.entry === "conflict" || l.entry === "unreadable" || (p.enabled && l.entry === "missing");
+  return (
+    <div className={`mt-1 flex items-start gap-1 text-[11px] ${bad ? "text-err" : "text-text-3"}`}>
+      <span className="mt-px shrink-0">{bad ? <IconWarning size={11} /> : <IconInfo size={11} />}</span>
+      <span className="min-w-0 break-words">{l.note}</span>
+    </div>
+  );
+}
+
 function Title({ p, onOpen }: { p: PluginInfo; onOpen?: (id: string) => void }) {
   return (
     <div className="min-w-0">
@@ -197,7 +228,7 @@ function Title({ p, onOpen }: { p: PluginInfo; onOpen?: (id: string) => void }) 
       </button>
       <div className="truncate text-[10.5px] text-text-3">
         {p.name}
-        {p.version ? ` · ${p.version}` : ""} · {p.marketplace === "local" ? "your plugin" : p.marketplace}
+        {p.version ? ` · ${p.version}` : ""} · {p.marketplace === "local" ? "your plugin" : marketLabel(p)}
         {p.author?.name ? ` · ${p.author.name}` : ""}
       </div>
     </div>
@@ -214,7 +245,8 @@ function Discover({ onOpen }: { onOpen: (id: string) => void }) {
   const { busy, run } = useBusy();
   const hidden = companions(plugins);
   const tags = useMemo(() => [...new Set(plugins.flatMap((p) => [p.category, ...(p.keywords ?? [])]).filter((t): t is string => !!t))].sort(), [plugins]);
-  const markets = useMemo(() => [...new Set(plugins.map((p) => p.marketplace))], [plugins]);
+  // id -> the name to show; the id stays the filter value.
+  const markets = useMemo(() => [...new Map(plugins.map((p) => [p.marketplace, marketLabel(p)])).entries()], [plugins]);
   const q = query.trim().toLowerCase();
   const list = plugins.filter(
     (p) =>
@@ -241,9 +273,9 @@ function Discover({ onOpen }: { onOpen: (id: string) => void }) {
         </select>
         <select value={market} onChange={(e) => setMarket(e.target.value)} className="sw-input h-[24px] min-w-0 max-w-full px-1 text-[11.5px]" title="Filter by marketplace">
           <option value="">All marketplaces</option>
-          {markets.map((m) => (
-            <option key={m} value={m}>
-              {m}
+          {markets.map(([id, name]) => (
+            <option key={id} value={id}>
+              {name}
             </option>
           ))}
         </select>
@@ -398,11 +430,16 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
         </div>
         {busy[p.id] && <Spinner size={12} />}
       </div>
+      <LinkNote p={p} />
       {componentsText(p.components) && <div className="mt-0.5 text-[10.5px] text-text-3">{componentsText(p.components)}</div>}
       {!p.trusted && (
         <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px] text-text">
           <IconWarning size={12} />
-          <span className="min-w-0 flex-1">Its hooks or MCP servers changed since you approved them: they don't run until you approve them again.</span>
+          <span className="min-w-0 flex-1">
+            {p.link
+              ? `The ${p.link.label} settings file or the program it runs changed since you approved it. Approve it again before Unify3D changes that file.`
+              : "Its hooks or MCP servers changed since you approved them: they don't run until you approve them again."}
+          </span>
           <button type="button" className="sw-btn !h-5 !px-1.5 text-[11px]" onClick={() => run(p.id, () => pluginAction(p, "enable"))}>
             Review…
           </button>
@@ -433,6 +470,16 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
             Settings <Caret open={settingsOpen} className="text-text-3" />
           </button>
         )}
+        {p.link && p.enabled && p.link.found && p.link.entry === "missing" && (
+          <button type="button" className="sw-btn sw-btn-primary !h-[22px]" title={`Add the "unify3d" entry to ${p.link.label}'s settings again`} disabled={busy[p.id]} onClick={() => run(p.id, () => rpc("plugins.repairLink", { id: p.id }))}>
+            Repair
+          </button>
+        )}
+        {p.link && (
+          <button type="button" className="sw-btn !h-[22px]" title={`Read ${p.link.label}'s settings again`} disabled={busy[p.id]} onClick={() => run(p.id, () => useStore.getState().loadPlugins())}>
+            Check again
+          </button>
+        )}
         <button type="button" className="sw-btn !h-[22px]" onClick={() => onOpen(p.id)}>
           Details
         </button>
@@ -446,8 +493,10 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
                 (ok) => {
                   if (ok)
                     void run(p.id, async () => {
-                      await rpc("plugins.uninstall", { id: p.id });
-                      for (const c of companionsOf(p)) await rpc("plugins.uninstall", { id: c.id });
+                      const companions = companionsOf(p);
+                      const res = await rpc<{ note?: string | null } | null>("plugins.uninstall", { id: p.id });
+                      for (const c of companions) await rpc("plugins.uninstall", { id: c.id });
+                      if (res?.note) useStore.setState({ notice: res.note });
                     });
                 },
               )
@@ -575,8 +624,9 @@ function Marketplaces() {
       {markets.map((m) => (
         <div key={m.name} className="sw-rollout flex min-w-0 items-start gap-1.5 px-2 py-1.5">
           <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-semibold text-text">{m.name}</div>
+            <div className="truncate text-[12px] font-semibold text-text">{m.displayName || m.name}</div>
             <div className="truncate text-[10.5px] text-text-3" title={m.source}>
+              {m.displayName && m.displayName !== m.name ? `${m.name} · ` : ""}
               {m.source}
             </div>
             <div className="text-[10.5px] text-text-3">
@@ -718,6 +768,12 @@ function PluginDetail({ p, onBack }: { p: PluginInfo; onBack: () => void }) {
         {componentsText(p.components) && <div className="mt-0.5 text-[10.5px] text-text-3">Contains {componentsText(p.components)}</div>}
         <Tags p={p} />
         <Notes p={p} />
+        {p.installed && <LinkNote p={p} />}
+        {p.link?.configPath && (
+          <div className="mt-1 text-[11px] text-text-3">
+            {p.link.label} settings file: <span className="selectable break-all font-mono text-[10.5px] text-text-2">{p.link.configPath}</span>
+          </div>
+        )}
         <McpRows servers={servers} />
         <div className="mt-1 flex flex-wrap gap-x-3 text-[11px]">
           {link(p.homepage, "Homepage")}

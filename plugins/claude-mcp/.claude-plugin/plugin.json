@@ -1,0 +1,30 @@
+{
+  "name": "claude-mcp",
+  "version": "1.0.0",
+  "displayName": "Claude MCP",
+  "description": "Lets Claude Desktop on this PC talk to the Unify3D agent in SolidWorks: send it a message and get its reply, and read the open model. Changes it asks for still need your OK in the Unify3D panel. Adds an MCP server named \"unify3d\" to Claude Desktop's settings (claude_desktop_config.json). Works on this PC only; no agent-bridge needed.",
+  "author": {
+    "name": "Unify3D",
+    "url": "https://github.com/msmith297/unify3d-agent"
+  },
+  "homepage": "https://github.com/msmith297/unify3d-agent/blob/main/docs/plugins/local-mcp.md",
+  "repository": "https://github.com/msmith297/unify3d-agent",
+  "keywords": [
+    "mcp",
+    "local",
+    "claude-desktop"
+  ],
+  "userConfig": {
+    "allowModelRead": {
+      "type": "boolean",
+      "title": "Let Claude Desktop read the open model",
+      "description": "The unify3d_* tools: model summary, feature tree, selection, open documents.",
+      "default": true
+    }
+  },
+  "unify3d": {
+    "category": "Connections",
+    "icon": "./icon.png",
+    "minAddInVersion": "0.2.0"
+  }
+}

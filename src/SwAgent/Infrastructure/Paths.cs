@@ -41,7 +41,7 @@ namespace SwAgent.Infrastructure
         /// Tests set SWAGENT_DATA_DIR (tests/SwAgent.Tests/test.runsettings) so they never read or delete the user's real
         /// crash record, logs or settings. A relative value goes under the temp folder.
         /// </summary>
-        private static string TestRoot
+        internal static string TestRoot
         {
             get
             {
@@ -73,6 +73,13 @@ namespace SwAgent.Infrastructure
 
         /// <summary>%LOCALAPPDATA%\SwAgent\plugins\transcripts: the JSONL transcripts hooks get as transcript_path.</summary>
         public static string PluginTranscriptDir => Ensure(Path.Combine(LocalDir, "plugins", "transcripts"));
+
+        /// <summary>
+        /// %LOCALAPPDATA%\SwAgent\local-mcp: the copy of Unify3D.LocalMcp.exe that Claude Desktop and Codex run (Claude MCP /
+        /// Codex MCP plugins). Outside the install folder, so a running copy never blocks an add-in update; the path never
+        /// changes, so the client configs never need rewriting. Filled by LocalMcpDeployer.
+        /// </summary>
+        public static string LocalMcpDir => Path.Combine(LocalDir, "local-mcp");
 
         /// <summary>Where plugin_package writes: Documents\Unify3D Plugins (a shareable marketplace folder).</summary>
         public static string PackagesDir => Ensure(TestRoot != null ? Path.Combine(TestRoot, "Packages") : Path.Combine(
