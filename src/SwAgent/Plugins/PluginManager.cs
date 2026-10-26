@@ -992,6 +992,32 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
+        /// The newer version a plugin's source offers: one waiting for approval, a new listed version, or a new commit of a
+        /// git source (its short sha, like the version folders). Null when it is up to date, local, or can't be checked
+        /// (offline, marketplace gone). Reads only; never stages or installs anything.
+        /// </summary>
+        public string AvailableUpdate(string id, CancellationToken cancel = default(CancellationToken))
+        {
+            var p = Find(id);
+            if (p == null || p.Local) return null;
+            if (p.Record.PendingUpdate != null) return p.Record.PendingUpdate;
+            try
+            {
+                var entry = Entry(p.Record.Marketplace, p.Name).Entry;
+                if (entry.Version != null && entry.Version != p.Record.Version) return entry.Version;
+                var remote = entry.Source.Kind == PluginSource.SourceKind.GitHub || entry.Source.Kind == PluginSource.SourceKind.Git || entry.Source.Kind == PluginSource.SourceKind.GitSubdir;
+                if (!remote || entry.Version != null || p.Record.Sha == null) return null;
+                var sha = Fetcher.RemoteSha(entry.Source, cancel);
+                return sha != null && sha != p.Record.Sha ? sha.Substring(0, Math.Min(12, sha.Length)) : null;
+            }
+            catch (Exception ex)
+            {
+                Log.Info($"Checking {id} for updates failed: {ex.Message}");
+                return null;
+            }
+        }
+
+        /// <summary>
         /// Update one plugin: a new listed version or a new commit of its source is fetched; the old version folder goes. An
         /// update that changes the hooks or MCP servers asks again (NeedsTrust); autoUpdate leaves those for the user.
         /// </summary>

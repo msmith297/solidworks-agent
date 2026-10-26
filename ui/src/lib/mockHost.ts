@@ -326,6 +326,9 @@ export async function mockRpc(method: string, params: any): Promise<unknown> {
       pluginsChanged();
       return { note: p.updateAvailable ? `Updated to ${p.updateAvailable}.` : "Already up to date." };
     }
+    case "plugins.checkUpdates":
+      await new Promise((r) => setTimeout(r, 400));
+      return Object.fromEntries(mockPlugins().filter((p) => p.installed && !p.local).map((p) => [p.id, p.updateAvailable ?? null]));
     case "plugins.uninstall":
       setPluginState(params.id, { installed: false, enabled: false, trusted: false });
       pluginsChanged();

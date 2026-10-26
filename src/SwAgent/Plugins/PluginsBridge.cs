@@ -23,7 +23,8 @@ namespace SwAgent.Plugins
     /// <item>plugins.install({ id, trustHash? }), plugins.enable({ id, enabled, trustHash? }), plugins.update({ id?, trustHash? })
     ///   -> { ok, plugin?, needsTrust?: { hooks: [line], mcp: [line] }, hash?, upToDate?, warnings?, alsoInstalled? }.
     ///   needsTrust: show the trust dialog, then call again with trustHash = hash. update without id updates every enabled
-    ///   plugin: { ok, updated: [id], needsTrust: [{ id, needsTrust, hash }], errors: [text] }.</item>
+    ///   plugin: { ok, updated: [id], needsTrust: [{ id, needsTrust, hash }], errors: [text] }.
+    ///   plugins.checkUpdates() -> { id: newer version | null } (reads only; git sources ask the remote).</item>
     /// <item>plugins.uninstall({ id, deleteData? }), plugins.setConfig({ id, values: { key: value | null } }) -> plugin</item>
     /// <item>plugins.addMarketplace({ source }) -> marketplace; plugins.removeMarketplace({ name });
     ///   plugins.updateMarketplace({ name? }) -> marketplaces; plugins.setMarketplaceAutoUpdate({ name, autoUpdate })</item>
@@ -51,6 +52,9 @@ namespace SwAgent.Plugins
             bridge.RegisterAsync("plugins.enable", async p =>
                 (await Background(() => pm.Enable(Id(p), (bool?)p["enabled"] != false, (string)p["trustHash"]))).ToJson(pm));
             bridge.RegisterAsync("plugins.update", async p => await Background(() => Update(pm, (string)p?["id"], (string)p?["trustHash"])));
+            // { id: newer version | null } for the installed plugins that come from a source (git sources ask the remote).
+            bridge.RegisterAsync("plugins.checkUpdates", async p => await Background(() =>
+                new JObject(pm.Installed().Where(x => !x.Local).Select(x => new JProperty(x.Id, pm.AvailableUpdate(x.Id))))));
             bridge.RegisterAsync("plugins.uninstall", async p =>
             {
                 await Background(() =>

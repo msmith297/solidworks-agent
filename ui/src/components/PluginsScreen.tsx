@@ -331,6 +331,19 @@ function Installed({ onOpen }: { onOpen: (id: string) => void }) {
   const mcpOn = useStore((s) => s.settings.pluginMcp !== false);
   const hooksOn = useStore((s) => s.settings.pluginHooks !== false);
   const user = servers.filter((m) => !m.plugin);
+  // Newer versions, asked when the list opens and after any version changes; null while asking.
+  const [updates, setUpdates] = useState<Record<string, string | null> | null>(null);
+  const versions = plugins.map((p) => `${p.id}@${p.version}`).join(",");
+  useEffect(() => {
+    let live = true;
+    setUpdates(null);
+    rpc<Record<string, string | null>>("plugins.checkUpdates")
+      .then((u) => live && setUpdates(u ?? {}))
+      .catch(() => live && setUpdates({}));
+    return () => {
+      live = false;
+    };
+  }, [versions]);
   return (
     <div className="flex flex-col gap-1.5">
       {(!mcpOn || !hooksOn) && (
@@ -345,7 +358,7 @@ function Installed({ onOpen }: { onOpen: (id: string) => void }) {
       )}
       {plugins.length === 0 && <p className="px-1 py-2 text-[11.5px] text-text-3">No plugins installed yet. Discover lists what you can add - Agent Bridge connects this agent to other AI agents.</p>}
       {plugins.map((p) => (
-        <InstalledRow key={p.id} p={p} servers={servers.filter((m) => m.plugin === p.name)} onOpen={onOpen} />
+        <InstalledRow key={p.id} p={p} servers={servers.filter((m) => m.plugin === p.name)} onOpen={onOpen} update={updates === null ? undefined : p.id in updates ? updates[p.id] : "unknown"} />
       ))}
       {user.length > 0 && (
         <section className="sw-rollout min-w-0 px-2 py-1.5">
@@ -358,7 +371,12 @@ function Installed({ onOpen }: { onOpen: (id: string) => void }) {
   );
 }
 
-function InstalledRow({ p, servers, onOpen }: { p: PluginInfo; servers: McpServerStatus[]; onOpen: (id: string) => void }) {
+/**
+ * update: the newer version the source offers; null when it is up to date; undefined while checking; "unknown" when it
+ * couldn't be checked (Update stays available then).
+ */
+function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: McpServerStatus[]; onOpen: (id: string) => void; update?: string | null }) {
+  const available = p.updateAvailable ?? (update && update !== "unknown" ? update : null);
   const { busy, run } = useBusy();
   const [settingsOpen, setSettingsOpen] = useState(false);
   const hasConfig = Object.keys(p.userConfig ?? {}).length > 0;
@@ -393,14 +411,20 @@ function InstalledRow({ p, servers, onOpen }: { p: PluginInfo; servers: McpServe
       <McpRows servers={servers} />
       <Notes p={p} />
       <div className="mt-1 flex flex-wrap gap-1">
-        {p.updateAvailable ? (
+        {available ? (
           <button type="button" className="sw-btn sw-btn-primary !h-[22px]" disabled={busy[p.id]} onClick={() => run(p.id, () => pluginAction(p, "update"))}>
-            <IconUpdate size={12} /> Update to {p.updateAvailable}
+            <IconUpdate size={12} /> Update to {available}
           </button>
         ) : (
           !p.local && (
-            <button type="button" className="sw-btn !h-[22px]" title="Fetch the newest version from its source" disabled={busy[p.id]} onClick={() => run(p.id, () => pluginAction(p, "update"))}>
-              <IconUpdate size={12} /> Update
+            <button
+              type="button"
+              className="sw-btn !h-[22px]"
+              title={update === undefined ? "Checking for a newer version" : update === null ? "This is the newest version" : "Couldn't check for updates: fetch the newest version from its source"}
+              disabled={busy[p.id] || update !== "unknown"}
+              onClick={() => run(p.id, () => pluginAction(p, "update"))}
+            >
+              <IconUpdate size={12} /> {update === undefined ? "Checking..." : update === null ? "Up to date" : "Update"}
             </button>
           )
         )}
