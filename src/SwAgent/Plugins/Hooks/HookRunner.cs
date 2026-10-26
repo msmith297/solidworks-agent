@@ -264,14 +264,19 @@ namespace SwAgent.Plugins.Hooks
         }
 
         /// <summary>Kills the running hooks of plugins that may no longer run (disabled, or their trust changed).</summary>
-        public void KillWhere(Func<PluginRuntime, bool> doomed)
+        /// <returns>The ids of the plugins that lost a background hook (e.g. a listener), so a plugin that still runs can start it again.</returns>
+        public HashSet<string> KillWhere(Func<PluginRuntime, bool> doomed)
         {
             List<PluginProcess> kill;
+            var background = new HashSet<string>(StringComparer.Ordinal);
             lock (_sync)
             {
-                kill = _live.Where(kv => doomed(kv.Value.plugin)).Select(kv => kv.Key).ToList();
+                var hit = _live.Where(kv => doomed(kv.Value.plugin)).ToList();
+                kill = hit.Select(kv => kv.Key).ToList();
+                foreach (var kv in hit.Where(kv => kv.Value.background)) background.Add(kv.Value.plugin.Id);
             }
             foreach (var p in kill) p.Kill();
+            return background;
         }
 
         /// <summary>SessionEnd: no new hooks, and every running one is killed with its tree.</summary>

@@ -179,12 +179,16 @@ namespace SwAgent.Plugins.Hooks
                 }
                 // Hooks still running (listeners) for a plugin that may no longer run, or with hooks switched off, stop now.
                 var keep = new HashSet<string>(plugins.Select(p => p.Id + "|" + p.TrustHash + "|" + p.Root));
-                Hooks.KillWhere(p => !hooksOn || !keep.Contains(p.Id + "|" + p.TrustHash + "|" + p.Root));
+                var stopped = Hooks.KillWhere(p => !hooksOn || !keep.Contains(p.Id + "|" + p.TrustHash + "|" + p.Root));
                 if (started)
                 {
                     Mcp.Sync(mcpOn ? plugins : new PluginRuntime[0], mcpOn ? ReadUserServers() : null);
                     _firstSync.TrySetResult(true);
                 }
+                // A plugin that was updated (new folder) or re-approved lost its background hooks with the old version,
+                // e.g. agent-bridge's listener: without it the agent shows as listening but never hears a message.
+                var rearm = hooksOn ? plugins.Where(p => stopped.Contains(p.Id)).ToList() : new List<PluginRuntime>();
+                if (rearm.Count > 0) _ = Task.Run(() => RearmAsync(rearm));
                 if (!ReferenceEquals(before, plugins)) _emit("session.changed", null);
             }
             finally
@@ -283,6 +287,30 @@ namespace SwAgent.Plugins.Hooks
             catch (Exception ex)
             {
                 Log.Warn("SessionStart hooks failed: " + ex.Message);
+            }
+        }
+
+        /// <summary>
+        /// Starts a changed plugin's session hooks again (SessionStart, source "resume") once its MCP servers answer, so
+        /// background hooks it had running - listeners - run from the new version. Only after the session has started.
+        /// </summary>
+        private async Task RearmAsync(IReadOnlyList<PluginRuntime> plugins)
+        {
+            try
+            {
+                lock (_sync)
+                {
+                    if (!_sessionStartQueued || _shutDown) return;
+                }
+                await Mcp.WhenStarted(TimeSpan.FromSeconds(45)).ConfigureAwait(false);
+                var specs = Hooks.Select(plugins, HookEvents.SessionStart, "resume");
+                if (specs.Count == 0) return;
+                Log.Info($"Starting the session hooks of {string.Join(", ", plugins.Select(p => p.Name))} again: the plugin changed while they ran");
+                await Hooks.RunAsync(specs, HookEvents.SessionStart, new JObject { ["source"] = "resume" }).ConfigureAwait(false);
+            }
+            catch (Exception ex)
+            {
+                Log.Warn("Restarting session hooks failed: " + ex.Message);
             }
         }
 
