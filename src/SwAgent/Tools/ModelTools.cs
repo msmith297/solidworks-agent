@@ -174,18 +174,108 @@ namespace SwAgent.Tools
             return ToolResult.Ok(items.Count == 0 ? "Nothing is selected." : string.Join("\n", items));
         }
 
-        [AgentTool("list_open_documents", "All documents open in SolidWorks with type, path, visibility and unsaved-changes state.")]
+        [AgentTool("list_open_documents", "All documents open in SolidWorks with type, path, visibility and unsaved-changes state, and which ones you opened (with when you last used them).")]
         public ToolResult ListOpenDocuments(ToolContext ctx, NoInput input)
         {
             var sb = new StringBuilder();
             var docs = ctx.Sw.GetDocuments() as object[] ?? new object[0];
             var active = ctx.Sw.ActiveDoc as IModelDoc2;
+            var now = DocTracker.Now();
             foreach (var d in docs.OfType<IModelDoc2>())
             {
                 var t = ((swDocumentTypes_e)d.GetType()).ToString().Replace("swDoc", "");
-                sb.AppendLine($"{(ReferenceEquals(d, active) ? "* " : "  ")}{d.GetTitle()} [{t}] {(d.Visible ? "" : "(hidden/component) ")}{(d.GetSaveFlag() ? "(unsaved changes) " : "")}{d.GetPathName()}");
+                var mine = d.Visible ? DocTracker.Get(d.GetTitle()) : null;
+                var who = mine == null ? "" : $"(opened by you, last used {Math.Max(0, (int)(now - mine.LastUsed).TotalMinutes)} min ago) ";
+                sb.AppendLine($"{(ReferenceEquals(d, active) ? "* " : "  ")}{d.GetTitle()} [{t}] {(d.Visible ? "" : "(hidden/component) ")}{(d.GetSaveFlag() ? "(unsaved changes) " : "")}{who}{d.GetPathName()}");
             }
             return ToolResult.Ok(sb.Length == 0 ? "No documents are open." : sb.ToString().TrimEnd());
+        }
+
+        public sealed class CloseDocumentsInput
+        {
+            [ToolParam("Titles (as list_open_documents shows them) or full paths of the document windows to close.")]
+            public string[] Documents { get; set; }
+
+            [ToolParam("Also close every document you opened that you haven't worked in for idle_minutes, except the active one.")]
+            public bool? Idle { get; set; }
+
+            [ToolParam("Minutes without use that count as idle (default 10).")]
+            public int? IdleMinutes { get; set; }
+
+            [ToolParam("Save changes before closing (default true). false discards them: only when the user asked for that.")]
+            public bool? Save { get; set; }
+
+            [ToolParam("true only when the user asked to close documents they opened themselves; otherwise those are left open.")]
+            public bool? UserAsked { get; set; }
+        }
+
+        [AgentTool("close_documents", "Save and close document windows you no longer need, to keep SolidWorks light on long jobs and big assemblies: parts you finished, " +
+            "references you looked at. Closing a part's window doesn't remove it from an open assembly. Never closes documents the user opened unless they asked " +
+            "(user_asked), never closes a never-saved new document (save it with a file name first), and keeps anything whose save failed open.")]
+        public ToolResult CloseDocuments(ToolContext ctx, CloseDocumentsInput input)
+        {
+            var sw = ctx.Sw ?? throw new ToolException("SolidWorks isn't available.");
+            var open = (sw.GetDocuments() as object[] ?? new object[0]).OfType<IModelDoc2>().Where(d => d.Visible).ToList();
+            var active = sw.ActiveDoc as IModelDoc2;
+            var targets = new List<IModelDoc2>();
+            var notes = new List<string>();
+            foreach (var name in input.Documents ?? new string[0])
+            {
+                var d = open.FirstOrDefault(x => string.Equals(x.GetTitle(), name, StringComparison.OrdinalIgnoreCase) ||
+                                                 string.Equals(x.GetPathName(), name, StringComparison.OrdinalIgnoreCase));
+                if (d == null) notes.Add($"{name}: not open.");
+                else if (!targets.Contains(d)) targets.Add(d);
+            }
+            if (input.Idle == true)
+            {
+                var idleFor = TimeSpan.FromMinutes(Math.Max(1, input.IdleMinutes ?? (int)DocTracker.IdleAfter.TotalMinutes));
+                var now = DocTracker.Now();
+                foreach (var d in open)
+                {
+                    var mine = DocTracker.Get(d.GetTitle());
+                    if (mine != null && !ReferenceEquals(d, active) && now - mine.LastUsed >= idleFor && !targets.Contains(d)) targets.Add(d);
+                }
+            }
+            if (targets.Count == 0 && notes.Count == 0) return ToolResult.Ok("Nothing to close: name the documents, or use idle: true.");
+
+            var save = input.Save != false;
+            var closed = new List<string>();
+            foreach (var d in targets)
+            {
+                var title = d.GetTitle();
+                if (DocTracker.Get(title) == null && input.UserAsked != true)
+                {
+                    notes.Add($"{title}: left open - the user opened it. Close it only if they ask (user_asked: true).");
+                    continue;
+                }
+                var dirty = d.GetSaveFlag();
+                if (dirty)
+                {
+                    if (save)
+                    {
+                        if (string.IsNullOrEmpty(d.GetPathName()))
+                        {
+                            notes.Add($"{title}: left open - it has never been saved. Save it with a file name first (SaveAs), then close it.");
+                            continue;
+                        }
+                        int errors = 0, warnings = 0;
+                        if (!d.Save3((int)swSaveAsOptions_e.swSaveAsOptions_Silent, ref errors, ref warnings) || errors != 0)
+                        {
+                            notes.Add($"{title}: left open - saving failed (error {errors}).");
+                            continue;
+                        }
+                    }
+                }
+                sw.CloseDoc(title);
+                closed.Add(title + (dirty && !save ? " (changes discarded)" : ""));
+            }
+            var remaining = DocTracker.Snapshot(sw);
+            DocTracker.Record(remaining, remaining); // forget what was closed
+            var sb = new StringBuilder();
+            sb.AppendLine(closed.Count > 0 ? $"Closed {closed.Count}: {string.Join(", ", closed)}." : "Closed nothing.");
+            foreach (var n in notes) sb.AppendLine(n);
+            sb.Append($"{remaining?.Count ?? 0} document window(s) still open.");
+            return ToolResult.Ok(sb.ToString());
         }
 
         [AgentTool("undo", "Undo the last change(s) in the chat's document. Each execute_csharp call is one undo step named 'Agent: ...'.")]

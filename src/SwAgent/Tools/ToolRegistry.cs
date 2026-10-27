@@ -133,10 +133,16 @@ namespace SwAgent.Tools
         {
             // A SolidWorks message box that would hang a model call is answered, and the agent hears what it said.
             if (Infrastructure.SwBusyGate.ModelFree(name)) return await InvokeCoreAsync(name, input, ctx);
+            var before = DocTracker.Snapshot(ctx?.Sw);
             using (var dialogs = Infrastructure.DialogWatcher.Watch(name))
             {
                 var result = await InvokeCoreAsync(name, input, ctx);
                 foreach (var note in dialogs.Notes) result.Text(note);
+                // Which windows the agent opened or used; a reminder when its idle ones pile up on a long job.
+                var after = DocTracker.Snapshot(ctx?.Sw);
+                DocTracker.Record(before, after);
+                var nudge = name == "close_documents" ? null : DocTracker.Nudge(after);
+                if (nudge != null) result.Text(nudge);
                 return result;
             }
         }

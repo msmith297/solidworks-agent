@@ -101,6 +101,10 @@ export function toolTitle(name: string, input: any, partial?: string): string {
       return field("query") ? `Search the Design Library for "${field("query")}"` : "Browse the Design Library";
     case "add_to_design_library":
       return `Add to Design Library: ${field("folder") ?? "…"}`;
+    case "close_documents": {
+      const docs = (input?.documents as string[] | undefined) ?? [];
+      return docs.length ? `Save and close ${docs.length === 1 ? docs[0] : `${docs.length} documents`}` : "Save and close idle documents";
+    }
     case "read_bridge_file":
       return `Read attachment ${String(field("path") ?? "").split(/[\\/]/).pop() || "…"}`;
     default:

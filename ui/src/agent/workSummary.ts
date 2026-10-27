@@ -34,6 +34,7 @@ const MINOR_TOOLS = new Set([
   "list_memory",
   "compare_fork",
   "read_bridge_file", // a peer's attachment, read-only
+  "close_documents", // housekeeping: saving and closing windows it no longer needs
 ]);
 
 const LOOKUPS = new Set(["search_sw_api", "get_sw_api_type", "read_user_tool", "list_user_tools", "design_library", "list_memory", "compare_fork"]);
