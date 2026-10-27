@@ -131,6 +131,18 @@ namespace SwAgent.Tools
 
         public async Task<ToolResult> InvokeAsync(string name, JObject input, ToolContext ctx)
         {
+            // A SolidWorks message box that would hang a model call is answered, and the agent hears what it said.
+            if (Infrastructure.SwBusyGate.ModelFree(name)) return await InvokeCoreAsync(name, input, ctx);
+            using (var dialogs = Infrastructure.DialogWatcher.Watch(name))
+            {
+                var result = await InvokeCoreAsync(name, input, ctx);
+                foreach (var note in dialogs.Notes) result.Text(note);
+                return result;
+            }
+        }
+
+        private async Task<ToolResult> InvokeCoreAsync(string name, JObject input, ToolContext ctx)
+        {
             if (!_tools.TryGetValue(name, out var entry)) return ToolResult.Error($"Unknown tool '{name}'.");
 
             object typedInput;
