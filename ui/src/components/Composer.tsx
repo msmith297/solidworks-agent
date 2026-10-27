@@ -31,6 +31,7 @@ import {
 } from "./SwIcons";
 import { EMPTY, MARKUP_COLORS, MARKUP_NAME, currentThread, draftKey, isAgentSelection, talkKeyName, useStore, type MarkupTool, type QueuedMessage, type Tag } from "../store";
 import { atQuery, slashQuery, slashRows, tagRows, type CommandSources } from "../lib/commands";
+import { markupNumber, mentionMarkup } from "../lib/markups";
 import { MODELS, clampEffort, effortsFor, groupModels, pickerModels } from "../lib/models";
 import { PROVIDERS, getProvider } from "../agent/providers";
 import { isHosted, rpc } from "../lib/bridge";
@@ -237,7 +238,15 @@ export function Composer() {
         {attachments.length > 0 && (
           <div className="flex flex-wrap gap-1.5 px-1.5 pt-1.5">
             {attachments.map((a) => (
-              <AttachmentChip key={a.id} a={a} onRemove={() => removeAttachment(a.id)} />
+              <AttachmentChip
+                key={a.id}
+                a={a}
+                onRemove={() => removeAttachment(a.id)}
+                onMention={(n) => {
+                  setDraft(mentionMarkup(draft, n));
+                  useStore.setState((s) => ({ focusTick: s.focusTick + 1 }));
+                }}
+              />
             ))}
           </div>
         )}
@@ -598,15 +607,22 @@ function MarkupBar() {
 }
 
 /** One attached item above the text box: an image, a PDF, a 3D model (its six views once read) or a Watch me log. */
-function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove: () => void }) {
+function AttachmentChip({ a, onRemove, onMention }: { a: Attachment; onRemove: () => void; onMention: (n: number) => void }) {
   let body: React.ReactNode;
   let title = a.name;
+  // A markup (M1, M2, ...): its name on the thumbnail, and a click puts that name in the message.
+  const markup = a.kind === "image" ? markupNumber(a.name) : null;
   switch (a.kind) {
     case "image":
+      if (markup !== null) title = `M${markup}: click to mention it in your message ("make the hole in M${markup} deeper")`;
       body = (
         <>
           <img src={`data:${a.mediaType};base64,${a.data}`} alt={a.name} className="h-12 w-auto" />
-          {a.name.startsWith(MARKUP_NAME) && <span className="absolute bottom-0 left-0 right-0 bg-black/55 px-1 text-[9.5px] text-white">{a.name}</span>}
+          {markup !== null ? (
+            <span className="absolute left-0.5 top-0.5 rounded-[2px] bg-black/65 px-1 text-[10px] font-semibold leading-[14px] text-white">M{markup}</span>
+          ) : (
+            a.name.startsWith(MARKUP_NAME) && <span className="absolute bottom-0 left-0 right-0 bg-black/55 px-1 text-[9.5px] text-white">{a.name}</span>
+          )}
         </>
       );
       break;
@@ -661,10 +677,17 @@ function AttachmentChip({ a, onRemove }: { a: Attachment; onRemove: () => void }
       break;
   }
   return (
-    <div className="group relative overflow-hidden rounded-[2px] border border-line bg-card shadow-[var(--shadow)]" title={title}>
+    <div
+      className={`group relative overflow-hidden rounded-[2px] border border-line bg-card shadow-[var(--shadow)]${markup !== null ? " cursor-pointer hover:border-accent" : ""}`}
+      title={title}
+      onClick={markup !== null ? () => onMention(markup) : undefined}
+    >
       {body}
       <button
-        onClick={onRemove}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRemove();
+        }}
         title="Remove"
         className="absolute right-0.5 top-0.5 hidden h-4 w-4 items-center justify-center rounded-full bg-black/60 text-white group-hover:flex"
       >

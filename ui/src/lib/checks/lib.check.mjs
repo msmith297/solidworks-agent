@@ -21,6 +21,7 @@ import { paletteSections, categoryNames } from "../toolGroups.ts";
 import { slashQuery, slashRows, parseSlash, resolveSlash, splitArgs, substituteArgs, fileRefs, atQuery, tagRows, tagLines, commandHead } from "../commands.ts";
 import { matcherMatches, hasHook, hookToolResponse, HOOK_RESPONSE_CAP, hookContextText, systemEventText, parseTagged, autoTurnAllowed, AUTO_WINDOW_MS, wakesMayFollow, wakeApproval, isConsoleWake, wakeTrusted } from "../hooks.ts";
 import { mcpParts, isBridgeTool, mcpTitle, bridgeMessages, reminderSenders } from "../mcpView.ts";
+import { markupName, markupNumber, markupLabel, labelNumber, nextMarkupNumber, mentionMarkup } from "../markups.ts";
 import { linkAnswerText, linkState, parseLinkMessage, LINK_ANSWER_CAP, NO_WRITTEN_REPLY } from "../localLink.ts";
 import "./resolve.mjs"; // workSummary imports its siblings without extensions
 const { highlights: summaryHighlights, breakdown: summaryBreakdown } = await import("../../agent/workSummary.ts");
@@ -554,6 +555,29 @@ t("wakes: only messages all from the user's own console are trusted", () => {
   assert.equal(wakeTrusted(link, { trustAgentWakes: false }), false);
   assert.equal(wakeTrusted(wake([cube]), { trustAgentWakes: false }), true); // the console keeps its own switch
   assert.equal(wakeTrusted(wake([cube]), { trustConsoleWakes: false }), false);
+});
+
+t("markups: names unique in the chat, labels the model sees, mentions in the draft", () => {
+  assert.equal(markupName(3), "Markup M3");
+  assert.equal(markupNumber("Markup M3"), 3);
+  assert.equal(markupNumber("Markup"), null); // an older single markup
+  assert.equal(markupNumber("View"), null);
+  assert.equal(labelNumber(markupLabel(12)), 12);
+  assert.equal(labelNumber("[S1] Face of Boss-Extrude1"), null);
+  // Numbering continues after what the chat already sent and what waits in the composer.
+  const sent = [
+    { role: "user", content: [{ type: "text", text: "look" }, { type: "text", text: markupLabel(1) }, { type: "image" }, { type: "text", text: markupLabel(2) }, { type: "image" }] },
+    { role: "assistant", content: [{ type: "text", text: markupLabel(9) }] }, // the agent's words don't count
+  ];
+  assert.equal(nextMarkupNumber([], []), 1);
+  assert.equal(nextMarkupNumber(sent, []), 3);
+  assert.equal(nextMarkupNumber(sent, ["Markup M4", "View"]), 5);
+  // A click on a thumbnail mentions it once, with tidy spacing.
+  assert.equal(mentionMarkup("", 2), "M2 ");
+  assert.equal(mentionMarkup("make the hole in", 2), "make the hole in M2 ");
+  assert.equal(mentionMarkup("compare M1 ", 2), "compare M1 M2 ");
+  assert.equal(mentionMarkup("M2 is wrong", 2), "M2 is wrong");
+  assert.equal(mentionMarkup("M12 here", 1), "M12 here M1 ");
 });
 
 t("agent-bridge in the chat: readable tool names, wake summaries, quiet reminders, folded steps", () => {

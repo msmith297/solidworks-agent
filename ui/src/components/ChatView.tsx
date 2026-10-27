@@ -22,6 +22,7 @@ import { breakdown, highlights as pickHighlights } from "../agent/workSummary";
 import { EVENT_TAG, HOOK_TAG, MODEL_TAG, VOICE_TAG, WATCH_TAG, cellIdsAfter, currentThread, isPrompt, promptText, useStore, writesAfter, type RunState } from "../store";
 import { parseTagged } from "../lib/hooks";
 import { bridgeMessages, reminderSenders } from "../lib/mcpView";
+import { labelNumber } from "../lib/markups";
 import { parseLinkMessage } from "../lib/localLink";
 import { ask } from "./Dialog";
 import { rpc } from "../lib/bridge";
@@ -49,6 +50,8 @@ type Item =
       index: number;
       text: string;
       images: string[];
+      /** The markup name of each image ("M2"), or null. */
+      imageLabels: (string | null)[];
       refs: { id: string; text: string }[];
       view: string | null;
       extras: Extra[];
@@ -432,6 +435,8 @@ function promptItem(m: MessageParam, index: number): Item {
   const blocks: ContentBlockParam[] = typeof m.content === "string" ? [{ type: "text", text: m.content }] : m.content;
   const texts: string[] = [];
   const images: string[] = [];
+  const imageLabels: (string | null)[] = [];
+  let label: string | null = null; // a markup's "[M2] ..." block names the image after it
   let refs: { id: string; text: string }[] = [];
   let view: string | null = null;
   let afterContext = false;
@@ -443,6 +448,8 @@ function promptItem(m: MessageParam, index: number): Item {
       if (b.text.startsWith("<sw_context>")) {
         refs = [...refs, ...parseRefs(b.text)];
         afterContext = true;
+      } else if (labelNumber(b.text) !== null) {
+        label = `M${labelNumber(b.text)}`;
       } else if (b.text.startsWith(MODEL_TAG) || b.text.startsWith(WATCH_TAG) || b.text.startsWith(VOICE_TAG) || b.text.startsWith(HOOK_TAG) || b.text.startsWith(EVENT_TAG)) {
         extra = parseExtra(b.text);
         extras.push(extra);
@@ -454,13 +461,17 @@ function promptItem(m: MessageParam, index: number): Item {
       // Images right after a model / watch block belong to it; after the context block, it's the user's view.
       if (extra) extra.images.push(url);
       else if (afterContext) view = url;
-      else images.push(url);
+      else {
+        images.push(url);
+        imageLabels.push(label);
+      }
+      label = null;
     } else if ((b.type as string) === "document") {
       extra = null;
       extras.push({ kind: "pdf", title: (b as { title?: string }).title ?? "PDF", body: "", images: [] });
     }
   }
-  return { kind: "prompt", key: `p${index}`, index, text: texts.join("\n\n"), images, refs, view, extras };
+  return { kind: "prompt", key: `p${index}`, index, text: texts.join("\n\n"), images, imageLabels, refs, view, extras };
 }
 
 function parseExtra(raw: string): Extra {
@@ -659,7 +670,7 @@ function PromptBubble({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState("");
   const [copied, setCopied] = useState(false);
-  const { text, images, refs, view, index, extras } = item;
+  const { text, images, imageLabels, refs, view, index, extras } = item;
 
   /**
    * Resending drops later replies. Changes the agent made to the model since then can be undone in one go (the
@@ -771,8 +782,11 @@ function PromptBubble({
       {images.length > 0 && (
         <div className="flex flex-wrap justify-end gap-1.5">
           {images.map((src, i) => (
-            <button key={i} onClick={() => onImage(src)} className="overflow-hidden rounded-[2px] border border-input-border shadow-[var(--shadow)]">
-              <img src={src} alt="" className="h-[64px] w-auto" />
+            <button key={i} onClick={() => onImage(src)} title={imageLabels[i] ?? undefined} className="relative overflow-hidden rounded-[2px] border border-input-border shadow-[var(--shadow)]">
+              <img src={src} alt={imageLabels[i] ?? ""} className="h-[64px] w-auto" />
+              {imageLabels[i] && (
+                <span className="absolute left-0.5 top-0.5 rounded-[2px] bg-black/65 px-1 text-[10px] font-semibold leading-[14px] text-white">{imageLabels[i]}</span>
+              )}
             </button>
           ))}
         </div>

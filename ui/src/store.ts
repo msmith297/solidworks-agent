@@ -53,6 +53,7 @@ import type {
   Wake,
 } from "./lib/types";
 import { recordSession } from "./lib/sessions";
+import { markupLabel, markupName, markupNumber, nextMarkupNumber } from "./lib/markups";
 import { refBase, selectionAnswer, type SnapshotItem } from "./lib/selection";
 import { DEFAULT_STEPS, LONG_RUN_STEPS, clampSteps, runReportsDone, stickyState, withRunDoc } from "./lib/toolRun";
 import { profileLine, splitProfileArg } from "./lib/toolFormLogic";
@@ -594,8 +595,12 @@ function queuedBlocks(q: QueuedMessage[]): ContentBlockParam[] {
 /** Content blocks for whatever is attached to a message. */
 function attachmentBlocks(a: Attachment): ContentBlockParam[] {
   switch (a.kind) {
-    case "image":
-      return [{ type: "image", source: { type: "base64", media_type: a.mediaType, data: a.data } }];
+    case "image": {
+      const image: ContentBlockParam = { type: "image", source: { type: "base64", media_type: a.mediaType, data: a.data } };
+      // A markup goes with its name, so "M2" in the user's words (now or later in the chat) points at this image.
+      const n = markupNumber(a.name);
+      return n === null ? [image] : [{ type: "text", text: markupLabel(n) }, image];
+    }
     case "pdf":
       return [{ type: "document", source: { type: "base64", media_type: "application/pdf", data: a.data }, title: a.name } as unknown as ContentBlockParam];
     case "model":
@@ -829,7 +834,7 @@ export const useStore = create<State>((set, get, api) => {
     }
 
     if (hasMarkup) {
-      lines.push("The images named Markup attached above are the user's markup: strokes, arrows and circles drawn over their view - one image per view they marked.");
+      lines.push("The images labelled [M1], [M2], ... above are the user's markups: strokes, arrows and circles drawn over their view, one per marked view. The user refers to them by those names (M1, M2), in this message or later in the chat.");
     } else if (s.settings.shareView && !opts.noView && doc.type !== "other") {
       const shot = await rpc<ToolRunResult>("tools.run", {
         docKey,
@@ -2840,18 +2845,12 @@ export const useStore = create<State>((set, get, api) => {
         const res = await rpc<{ frames: { mediaType: ImageMediaType; data: string; strokes: number }[]; inVoice: number } | null>("markup.finish");
         const frames = res?.frames ?? [];
         if (frames.length > 0) {
-          // One markup per message (a frame per view): replace an earlier one that wasn't sent yet.
-          const key = draftKey(get());
-          set((s) => ({
-            attachments: {
-              ...s.attachments,
-              [key]: (s.attachments[key] ?? []).filter((a) => !(a.kind === "image" && a.name.startsWith(MARKUP_NAME))),
-            },
-          }));
-          frames.forEach((f, i) =>
-            get().addAttachment({ id: uid(), kind: "image", name: frames.length === 1 ? MARKUP_NAME : `${MARKUP_NAME} ${i + 1}`, mediaType: f.mediaType, data: f.data }),
-          );
-          set((s) => ({ focusTick: s.focusTick + 1 }));
+          // Markups add up: each marked view gets the next name in the chat (M1, M2, ...), after any already sent.
+          const s = get();
+          const pending = (s.attachments[draftKey(s)] ?? []).map((a) => a.name);
+          const first = nextMarkupNumber(currentThread(s)?.messages ?? [], pending);
+          frames.forEach((f, i) => get().addAttachment({ id: uid(), kind: "image", name: markupName(first + i), mediaType: f.mediaType, data: f.data }));
+          set((st) => ({ focusTick: st.focusTick + 1 }));
         }
       } catch (err: any) {
         set({ notice: `Couldn't attach the markup: ${err.message}` });
