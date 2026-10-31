@@ -1,1 +1,1 @@
-- The Unify3D Agent Task Pane tab now shows the Unify3D icon and name.
+- The SolidWorks Agent Task Pane tab now shows the SolidWorks Agent icon and name.

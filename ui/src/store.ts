@@ -1085,7 +1085,7 @@ export const useStore = create<State>((set, get, api) => {
         event,
         threadId,
         docKey,
-        unify3d_document: doc ? { title: doc.title, path: doc.path ?? null, type: doc.type ?? null } : null,
+        solidworks_document: doc ? { title: doc.title, path: doc.path ?? null, type: doc.type ?? null } : null,
         ...extra,
       }).catch(() => null),
     );
@@ -1145,7 +1145,7 @@ export const useStore = create<State>((set, get, api) => {
     const release = beginPreparing(docKey, threadId);
     void (async () => {
       // The user already has the answer above: the continuation does only what the plugin asks, without a recap.
-      const note = "\n\n(Unify3D: the user already sees your answer above. Do only what this asks, then end your turn without repeating or summarising it.)";
+      const note = "\n\n(SolidWorks Agent: the user already sees your answer above. Do only what this asks, then end your turn without repeating or summarising it.)";
       const blocks: ContentBlockParam[] = [{ type: "text", text: systemEventText("stop", "Stop hook", (reason || "A plugin's Stop hook asked you to continue.") + note) }];
       let refs: Record<string, string> = {};
       if (batch.length) {
@@ -2774,7 +2774,7 @@ export const useStore = create<State>((set, get, api) => {
       get().dismissCrash();
       const what =
         c.kind === "preview" ? `the live preview of the tool "${c.tool}"`
-        : c.kind === "addin" ? `an unhandled error inside the Unify3D add-in (${c.title})`
+        : c.kind === "addin" ? `an unhandled error inside the SolidWorks Agent add-in (${c.title})`
         : c.kind === "page" ? `the tool "${c.tool}" while its PropertyManager page was open`
         : c.kind === "macro" ? `the macro of the tool "${c.tool}"`
         : `your code "${c.title ?? "a C# cell"}"`;
@@ -2784,7 +2784,7 @@ export const useStore = create<State>((set, get, api) => {
           ? `Your helper${c.helpersDisabled.length > 1 ? "s" : ""} ${c.helpersDisabled.map((h) => h.name).join(", ")} ${c.helpersDisabled.length > 1 ? "were" : "was"} disabled: involved in two crashes. Fix it with read_helper, save_helper and test_helper, or delete_helper.`
           : "",
         c.builtIn
-          ? "It is a built-in Unify3D tool (read-only, so it was not paused and can't be edited): find the likely cause, tell me how to avoid it, and what to report to Unify3D. If you need more, ask me for SolidWorks' crash log (it lists the last API calls)."
+          ? "It is a built-in SolidWorks Agent tool (read-only, so it was not paused and can't be edited): find the likely cause, tell me how to avoid it, and what to report to SolidWorks Agent. If you need more, ask me for SolidWorks' crash log (it lists the last API calls)."
           : "Find the cause and fix it so this can't happen again. If you need more, ask me for SolidWorks' crash log (it lists the last API calls).",
         "",
         "<crash_report>",

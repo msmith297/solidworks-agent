@@ -66,7 +66,7 @@ namespace SwAgent.Tools
             if (string.IsNullOrEmpty(name)) throw new FormatException("The profile has no name.");
             var schema = (o["schema"] as JValue)?.Value;
             if (schema != null && Convert.ToInt32(schema, CultureInfo.InvariantCulture) > Schema)
-                throw new FormatException("The profile was saved by a newer Unify3D; update the add-in to load it.");
+                throw new FormatException("The profile was saved by a newer SolidWorks Agent; update the add-in to load it.");
             return new ToolProfile
             {
                 Tool = ToolData.Text(o["tool"] as JValue),

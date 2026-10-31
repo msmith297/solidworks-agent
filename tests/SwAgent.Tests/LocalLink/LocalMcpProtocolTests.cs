@@ -12,7 +12,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SwAgent.Plugins;
 using SwAgent.Tests.Plugins;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 using Xunit;
 
 namespace SwAgent.Tests.LocalLink
@@ -24,7 +24,7 @@ namespace SwAgent.Tests.LocalLink
     /// </summary>
     internal sealed class FakeLinkServer : IDisposable
     {
-        public readonly string Name = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+        public readonly string Name = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
         public readonly ConcurrentQueue<JObject> Received = new ConcurrentQueue<JObject>();
         public Func<JObject, Task<JObject>> Handle;
         private readonly CancellationTokenSource _stop = new CancellationTokenSource();
@@ -107,7 +107,7 @@ namespace SwAgent.Tests.LocalLink
         }
     }
 
-    /// <summary>The built Unify3D.LocalMcp.exe over stdio, as Claude Desktop or Codex runs it.</summary>
+    /// <summary>The built SolidWorksAgent.LocalMcp.exe over stdio, as Claude Desktop or Codex runs it.</summary>
     internal sealed class McpProcess : IDisposable
     {
         public readonly Process Process;
@@ -251,9 +251,9 @@ namespace SwAgent.Tests.LocalLink
                 {
                     var init = mcp.Call(v, "initialize", new JObject { ["protocolVersion"] = v, ["capabilities"] = new JObject(), ["clientInfo"] = new JObject { ["name"] = "claude-ai", ["version"] = "3.6556.2" } });
                     Assert.Equal(v, (string)init["result"]["protocolVersion"]);
-                    Assert.Equal("unify3d", (string)init["result"]["serverInfo"]["name"]);
+                    Assert.Equal("solidworks-agent", (string)init["result"]["serverInfo"]["name"]);
                     Assert.NotNull(init["result"]["capabilities"]["tools"]);
-                    Assert.StartsWith("Unify3D Agent is an AI agent inside SolidWorks", (string)init["result"]["instructions"]);
+                    Assert.StartsWith("SolidWorks Agent is an AI agent inside SolidWorks", (string)init["result"]["instructions"]);
                     Assert.Null(init["result"]["resultType"]);
                 }
                 Assert.Equal("2025-11-25", (string)mcp.Call(3, "initialize", new JObject { ["protocolVersion"] = "2099-01-01" })["result"]["protocolVersion"]);
@@ -261,21 +261,21 @@ namespace SwAgent.Tests.LocalLink
                 Assert.True(JToken.DeepEquals(new JObject(), mcp.Call(4, "ping")["result"]));
 
                 var tools = (JArray)mcp.Call(5, "tools/list")["result"]["tools"];
-                Assert.Equal(new[] { "ask_unify3d", "get_unify3d_answer", "unify3d_status", "unify3d_model_context", "unify3d_feature_tree", "unify3d_selection", "unify3d_open_documents" },
+                Assert.Equal(new[] { "ask_solidworks_agent", "get_solidworks_agent_answer", "solidworks_status", "solidworks_model_context", "solidworks_feature_tree", "solidworks_selection", "solidworks_open_documents" },
                     tools.Select(t => (string)t["name"]));
-                var ask = tools.Single(t => (string)t["name"] == "ask_unify3d");
+                var ask = tools.Single(t => (string)t["name"] == "ask_solidworks_agent");
                 Assert.Equal(new[] { "message" }, ask["inputSchema"]["required"].Values<string>());
                 Assert.Equal(20000, (int)ask["inputSchema"]["properties"]["message"]["maxLength"]);
                 Assert.Equal(55, (int)ask["inputSchema"]["properties"]["wait_seconds"]["maximum"]);
                 Assert.False((bool)ask["inputSchema"]["additionalProperties"]);
                 Assert.False((bool)ask["annotations"]["readOnlyHint"]);
                 Assert.False((bool)ask["annotations"]["destructiveHint"]);
-                Assert.Equal("Ask Unify3D", (string)ask["annotations"]["title"]);
-                Assert.All(tools.Where(t => (string)t["name"] != "ask_unify3d"), t => Assert.True((bool)t["annotations"]["readOnlyHint"]));
-                var tree = tools.Single(t => (string)t["name"] == "unify3d_feature_tree");
+                Assert.Equal("Ask SolidWorks Agent", (string)ask["annotations"]["title"]);
+                Assert.All(tools.Where(t => (string)t["name"] != "ask_solidworks_agent"), t => Assert.True((bool)t["annotations"]["readOnlyHint"]));
+                var tree = tools.Single(t => (string)t["name"] == "solidworks_feature_tree");
                 Assert.Equal(2000, (int)tree["inputSchema"]["properties"]["max_features"]["maximum"]);
                 Assert.Equal("boolean", (string)tree["inputSchema"]["properties"]["include_sub_features"]["type"]);
-                Assert.Contains("the active SolidWorks document", (string)tools.Single(t => (string)t["name"] == "unify3d_model_context")["description"]);
+                Assert.Contains("the active SolidWorks document", (string)tools.Single(t => (string)t["name"] == "solidworks_model_context")["description"]);
 
                 Assert.Equal(-32601, (int)mcp.Call(6, "resources/list")["error"]["code"]);
             }
@@ -291,14 +291,14 @@ namespace SwAgent.Tests.LocalLink
                 Assert.Equal("complete", (string)discover["result"]["resultType"]);
                 Assert.Contains("2026-07-28", discover["result"]["supportedVersions"].Values<string>());
                 Assert.Contains("2025-11-25", discover["result"]["supportedVersions"].Values<string>());
-                Assert.Equal("unify3d", (string)discover["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"]);
+                Assert.Equal("solidworks-agent", (string)discover["result"]["_meta"]["io.modelcontextprotocol/serverInfo"]["name"]);
                 Assert.False(string.IsNullOrEmpty((string)discover["result"]["instructions"]));
 
                 var list = mcp.Call(2, "tools/list", new JObject { ["_meta"] = Modern });
                 Assert.Equal("complete", (string)list["result"]["resultType"]);
                 Assert.Equal(7, list["result"]["tools"].Count());
 
-                var call = mcp.Tool(3, "unify3d_model_context", null, Modern);
+                var call = mcp.Tool(3, "solidworks_model_context", null, Modern);
                 Assert.Equal("complete", (string)call["result"]["resultType"]);
                 Assert.Equal("Part1 (part)", Text(call));
                 var hello = fake.Received.First(r => (string)r["method"] == "hello");
@@ -314,7 +314,7 @@ namespace SwAgent.Tests.LocalLink
         }
 
         [Fact]
-        public void Ask_returns_the_answer_or_a_ticket_for_get_unify3d_answer()
+        public void Ask_returns_the_answer_or_a_ticket_for_get_solidworks_agent_answer()
         {
             JObject Reply(JObject r)
             {
@@ -322,7 +322,7 @@ namespace SwAgent.Tests.LocalLink
                 if ((string)r["method"] == "ask")
                 {
                     if ((string)p["message"] == "slow")
-                        return FakeLinkServer.Result(new JObject { ["ticket"] = "u3d_0123456789abcdef", ["state"] = "working", ["note"] = "Unify3D is still working on it. Call get_unify3d_answer with ticket \"u3d_0123456789abcdef\" to get the answer." });
+                        return FakeLinkServer.Result(new JObject { ["ticket"] = "u3d_0123456789abcdef", ["state"] = "working", ["note"] = "SolidWorks Agent is still working on it. Call get_solidworks_agent_answer with ticket \"u3d_0123456789abcdef\" to get the answer." });
                     return FakeLinkServer.Result(new JObject { ["ticket"] = "u3d_1111111111111111", ["state"] = "done", ["answer"] = "Added a 2 mm fillet." });
                 }
                 if ((string)r["method"] == "answer")
@@ -332,7 +332,7 @@ namespace SwAgent.Tests.LocalLink
             using (var fake = Fake(Reply))
             using (var mcp = new McpProcess(fake.Name))
             {
-                var done = mcp.Tool(1, "ask_unify3d", new JObject { ["message"] = "Add a 2 mm fillet" });
+                var done = mcp.Tool(1, "ask_solidworks_agent", new JObject { ["message"] = "Add a 2 mm fillet" });
                 Assert.Equal("Added a 2 mm fillet.", Text(done));
                 Assert.False((bool)done["result"]["isError"]);
                 Assert.Equal("done", (string)done["result"]["structuredContent"]["state"]);
@@ -340,12 +340,12 @@ namespace SwAgent.Tests.LocalLink
                 Assert.Equal("Add a 2 mm fillet", (string)ask["params"]["message"]);
                 Assert.Equal(50000, (int)ask["params"]["waitMs"]);
 
-                var slow = mcp.Tool(2, "ask_unify3d", new JObject { ["message"] = "slow", ["wait_seconds"] = 5 });
+                var slow = mcp.Tool(2, "ask_solidworks_agent", new JObject { ["message"] = "slow", ["wait_seconds"] = 5 });
                 Assert.Contains("u3d_0123456789abcdef", Text(slow));
                 Assert.Equal("working", (string)slow["result"]["structuredContent"]["state"]);
                 Assert.Equal(5000, (int)fake.Received.Last(r => (string)r["method"] == "ask")["params"]["waitMs"]);
 
-                var late = mcp.Tool(3, "get_unify3d_answer", new JObject { ["ticket"] = "u3d_0123456789abcdef" });
+                var late = mcp.Tool(3, "get_solidworks_agent_answer", new JObject { ["ticket"] = "u3d_0123456789abcdef" });
                 Assert.Equal("Done late.", Text(late));
                 Assert.Equal("u3d_0123456789abcdef", (string)fake.Received.Last(r => (string)r["method"] == "answer")["params"]["ticket"]);
 
@@ -356,21 +356,21 @@ namespace SwAgent.Tests.LocalLink
                     Assert.True((bool)r["result"]["isError"]);
                     Assert.Equal(text, Text(r));
                 }
-                ToolError(mcp.Tool(4, "ask_unify3d", new JObject()), "ask_unify3d needs \"message\".");
-                ToolError(mcp.Tool(5, "ask_unify3d", new JObject { ["message"] = new string('x', 20001) }), "\"message\" is longer than 20000 characters.");
-                ToolError(mcp.Tool(6, "ask_unify3d", new JObject { ["message"] = "x", ["wait_seconds"] = 90 }), "\"wait_seconds\" must be between 0 and 55.");
+                ToolError(mcp.Tool(4, "ask_solidworks_agent", new JObject()), "ask_solidworks_agent needs \"message\".");
+                ToolError(mcp.Tool(5, "ask_solidworks_agent", new JObject { ["message"] = new string('x', 20001) }), "\"message\" is longer than 20000 characters.");
+                ToolError(mcp.Tool(6, "ask_solidworks_agent", new JObject { ["message"] = "x", ["wait_seconds"] = 90 }), "\"wait_seconds\" must be between 0 and 55.");
                 Assert.Equal(-32602, (int)mcp.Tool(7, "execute_csharp", new JObject { ["code"] = "1" })["error"]["code"]);
-                ToolError(mcp.Tool(8, "unify3d_status", new JObject { ["x"] = 1 }), "unify3d_status has no argument \"x\".");
-                ToolError(mcp.Tool(9, "unify3d_feature_tree", new JObject { ["max_features"] = "10" }), "\"max_features\" must be a whole number.");
+                ToolError(mcp.Tool(8, "solidworks_status", new JObject { ["x"] = 1 }), "solidworks_status has no argument \"x\".");
+                ToolError(mcp.Tool(9, "solidworks_feature_tree", new JObject { ["max_features"] = "10" }), "\"max_features\" must be a whole number.");
             }
         }
 
         [Theory]
-        [InlineData("off", "The Claude MCP plugin is turned off in Unify3D (Plugins). Turn it on to use Unify3D from Claude Desktop.", true)]
-        [InlineData("version", "Unify3D Agent and its Claude Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating Unify3D.", true)]
-        [InlineData("limit", "Unify3D has used its 20 automatic turns for this hour (Options > Plugins). Your message was not delivered.", false)]
-        [InlineData("unknown-ticket", "Unify3D doesn't know that ticket.", false)]
-        [InlineData("not-allowed", "Reading the open model is turned off for Claude Desktop in Unify3D (Plugins > Claude MCP > Settings).", false)]
+        [InlineData("off", "The Claude MCP plugin is turned off in SolidWorks Agent (Plugins). Turn it on to use SolidWorks Agent from Claude Desktop.", true)]
+        [InlineData("version", "SolidWorks Agent and its Claude Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating SolidWorks Agent.", true)]
+        [InlineData("limit", "SolidWorks Agent has used its 20 automatic turns for this hour (Options > Plugins). Your message was not delivered.", false)]
+        [InlineData("unknown-ticket", "SolidWorks Agent doesn't know that ticket.", false)]
+        [InlineData("not-allowed", "Reading the open model is turned off for Claude Desktop in SolidWorks Agent (Plugins > Claude MCP > Settings).", false)]
         [InlineData("busy", "Too many requests from Claude Desktop; wait a minute.", false)]
         [InlineData("no-document", "No document is open in SolidWorks.", false)]
         public void Every_add_in_error_reaches_the_model_as_its_text(string code, string message, bool atHello)
@@ -381,10 +381,10 @@ namespace SwAgent.Tests.LocalLink
             {
                 foreach (var (id, tool, args) in new[]
                 {
-                    (1, "ask_unify3d", new JObject { ["message"] = "hi" }),
-                    (2, "get_unify3d_answer", new JObject { ["ticket"] = "u3d_x" }),
-                    (3, "unify3d_status", new JObject()),
-                    (4, "unify3d_selection", new JObject()),
+                    (1, "ask_solidworks_agent", new JObject { ["message"] = "hi" }),
+                    (2, "get_solidworks_agent_answer", new JObject { ["ticket"] = "u3d_x" }),
+                    (3, "solidworks_status", new JObject()),
+                    (4, "solidworks_selection", new JObject()),
                 })
                 {
                     var r = mcp.Tool(id, tool, args);
@@ -397,14 +397,14 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void Without_SolidWorks_every_tool_says_so_quickly_and_status_reads_as_sentences()
         {
-            using (var mcp = new McpProcess("Unify3D.Test.nobody-" + Guid.NewGuid().ToString("N")))
+            using (var mcp = new McpProcess("SolidWorks Agent.Test.nobody-" + Guid.NewGuid().ToString("N")))
             {
                 var watch = Stopwatch.StartNew();
-                var r = mcp.Tool(1, "unify3d_status");
+                var r = mcp.Tool(1, "solidworks_status");
                 Assert.True(watch.ElapsedMilliseconds < 3000, $"took {watch.ElapsedMilliseconds} ms");
                 Assert.True((bool)r["result"]["isError"]);
-                Assert.Equal("SolidWorks isn't running, or the Unify3D Agent add-in isn't loaded in it. Open SolidWorks with Unify3D Agent, then try again.", Text(r));
-                Assert.Equal(Text(r), Text(mcp.Tool(2, "ask_unify3d", new JObject { ["message"] = "hi" })));
+                Assert.Equal("SolidWorks isn't running, or the SolidWorks Agent add-in isn't loaded in it. Open SolidWorks with SolidWorks Agent, then try again.", Text(r));
+                Assert.Equal(Text(r), Text(mcp.Tool(2, "ask_solidworks_agent", new JObject { ["message"] = "hi" })));
             }
             using (var fake = Fake(r => FakeLinkServer.Result(new JObject
             {
@@ -415,8 +415,8 @@ namespace SwAgent.Tests.LocalLink
             })))
             using (var mcp = new McpProcess(fake.Name))
             {
-                var r = mcp.Tool(1, "unify3d_status");
-                Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. Active document: bushing.SLDPRT (part). Open chat: \"Bushing mold\" (idle). Automatic turns left this hour: 17 of 20.", Text(r));
+                var r = mcp.Tool(1, "solidworks_status");
+                Assert.Equal("SolidWorks 2026 SP1.0 is running with SolidWorks Agent 0.2.0. Active document: bushing.SLDPRT (part). Open chat: \"Bushing mold\" (idle). Automatic turns left this hour: 17 of 20.", Text(r));
                 Assert.Equal("bushing.SLDPRT", (string)r["result"]["structuredContent"]["document"]["title"]);
             }
         }
@@ -431,8 +431,8 @@ namespace SwAgent.Tests.LocalLink
             })))
             using (var mcp = new McpProcess(fake.Name))
             {
-                Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. SolidWorks is busy (a rebuild or a dialog), so the active document couldn't be read. " +
-                             "Open chat: \"Claude Desktop\" (busy).", Text(mcp.Tool(1, "unify3d_status")));
+                Assert.Equal("SolidWorks 2026 SP1.0 is running with SolidWorks Agent 0.2.0. SolidWorks is busy (a rebuild or a dialog), so the active document couldn't be read. " +
+                             "Open chat: \"Claude Desktop\" (busy).", Text(mcp.Tool(1, "solidworks_status")));
             }
             using (var fake = Fake(r => FakeLinkServer.Result(new JObject
             {
@@ -441,15 +441,15 @@ namespace SwAgent.Tests.LocalLink
             })))
             using (var mcp = new McpProcess(fake.Name))
             {
-                Assert.Equal("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. A chat is open in the Unify3D panel (idle). " +
-                             "Reading the open model is turned off for Claude Desktop in Unify3D, so the active document isn't shown.", Text(mcp.Tool(1, "unify3d_status")));
+                Assert.Equal("SolidWorks 2026 SP1.0 is running with SolidWorks Agent 0.2.0. A chat is open in the SolidWorks Agent panel (idle). " +
+                             "Reading the open model is turned off for Claude Desktop in SolidWorks Agent, so the active document isn't shown.", Text(mcp.Tool(1, "solidworks_status")));
             }
         }
 
         [Fact]
         public void A_message_with_a_non_string_method_is_refused_and_the_server_keeps_going()
         {
-            using (var mcp = new McpProcess("Unify3D.Test.none-" + Guid.NewGuid().ToString("N")))
+            using (var mcp = new McpProcess("SolidWorks Agent.Test.none-" + Guid.NewGuid().ToString("N")))
             {
                 mcp.Call(1, "initialize", new JObject { ["protocolVersion"] = "2025-11-25" });
                 mcp.SendRaw("{\"jsonrpc\":\"2.0\",\"id\":2,\"method\":{\"x\":1}}");
@@ -463,15 +463,15 @@ namespace SwAgent.Tests.LocalLink
         }
 
         [Fact]
-        public void Tool_descriptions_point_cad_work_at_ask_unify3d()
+        public void Tool_descriptions_point_cad_work_at_ask_solidworks_agent()
         {
-            using (var mcp = new McpProcess("Unify3D.Test.none-" + Guid.NewGuid().ToString("N")))
+            using (var mcp = new McpProcess("SolidWorks Agent.Test.none-" + Guid.NewGuid().ToString("N")))
             {
                 var init = mcp.Call(1, "initialize", new JObject { ["protocolVersion"] = "2025-11-25" });
                 Assert.Contains("even when no document is open", (string)init["result"]["instructions"]);
                 var tools = (JArray)mcp.Call(2, "tools/list")["result"]["tools"];
-                Assert.StartsWith("Use for any CAD work in SolidWorks: create new parts", (string)tools.Single(t => (string)t["name"] == "ask_unify3d")["description"]);
-                Assert.DoesNotContain("Call this first", (string)tools.Single(t => (string)t["name"] == "unify3d_model_context")["description"]);
+                Assert.StartsWith("Use for any CAD work in SolidWorks: create new parts", (string)tools.Single(t => (string)t["name"] == "ask_solidworks_agent")["description"]);
+                Assert.DoesNotContain("Call this first", (string)tools.Single(t => (string)t["name"] == "solidworks_model_context")["description"]);
             }
         }
 
@@ -493,14 +493,14 @@ namespace SwAgent.Tests.LocalLink
             }))
             using (var mcp = new McpProcess(fake.Name))
             {
-                mcp.Send(McpProcess.Request(1, "tools/call", new JObject { ["name"] = "ask_unify3d", ["arguments"] = new JObject { ["message"] = "take your time" } }));
+                mcp.Send(McpProcess.Request(1, "tools/call", new JObject { ["name"] = "ask_solidworks_agent", ["arguments"] = new JObject { ["message"] = "take your time" } }));
                 Thread.Sleep(300);
-                var status = mcp.Tool(2, "unify3d_status");
+                var status = mcp.Tool(2, "solidworks_status");
                 Assert.StartsWith("SolidWorks 2026 is running", Text(status));
                 Assert.False(mcp.Saw(1), "the ask is still waiting");
                 Assert.Equal("slow answer", Text(mcp.Wait(1)));
 
-                mcp.Send(McpProcess.Request("c-1", "tools/call", new JObject { ["name"] = "ask_unify3d", ["arguments"] = new JObject { ["message"] = "cancel me" } }));
+                mcp.Send(McpProcess.Request("c-1", "tools/call", new JObject { ["name"] = "ask_solidworks_agent", ["arguments"] = new JObject { ["message"] = "cancel me" } }));
                 Thread.Sleep(300);
                 mcp.Send(new JObject { ["jsonrpc"] = "2.0", ["method"] = "notifications/cancelled", ["params"] = new JObject { ["requestId"] = "c-1", ["reason"] = "user" } });
                 Thread.Sleep(3000);
@@ -512,7 +512,7 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void Stdout_is_only_json_rpc_bad_lines_get_parse_errors_and_closing_stdin_exits()
         {
-            using (var mcp = new McpProcess("Unify3D.Test.none-" + Guid.NewGuid().ToString("N")))
+            using (var mcp = new McpProcess("SolidWorks Agent.Test.none-" + Guid.NewGuid().ToString("N")))
             {
                 mcp.SendRaw("{not json");
                 mcp.SendRaw("");
@@ -533,7 +533,7 @@ namespace SwAgent.Tests.LocalLink
                     var o = JObject.Parse(l);
                     Assert.Equal("2.0", (string)o["jsonrpc"]);
                 });
-                lock (mcp.Stderr) Assert.Contains("unify3d: started", mcp.Stderr.ToString());
+                lock (mcp.Stderr) Assert.Contains("solidworks-agent: started", mcp.Stderr.ToString());
             }
         }
 

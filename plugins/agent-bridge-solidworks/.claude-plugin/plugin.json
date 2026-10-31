@@ -1,0 +1,18 @@
+{
+  "name": "agent-bridge-solidworks",
+  "version": "1.2.0",
+  "displayName": "Agent Bridge for SolidWorks Agent",
+  "description": "Agent Bridge inside SolidWorks: the solidworks-bridge skill (how the SolidWorks Agent acts on bridge messages without putting the user's model or data at risk) and the /bridge command (peers, inbox, listening, the bridge name). Companion of the agent-bridge plugin, which brings the MCP server and hooks.",
+  "author": {
+    "name": "SolidWorks Agent",
+    "url": "https://github.com/msmith297/solidworks-agent"
+  },
+  "homepage": "https://github.com/msmith297/solidworks-agent/blob/main/docs/plugins/authoring.md",
+  "repository": "https://github.com/msmith297/solidworks-agent",
+  "keywords": ["agents", "messaging", "collaboration", "solidworks"],
+  "solidworksAgent": {
+    "category": "Collaboration",
+    "icon": "./icon.png",
+    "minAddInVersion": "0.2.0"
+  }
+}

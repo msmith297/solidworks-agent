@@ -184,7 +184,7 @@ export function NewToolWizard() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="Shown on the Unify3D tab - the agent suggests one if empty"
+            placeholder="Shown on the SolidWorks Agent tab - the agent suggests one if empty"
             className="sw-input h-[22px] w-full px-1.5 text-[12px]"
           />
         </Rollout>
@@ -195,7 +195,7 @@ export function NewToolWizard() {
               ? "The agent is busy in this chat - wait or stop it first."
               : selection.length > 0
                 ? `Your selection (${selection.length} item${selection.length === 1 ? "" : "s"}) goes along as an example.`
-                : "The agent asks a few quick questions, builds and tests it, then adds it to the Unify3D tab."}
+                : "The agent asks a few quick questions, builds and tests it, then adds it to the SolidWorks Agent tab."}
           </span>
           <button className="sw-btn" onClick={close}>
             Cancel

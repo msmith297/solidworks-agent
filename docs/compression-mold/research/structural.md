@@ -792,7 +792,7 @@ dense prototype took 57 s for 105 runs.
 ## 11. Hooks for the later MCP simulators (machinability, process/demolding)
 
 1. **Design record (input to every checker)** `mold-design.json`, saved next to the part and referenced from a part
-   custom property `Unify3D.MoldDesign`. It holds:
+   custom property `SolidWorks Agent.MoldDesign`. It holds:
    - inputs (press, materials, temperatures, cycle life)
    - bodies (id = SolidWorks body name, role: lid/base/side/insert/plug, material, bounding box, mass)
    - cavities (footprint polygons, depth, projected area)

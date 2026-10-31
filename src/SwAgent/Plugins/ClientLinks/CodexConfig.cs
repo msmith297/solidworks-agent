@@ -2,29 +2,29 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.Plugins
 {
     /// <summary>
-    /// [mcp_servers.unify3d] in Codex's config.toml (docs/plugins/local-mcp.md 7.3), edited as text with TomlScan: Codex writes the
-    /// file itself (comments, quoted keys, agent-bridge's managed block), so Unify3D appends one marked block and later removes
+    /// [mcp_servers.solidworks-agent] in Codex's config.toml (docs/plugins/local-mcp.md 7.3), edited as text with TomlScan: Codex writes the
+    /// file itself (comments, quoted keys, agent-bridge's managed block), so SolidWorks Agent appends one marked block and later removes
     /// exactly those lines. Every other line stays byte-identical; add then remove gives back the original bytes.
     /// </summary>
     internal static class CodexConfig
     {
         public const string Label = "Codex";
-        public const string StartMarker = "# >>> unify3d (managed by Unify3D Agent: the Codex MCP plugin; turn it off in Unify3D to remove) >>>";
-        public const string EndMarker = "# <<< unify3d <<<";
-        public const string HeaderText = "[mcp_servers.unify3d]";
+        public const string StartMarker = "# >>> solidworks-agent (managed by SolidWorks Agent: the Codex MCP plugin; turn it off in SolidWorks Agent to remove) >>>";
+        public const string EndMarker = "# <<< solidworks-agent <<<";
+        public const string HeaderText = "[mcp_servers.solidworks-agent]";
 
         public static string ConflictText =>
-            "Codex already has an MCP server named \"unify3d\" that Unify3D didn't add. Rename or remove it in Codex's settings, then try again.";
+            "Codex already has an MCP server named \"solidworks-agent\" that SolidWorks Agent didn't add. Rename or remove it in Codex's settings, then try again.";
 
-        public static string UnreadableText => "Codex's config.toml couldn't be read safely. Unify3D won't change it.";
+        public static string UnreadableText => "Codex's config.toml couldn't be read safely. SolidWorks Agent won't change it.";
 
         public static string InlineText =>
-            "Codex's mcp_servers is written inline (mcp_servers = { ... }) in config.toml, so Unify3D can't add to it. Write it as [mcp_servers.<name>] tables, then try again.";
+            "Codex's mcp_servers is written inline (mcp_servers = { ... }) in config.toml, so SolidWorks Agent can't add to it. Write it as [mcp_servers.<name>] tables, then try again.";
 
         /// <summary>Why Inspect says Unreadable: the inline mcp_servers text, or the general one.</summary>
         public static string UnreadableReason(string text)
@@ -55,19 +55,19 @@ namespace SwAgent.Plugins
             EndMarker,
         }) + (final ? eol : "");
 
-        /// <summary>What the file says about "unify3d".</summary>
+        /// <summary>What the file says about "solidworks-agent".</summary>
         private sealed class Analysis
         {
             public bool Conflict;
 
-            /// <summary>mcp_servers is an inline table (mcp_servers = { ... }): no [mcp_servers.unify3d] table can be added.</summary>
+            /// <summary>mcp_servers is an inline table (mcp_servers = { ... }): no [mcp_servers.solidworks-agent] table can be added.</summary>
             public bool Inline;
 
-            /// <summary>Unify3D's own [mcp_servers.unify3d] header, when there is one.</summary>
+            /// <summary>SolidWorks Agent's own [mcp_servers.solidworks-agent] header, when there is one.</summary>
             public TomlScan.Header Main;
             public TomlScan.Statement Command;
 
-            /// <summary>Line ranges [from, to) that are Unify3D's: its tables, and its markers when they sit directly around them.</summary>
+            /// <summary>Line ranges [from, to) that are SolidWorks Agent's: its tables, and its markers when they sit directly around them.</summary>
             public List<(int From, int To)> Regions = new List<(int, int)>();
         }
 
@@ -83,7 +83,7 @@ namespace SwAgent.Plugins
             }
         }
 
-        private static bool IsOurs(string[] path) => TomlScan.StartsWith(path, "mcp_servers", "unify3d");
+        private static bool IsOurs(string[] path) => TomlScan.StartsWith(path, "mcp_servers", "solidworks-agent");
 
         private static Analysis Analyze(TomlScan scan)
         {
@@ -91,15 +91,15 @@ namespace SwAgent.Plugins
             var ours = scan.Headers.Where(h => IsOurs(h.Path)).ToList();
             var mains = ours.Where(h => h.Path.Length == 2).ToList();
 
-            // Any other definition of mcp_servers.unify3d is someone else's.
+            // Any other definition of mcp_servers.solidworks-agent is someone else's.
             foreach (var s in scan.Statements)
             {
-                // A dotted key that reaches mcp_servers.unify3d from outside its table (the root, [mcp_servers]), or an inline table.
+                // A dotted key that reaches mcp_servers.solidworks-agent from outside its table (the root, [mcp_servers]), or an inline table.
                 if (IsOurs(s.Table.Concat(s.Key).ToArray()) && !IsOurs(s.Table)) a.Conflict = true;
                 if (s.Table.Length == 0 && s.Key.Length == 1 && s.Key[0] == "mcp_servers")
                 {
-                    if (s.RawValue.Contains("unify3d")) a.Conflict = true;
-                    else a.Inline = true; // TOML can't extend an inline table: adding [mcp_servers.unify3d] would break the file
+                    if (s.RawValue.Contains("solidworks-agent")) a.Conflict = true;
+                    else a.Inline = true; // TOML can't extend an inline table: adding [mcp_servers.solidworks-agent] would break the file
                 }
             }
             if (mains.Count > 1 || mains.Any(h => h.IsArray || h.Raw != HeaderText) || ours.Count > 0 && mains.Count == 0) a.Conflict = true;
@@ -162,8 +162,8 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// Append the block (after a blank line) when there is none; refresh the command of Unify3D's own entry when the exe moved.
-        /// With addIfMissing false only an existing entry is refreshed. A foreign "unify3d" throws the conflict text.
+        /// Append the block (after a blank line) when there is none; refresh the command of SolidWorks Agent's own entry when the exe moved.
+        /// With addIfMissing false only an existing entry is refreshed. A foreign "solidworks-agent" throws the conflict text.
         /// </summary>
         public static string Add(string text, string exe, bool addIfMissing)
         {
@@ -185,7 +185,7 @@ namespace SwAgent.Plugins
             return text.EndsWith("\n") ? text + eol + Block(exe, eol) : text + eol + eol + Block(exe, eol, final: false);
         }
 
-        /// <summary>Remove Unify3D's lines and nothing else (a foreign "unify3d" stays: conflict is set).</summary>
+        /// <summary>Remove SolidWorks Agent's lines and nothing else (a foreign "solidworks-agent" stays: conflict is set).</summary>
         public static string Remove(string text, out bool conflict)
         {
             var scan = Scan(text);
@@ -213,7 +213,7 @@ namespace SwAgent.Plugins
 
         /// <summary>
         /// The line-level guarantee: after must scan, and the lines that differ (between the common head and tail, compared
-        /// without line endings) may only be blank, comments, or lines of Unify3D's own tables.
+        /// without line endings) may only be blank, comments, or lines of SolidWorks Agent's own tables.
         /// </summary>
         public static void Check(string before, string after)
         {
@@ -245,7 +245,7 @@ namespace SwAgent.Plugins
             Allowed(f, head, f.Lines.Count - tail);
         }
 
-        /// <summary>Every line inside a [mcp_servers.unify3d...] table: from its header to the next other header.</summary>
+        /// <summary>Every line inside a [mcp_servers.solidworks-agent...] table: from its header to the next other header.</summary>
         private static HashSet<int> OwnLines(TomlScan s)
         {
             var set = new HashSet<int>();

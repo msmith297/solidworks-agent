@@ -22,7 +22,7 @@ namespace SwAgent.Tests.Plugins
             Assert.StartsWith(Paths.PluginsDir, Paths.PluginSessionFile);
             Assert.StartsWith(Paths.LocalDir, Paths.PluginTranscriptDir);
             Assert.True(File.Exists(Path.Combine(Paths.AddInDir, "builtin-plugins", ".claude-plugin", "marketplace.json")), "plugins/ ships as builtin-plugins");
-            Assert.Equal("unify3d", MarketplaceManifest.Load(Path.Combine(Paths.AddInDir, "builtin-plugins")).Name);
+            Assert.Equal("solidworks-agent", MarketplaceManifest.Load(Path.Combine(Paths.AddInDir, "builtin-plugins")).Name);
         }
 
         [Fact]
@@ -116,42 +116,42 @@ namespace SwAgent.Tests.Plugins
         [Fact]
         public void Agent_bridge_installs_with_its_overlay_its_entry_env_and_without_the_hidden_skills()
         {
-            using (var env = new PluginTestEnv("unify3d-test"))
+            using (var env = new PluginTestEnv("solidworks-agent-test"))
             {
                 // The built-in marketplace's entry for agent-bridge (design critique 3 and 24), pointing at the fixture.
                 Fetcher.CopyDirectory(Path.Combine(PluginTestEnv.AgentBridgeFixture, "plugin"), Path.Combine(env.Market, "agent-bridge"));
-                env.AddPlugin("agent-bridge-unify3d", entryExtra: null);
+                env.AddPlugin("agent-bridge-solidworks", entryExtra: null);
                 var file = Path.Combine(env.Market, ".claude-plugin", "marketplace.json");
                 var market = JObject.Parse(File.ReadAllText(file));
                 ((JArray)market["plugins"]).Insert(0, new JObject
                 {
                     ["name"] = "agent-bridge",
                     ["source"] = "./agent-bridge",
-                    ["unify3d"] = new JObject
+                    ["solidworksAgent"] = new JObject
                     {
-                        ["env"] = new JObject { ["AGENT_BRIDGE_NAME"] = "Unify3D SolidWorks - ${UNIFY3D_DEVICE}", ["AGENT_BRIDGE_OWNER_PID"] = "${UNIFY3D_PID}" },
-                        ["installWith"] = new JArray("agent-bridge-unify3d"),
+                        ["env"] = new JObject { ["AGENT_BRIDGE_NAME"] = "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}", ["AGENT_BRIDGE_OWNER_PID"] = "${SOLIDWORKS_AGENT_PID}" },
+                        ["installWith"] = new JArray("agent-bridge-solidworks"),
                         ["hideSkills"] = new JArray("revive-session", "agent-bridge-plugin-update", "server-setup"),
                     },
                 });
                 PluginTestEnv.WriteJson(file, market);
                 env.Pm.AddMarketplace(env.Market);
 
-                var ask = env.Pm.Install("agent-bridge@unify3d-test");
+                var ask = env.Pm.Install("agent-bridge@solidworks-agent-test");
                 Assert.Equal(6, ask.NeedsTrust["hooks"].Count());
                 Assert.Contains("client/mcp.mjs", (string)Assert.Single(ask.NeedsTrust["mcp"]));
-                var r = env.Pm.Install("agent-bridge@unify3d-test", ask.Hash);
+                var r = env.Pm.Install("agent-bridge@solidworks-agent-test", ask.Hash);
                 Assert.True(r.Ok);
-                Assert.Equal(new[] { "agent-bridge-unify3d@unify3d-test" }, r.AlsoInstalled);
-                Assert.NotNull(env.Pm.Find("agent-bridge-unify3d"));
+                Assert.Equal(new[] { "agent-bridge-solidworks@solidworks-agent-test" }, r.AlsoInstalled);
+                Assert.NotNull(env.Pm.Find("agent-bridge-solidworks"));
                 // no version anywhere and no git: a 12-hex content hash names the folder
                 Assert.Matches("^[0-9a-f]{12}$", r.Plugin.Record.Version);
 
                 var rt = env.Pm.Runnable().Single(x => x.Name == "agent-bridge");
-                Assert.Equal("Unify3D SolidWorks - " + Environment.MachineName, rt.Env["AGENT_BRIDGE_NAME"]);
+                Assert.Equal("SolidWorks Agent - " + Environment.MachineName, rt.Env["AGENT_BRIDGE_NAME"]);
                 Assert.Equal(Process.GetCurrentProcess().Id.ToString(), rt.Env["AGENT_BRIDGE_OWNER_PID"]);
                 Assert.Equal(r.Plugin.Root, rt.Env["CLAUDE_PLUGIN_ROOT"]);
-                Assert.Equal("1", rt.Env["UNIFY3D"]);
+                Assert.Equal("1", rt.Env["SOLIDWORKS_AGENT"]);
                 Assert.True(Directory.Exists(rt.DataDir));
                 Assert.Equal(Path.Combine(env.Pm.DataRoot, "agent-bridge"), rt.DataDir);
                 Assert.Equal(r.Plugin.Root + "/client/mcp.mjs", rt.Expand((string)rt.McpServers["agent-bridge"]["args"][0]));

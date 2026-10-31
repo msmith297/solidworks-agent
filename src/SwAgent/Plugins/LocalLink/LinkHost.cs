@@ -11,7 +11,7 @@ using Newtonsoft.Json.Linq;
 using SwAgent.Infrastructure;
 using SwAgent.Plugins.Hooks;
 using SwAgent.UI;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.Plugins.LocalLink
 {
@@ -19,8 +19,8 @@ namespace SwAgent.Plugins.LocalLink
     /// The add-in's side of the Claude MCP and Codex MCP plugins (docs/plugins/local-mcp.md 5): what the local link's pipe
     /// may do, and the panel RPCs that close the loop.
     /// <list type="bullet">
-    /// <item>hello / status / ask / answer / tool from Unify3D.LocalMcp.exe (LinkServer), only while that client's plugin
-    ///   (claude-mcp@unify3d, codex-mcp@unify3d) is installed, on and approved.</item>
+    /// <item>hello / status / ask / answer / tool from SolidWorksAgent.LocalMcp.exe (LinkServer), only while that client's plugin
+    ///   (claude-mcp@solidworks-agent, codex-mcp@solidworks-agent) is installed, on and approved.</item>
     /// <item>ask: a wake into the chat open in the panel (untrusted, counted against the hourly allowance, refused over
     ///   it), with a ticket; the reply waits for the turn's answer.</item>
     /// <item>tool: four read-only model tools, run on the SolidWorks UI thread (onUi), never on a pipe thread.</item>
@@ -36,7 +36,7 @@ namespace SwAgent.Plugins.LocalLink
         /// <summary>How long status waits for the SolidWorks UI thread before answering with what it knows without it.</summary>
         internal static readonly TimeSpan StatusUiWait = TimeSpan.FromSeconds(10);
 
-        private const string PanelReloadedText = "The Unify3D panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed.";
+        private const string PanelReloadedText = "The SolidWorks Agent panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed.";
 
         private readonly PluginManager _pm;
         private readonly Session _session;
@@ -96,7 +96,7 @@ namespace SwAgent.Plugins.LocalLink
         /// </summary>
         internal static Func<Func<Task<JObject>>, Task<JObject>> UiRunner(SynchronizationContext ui) => work =>
         {
-            if (ui == null) return Task.FromException<JObject>(new LinkError(LinkProtocol.ErrFault, "Unify3D isn't ready yet. Try again in a moment."));
+            if (ui == null) return Task.FromException<JObject>(new LinkError(LinkProtocol.ErrFault, "SolidWorks Agent isn't ready yet. Try again in a moment."));
             var done = new TaskCompletionSource<JObject>(TaskCreationOptions.RunContinuationsAsynchronously);
             ui.Post(async _ =>
             {
@@ -187,7 +187,7 @@ namespace SwAgent.Plugins.LocalLink
 
         private PluginManager.LoadedPlugin RequireOn(string client) =>
             LinkPlugin(client) ?? throw new LinkError(LinkProtocol.ErrOff,
-                $"The {PluginTitle(client)} plugin is turned off in Unify3D (Plugins). Turn it on to use Unify3D from {LinkProtocol.Label(client)}.");
+                $"The {PluginTitle(client)} plugin is turned off in SolidWorks Agent (Plugins). Turn it on to use SolidWorks Agent from {LinkProtocol.Label(client)}.");
 
         private bool ModelReadAllowed(PluginManager.LoadedPlugin p)
         {
@@ -219,7 +219,7 @@ namespace SwAgent.Plugins.LocalLink
             {
                 var label = LinkProtocol.Label(client);
                 throw new LinkError(LinkProtocol.ErrVersion,
-                    $"Unify3D Agent and its {label} link are different versions. Restart {label}{(client == LinkProtocol.ClaudeDesktop ? " (quit it from the tray)" : "")} after updating Unify3D.");
+                    $"SolidWorks Agent and its {label} link are different versions. Restart {label}{(client == LinkProtocol.ClaudeDesktop ? " (quit it from the tray)" : "")} after updating SolidWorks Agent.");
             }
             var plugin = RequireOn(client);
             peer.Client = client;
@@ -270,8 +270,8 @@ namespace SwAgent.Plugins.LocalLink
             {
                 Log.Info($"Local link: a message from {label} refused: {_session.AutomaticPerHour} automatic turns per hour reached");
                 throw new LinkError(LinkProtocol.ErrLimit,
-                    $"Unify3D has used its {_session.AutomaticPerHour} automatic turns for this hour (Options > Plugins). Your message was not delivered. " +
-                    "Try again later, or ask the user to type it in the Unify3D panel.");
+                    $"SolidWorks Agent has used its {_session.AutomaticPerHour} automatic turns for this hour (Options > Plugins). Your message was not delivered. " +
+                    "Try again later, or ask the user to type it in the SolidWorks Agent panel.");
             }
             var ticket = NewTicket();
             bool ready;
@@ -298,7 +298,7 @@ namespace SwAgent.Plugins.LocalLink
             var t = Tickets.Find(ticket);
             if (t == null || t.Client != client)
                 throw new LinkError(LinkProtocol.ErrUnknownTicket,
-                    "Unify3D doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_unify3d.");
+                    "SolidWorks Agent doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_solidworks_agent.");
             await Tickets.WaitAsync(t, TimeSpan.FromMilliseconds(waitMs), cancel).ConfigureAwait(false);
             return Reply(t);
         }
@@ -346,7 +346,7 @@ namespace SwAgent.Plugins.LocalLink
                 chat = _panelChat;
                 solidWorks = _solidWorks;
             }
-            // With "read the open model" off, the document and the chat's title stay in Unify3D too.
+            // With "read the open model" off, the document and the chat's title stay in SolidWorks Agent too.
             var modelRead = ModelReadAllowed(plugin);
             if (!modelRead && chat != null) chat = new JObject { ["busy"] = chat["busy"]?.DeepClone() };
             var status = new JObject
@@ -368,10 +368,10 @@ namespace SwAgent.Plugins.LocalLink
         private async Task<JObject> ToolAsync(PluginManager.LoadedPlugin plugin, string client, string name, JObject input)
         {
             var map = LinkProtocol.ModelTools.FirstOrDefault(m => m[0] == name);
-            if (map == null) throw new LinkError(LinkProtocol.ErrNotAllowed, $"Unify3D doesn't offer the tool \"{name}\" here.");
+            if (map == null) throw new LinkError(LinkProtocol.ErrNotAllowed, $"SolidWorks Agent doesn't offer the tool \"{name}\" here.");
             if (!ModelReadAllowed(plugin))
                 throw new LinkError(LinkProtocol.ErrNotAllowed,
-                    $"Reading the open model is turned off for {LinkProtocol.Label(client)} in Unify3D (Plugins > {PluginTitle(client)} > Settings).");
+                    $"Reading the open model is turned off for {LinkProtocol.Label(client)} in SolidWorks Agent (Plugins > {PluginTitle(client)} > Settings).");
             var tool = map[1];
             var args = ToolInput(tool, input);
             var needsDocument = tool != "list_open_documents";

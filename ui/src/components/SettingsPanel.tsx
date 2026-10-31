@@ -28,7 +28,7 @@ export function SettingsPanel() {
       <div className="zoom-content mx-auto flex max-w-[520px] flex-col gap-1.5">
         <div className="flex items-center gap-1.5 px-1 pb-0.5">
           <BrandMark size={18} />
-          <span className="flex-1 text-[13px] font-semibold text-text">Unify3D Agent Options</span>
+          <span className="flex-1 text-[13px] font-semibold text-text">SolidWorks Agent Options</span>
           <button onClick={() => setPanel("chat")} className="sw-btn" title="Back to chat">
             <IconOk size={12} /> Done
           </button>
@@ -299,7 +299,7 @@ function VoiceSettings() {
   }, [speaking, voices.length]);
 
   if (status && !status.available) {
-    return <p className="text-[11.5px] text-text-3">The speech component isn't installed. Reinstall Unify3D Agent to use voice.</p>;
+    return <p className="text-[11.5px] text-text-3">The speech component isn't installed. Reinstall SolidWorks Agent to use voice.</p>;
   }
   const modelId = settings.voiceModel ?? "base.en";
   const models = status?.models ?? [];

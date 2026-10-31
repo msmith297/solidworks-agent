@@ -24,7 +24,7 @@ namespace SwAgent.Plugins
     /// <summary>One plugin as the runtime sees it. A snapshot: Runnable() builds new ones after every change.</summary>
     internal sealed class PluginRuntime
     {
-        /// <summary>"name@marketplace", e.g. "agent-bridge@unify3d".</summary>
+        /// <summary>"name@marketplace", e.g. "agent-bridge@solidworks-agent".</summary>
         public string Id { get; set; }
 
         /// <summary>The plugin's name (kebab-case), e.g. "agent-bridge".</summary>
@@ -37,14 +37,14 @@ namespace SwAgent.Plugins
         public string DataDir { get; set; }
 
         /// <summary>
-        /// Extra environment for its hooks and MCP servers, values already expanded: the marketplace entry's unify3d.env, then
-        /// plugin.json's unify3d.env, then the user's options as CLAUDE_PLUGIN_OPTION_&lt;KEY&gt; (sensitive ones too: env is
-        /// where secrets go, never a command line), plus CLAUDE_PLUGIN_ROOT, CLAUDE_PLUGIN_DATA, UNIFY3D_PLUGIN_ROOT, UNIFY3D=1.
+        /// Extra environment for its hooks and MCP servers, values already expanded: the marketplace entry's solidworksAgent.env, then
+        /// plugin.json's solidworksAgent.env, then the user's options as CLAUDE_PLUGIN_OPTION_&lt;KEY&gt; (sensitive ones too: env is
+        /// where secrets go, never a command line), plus CLAUDE_PLUGIN_ROOT, CLAUDE_PLUGIN_DATA, SOLIDWORKS_AGENT_PLUGIN_ROOT, SOLIDWORKS_AGENT=1.
         /// </summary>
         public IDictionary<string, string> Env { get; set; }
 
         /// <summary>
-        /// Expands ${CLAUDE_PLUGIN_ROOT}, ${UNIFY3D_PLUGIN_ROOT}, ${CLAUDE_PLUGIN_DATA}, ${UNIFY3D_DEVICE}, ${UNIFY3D_PID} and
+        /// Expands ${CLAUDE_PLUGIN_ROOT}, ${SOLIDWORKS_AGENT_PLUGIN_ROOT}, ${CLAUDE_PLUGIN_DATA}, ${SOLIDWORKS_AGENT_DEVICE}, ${SOLIDWORKS_AGENT_PID} and
         /// ${user_config.KEY}; anything else (${ENV_VAR}, ${ENV_VAR:-default}) is left as written, for Session.Expand to fill
         /// from the program's own environment. Command and skill text uses only this. A sensitive option expands to "" here
         /// (read it from CLAUDE_PLUGIN_OPTION_&lt;KEY&gt; in Env instead).

@@ -38,7 +38,7 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void The_pipe_allows_the_current_user_denies_network_and_nothing_else()
         {
-            var name = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+            var name = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
             using (var pipe = LinkServer.Create(name))
             {
                 var acl = pipe.GetAccessControl();
@@ -61,7 +61,7 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void A_pipe_name_another_program_holds_is_refused_not_joined()
         {
-            var name = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+            var name = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
             // A squatter: the same name, created first, with room for more instances.
             using (new System.IO.Pipes.NamedPipeServerStream(name, System.IO.Pipes.PipeDirection.InOut, LinkServer.MaxConnections,
                        System.IO.Pipes.PipeTransmissionMode.Byte, System.IO.Pipes.PipeOptions.Asynchronous))
@@ -81,8 +81,8 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public async Task One_server_serves_and_a_second_takes_over_when_it_closes()
         {
-            var pipe = "Unify3D.Test." + Guid.NewGuid().ToString("N");
-            var mutex = @"Local\Unify3D.Test." + Guid.NewGuid().ToString("N");
+            var pipe = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
+            var mutex = @"Local\SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
             var first = new LinkServer(new Echo("first"), pipe, mutex);
             var second = new LinkServer(new Echo("second"), pipe, mutex);
             try
@@ -117,8 +117,8 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public async Task An_idle_connection_closes_and_stopping_closes_open_ones()
         {
-            var pipe = "Unify3D.Test." + Guid.NewGuid().ToString("N");
-            var server = new LinkServer(new Echo("s"), pipe, @"Local\Unify3D.Test." + Guid.NewGuid().ToString("N")) { ReadTimeout = TimeSpan.FromMilliseconds(500) };
+            var pipe = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
+            var server = new LinkServer(new Echo("s"), pipe, @"Local\SolidWorks Agent.Test." + Guid.NewGuid().ToString("N")) { ReadTimeout = TimeSpan.FromMilliseconds(500) };
             try
             {
                 server.Start();

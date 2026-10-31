@@ -1,15 +1,17 @@
-<p><img src="assets/brand/logo-full.png" alt="Unify3D" height="72"></p>
+<p><img src="assets/brand/logo-full.png" alt="SolidWorks Agent" height="72"></p>
 
-# Unify3D Agent
+<sub>Formerly Unify3D Agent. An independent add-in; not affiliated with or endorsed by Dassault Systèmes. SOLIDWORKS is a trademark of Dassault Systèmes.</sub>
 
-An AI design agent for SOLIDWORKS. A chat panel in the Task Pane, a **Unify3D** ribbon tab and right-click
+# SolidWorks Agent
+
+An AI design agent for SOLIDWORKS. A chat panel in the Task Pane, a **SolidWorks Agent** ribbon tab and right-click
 commands let you talk to Claude or OpenAI's GPT models about the open model. The agent reads and changes the model through the full
 SolidWorks API. Each document keeps its own conversations, stored **inside the .sldprt / .sldasm / .slddrw file**.
 
 ```
 SLDWORKS.exe
  └─ SwAgent.dll  (C# .NET Framework 4.8 add-in, xCAD.NET)
-     ├─ Ribbon tab "Unify3D" (panel commands + your Tools), right-click "Ask Unify3D" on faces/edges/features
+     ├─ Ribbon tab "SolidWorks Agent" (panel commands + your Tools), right-click "Ask SolidWorks Agent" on faces/edges/features
      ├─ Task Pane ─ WebView2 (separate Chromium processes)
      │               └─ React + TypeScript UI  ── agent loop ──▶ Claude API (@anthropic-ai/sdk) or OpenAI Responses API
      │                        ▲ JSON-RPC over postMessage │ tool calls
@@ -23,8 +25,8 @@ SLDWORKS.exe
 
 - **Workflows** are larger saved procedures (e.g. building a compression mold). Run them from the **Workflows** menu in
   the chat panel; the agent follows the saved instructions.
-- **Tools** are quick, AI-powered commands on the **Unify3D** ribbon tab, assignable to hotkeys in
-  Tools > Customize > Keyboard (category *Unify3D*). A tool is a skill with optional hard-coded parts:
+- **Tools** are quick, AI-powered commands on the **SolidWorks Agent** ribbon tab, assignable to hotkeys in
+  Tools > Customize > Keyboard (category *SolidWorks Agent*). A tool is a skill with optional hard-coded parts:
   - a native **PropertyManager page** built from its declared inputs (selection boxes, numbers with units, checkboxes,
     dropdowns, option buttons, a note, image/PDF/3D-model files), skipped when everything it needs is already selected;
   - a live **holographic preview** (temporary bodies, rebuilt on every change; switches to on-demand if it gets slow);
@@ -113,9 +115,9 @@ the provider of its model: pick a model from the other provider and the next mes
 
 ## Install
 
-Download `Unify3D-Agent-Setup-x.y.z.exe` from [Releases](https://github.com/msmith297/unify3d-agent/releases/latest)
+Download `SolidWorks-Agent-Setup-x.y.z.exe` from [Releases](https://github.com/msmith297/solidworks-agent/releases/latest)
 and run it (administrator rights are needed to register a SOLIDWORKS add-in). Requires Windows 10/11 x64 and
-SOLIDWORKS 2024 or newer. Restart SOLIDWORKS, open the **Unify3D Agent** Task Pane tab and paste an Anthropic or
+SOLIDWORKS 2024 or newer. Restart SOLIDWORKS, open the **SolidWorks Agent** Task Pane tab and paste an Anthropic or
 OpenAI API key in Options. The add-in checks for updates itself (Options > Updates).
 
 ## Build from source
@@ -133,8 +135,8 @@ Then, in an **Administrator** PowerShell:
 .\scripts\register.ps1                  # RegAsm /codebase + SolidWorks add-in keys
 ```
 
-Restart SolidWorks. The add-in loads at startup and also appears under **Tools > Add-Ins** as *Unify3D Agent*.
-Open the **Unify3D Agent** tab in the Task Pane, paste your API key in Settings, and start chatting.
+Restart SolidWorks. The add-in loads at startup and also appears under **Tools > Add-Ins** as *SolidWorks Agent*.
+Open the **SolidWorks Agent** tab in the Task Pane, paste your API key in Settings, and start chatting.
 
 To uninstall, run `.\scripts\unregister.ps1` as Administrator. Chats already saved in your files stay there,
 harmless to SolidWorks.
@@ -173,7 +175,7 @@ harmless to SolidWorks.
 | `ui/src/agent/` | System prompt and the agent loop (streaming, tools, approvals) |
 | `ui/src/components/` | Chat UI |
 | `src/SwAgent/Infrastructure/Updater.cs`, `src/SwAgent/update.ps1` | Update check (GitHub Releases), download, install after SOLIDWORKS exits |
-| `installer/Unify3DAgent.iss` | Windows installer (Inno Setup 6) |
+| `installer/SolidWorksAgent.iss` | Windows installer (Inno Setup 6) |
 | `assets/brand/` | Logo and icons |
 
 ## Releasing
@@ -182,5 +184,5 @@ harmless to SolidWorks.
 2. Tag and push: `git tag v0.2.0; git push origin v0.2.0`.
 
 GitHub Actions (`.github/workflows/release.yml`) builds the UI, the add-in and the installer, and publishes a release with
-`Unify3D-Agent-Setup-0.2.0.exe` and its `.sha256`. Installed copies find it within a few hours and offer the update.
+`SolidWorks-Agent-Setup-0.2.0.exe` and its `.sha256`. Installed copies find it within a few hours and offer the update.
 To build an installer locally: `.scriptsmake-installer.ps1 -Version 0.2.0` (needs Inno Setup 6).

@@ -13,7 +13,7 @@ using Microsoft.Win32.SafeHandles;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SwAgent.Infrastructure;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.Plugins.LocalLink
 {
@@ -107,7 +107,7 @@ namespace SwAgent.Plugins.LocalLink
                 _cts = new CancellationTokenSource();
                 var stop = _stop;
                 var cts = _cts;
-                _thread = new Thread(() => Run(stop, cts)) { IsBackground = true, Name = "Unify3D local link" };
+                _thread = new Thread(() => Run(stop, cts)) { IsBackground = true, Name = "SolidWorks Agent local link" };
                 _thread.Start();
             }
         }
@@ -335,7 +335,7 @@ namespace SwAgent.Plugins.LocalLink
                     catch (Exception ex) when (!(ex is OperationCanceledException))
                     {
                         Log.Warn($"Local link {peer.Client ?? "request"} failed: {ex.GetType().Name}: {ex.Message}");
-                        response = Error(id, LinkProtocol.ErrFault, "Unify3D hit an error while answering: " + ex.Message);
+                        response = Error(id, LinkProtocol.ErrFault, "SolidWorks Agent hit an error while answering: " + ex.Message);
                     }
                     await WriteAsync(pipe, response, cancel).ConfigureAwait(false);
                     if (close) return;

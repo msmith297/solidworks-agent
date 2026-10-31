@@ -1,14 +1,14 @@
 {
-  "name": "unify3d",
-  "unify3d": {
-    "displayName": "Unify3D"
+  "name": "solidworks-agent",
+  "solidworksAgent": {
+    "displayName": "SolidWorks Agent"
   },
   "owner": {
-    "name": "Unify3D",
-    "url": "https://github.com/msmith297/unify3d-agent"
+    "name": "SolidWorks Agent",
+    "url": "https://github.com/msmith297/solidworks-agent"
   },
   "metadata": {
-    "description": "First-party plugins for Unify3D Agent. Ships with the add-in (builtin-plugins) and is trusted."
+    "description": "First-party plugins for SolidWorks Agent. Ships with the add-in (builtin-plugins) and is trusted."
   },
   "plugins": [
     {
@@ -18,26 +18,26 @@
         "url": "https://github.com/msmith297/agent-bridge.git",
         "path": "plugin"
       },
-      "description": "Connects the Unify3D agent in SolidWorks to agent-bridge: message other AI agents (Claude Code, Codex, other Unify3D seats) and the operator's console, listen for work, and share projects (docs, tasks, data, files). Needs Node.js 18 or newer. Remote approvals from the console are not supported in Unify3D: approvals stay in the panel.",
+      "description": "Connects the agent in SolidWorks to agent-bridge: message other AI agents (Claude Code, Codex, other SolidWorks Agent seats) and the operator's console, listen for work, and share projects (docs, tasks, data, files). Needs Node.js 18 or newer. Remote approvals from the console are not supported in SolidWorks Agent: approvals stay in the panel.",
       "category": "Collaboration",
       "keywords": ["agents", "multi-agent", "messaging", "collaboration", "mcp"],
       "homepage": "https://github.com/msmith297/agent-bridge",
-      "unify3d": {
+      "solidworksAgent": {
         "env": {
-          "AGENT_BRIDGE_NAME": "Unify3D SolidWorks - ${UNIFY3D_DEVICE}",
-          "AGENT_BRIDGE_OWNER_PID": "${UNIFY3D_PID}",
+          "AGENT_BRIDGE_NAME": "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}",
+          "AGENT_BRIDGE_OWNER_PID": "${SOLIDWORKS_AGENT_PID}",
           "AGENT_BRIDGE_SESSION_ID": "${CLAUDE_CODE_SESSION_ID}",
           "AGENT_BRIDGE_LISTEN": "always"
         },
-        "installWith": ["agent-bridge-unify3d"],
+        "installWith": ["agent-bridge-solidworks"],
         "hideSkills": ["revive-session", "agent-bridge-plugin-update", "server-setup"]
       }
     },
     {
-      "name": "agent-bridge-unify3d",
-      "source": "./agent-bridge-unify3d",
+      "name": "agent-bridge-solidworks",
+      "source": "./agent-bridge-solidworks",
       "version": "1.2.0",
-      "description": "Agent Bridge inside SolidWorks: how the Unify3D agent handles bridge messages safely (the user's model and data stay under the user's control), and a /bridge command for peers, inbox, listening and the bridge name. Installed with Agent Bridge.",
+      "description": "Agent Bridge inside SolidWorks: how the SolidWorks Agent handles bridge messages safely (the user's model and data stay under the user's control), and a /bridge command for peers, inbox, listening and the bridge name. Installed with Agent Bridge.",
       "category": "Collaboration",
       "keywords": ["agents", "messaging", "collaboration", "solidworks"]
     },
@@ -45,19 +45,19 @@
       "name": "claude-mcp",
       "source": "./claude-mcp",
       "version": "1.0.0",
-      "description": "Lets Claude Desktop on this PC talk to Unify3D: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the Unify3D panel. Adds an MCP server named \"unify3d\" to Claude Desktop's settings. Works on this PC only; no agent-bridge needed.",
+      "description": "Lets Claude Desktop on this PC talk to SolidWorks Agent: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the SolidWorks Agent panel. Adds an MCP server named \"solidworks-agent\" to Claude Desktop's settings. Works on this PC only; no agent-bridge needed.",
       "category": "Connections",
       "keywords": ["claude", "claude-desktop", "mcp", "local"],
-      "unify3d": { "registerMcpIn": "claude-desktop" }
+      "solidworksAgent": { "registerMcpIn": "claude-desktop" }
     },
     {
       "name": "codex-mcp",
       "source": "./codex-mcp",
       "version": "1.0.0",
-      "description": "Lets Codex on this PC (the app, CLI and IDE extension) talk to Unify3D: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the Unify3D panel. Adds an MCP server named \"unify3d\" to Codex's config.toml. Works on this PC only; no agent-bridge needed.",
+      "description": "Lets Codex on this PC (the app, CLI and IDE extension) talk to SolidWorks Agent: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the SolidWorks Agent panel. Adds an MCP server named \"solidworks-agent\" to Codex's config.toml. Works on this PC only; no agent-bridge needed.",
       "category": "Connections",
       "keywords": ["codex", "openai", "mcp", "local"],
-      "unify3d": { "registerMcpIn": "codex" }
+      "solidworksAgent": { "registerMcpIn": "codex" }
     }
   ]
 }

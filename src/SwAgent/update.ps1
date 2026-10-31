@@ -18,7 +18,7 @@ function Write-Log([string]$message) {
 
 function Show-Message([string]$text) {
     Add-Type -AssemblyName System.Windows.Forms
-    [System.Windows.Forms.MessageBox]::Show($text, "Unify3D Agent update", "OK", "Warning") | Out-Null
+    [System.Windows.Forms.MessageBox]::Show($text, "SolidWorks Agent update", "OK", "Warning") | Out-Null
 }
 
 Write-Log "Update helper started: installer=$Installer pid=$WaitPid restart=$Restart"
@@ -28,7 +28,7 @@ $deadline = (Get-Date).AddMinutes(10)
 while ((Get-Process -Id $WaitPid -ErrorAction SilentlyContinue) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
 if (Get-Process -Id $WaitPid -ErrorAction SilentlyContinue) {
     Write-Log "SolidWorks is still running after 10 minutes; update postponed."
-    Show-Message "SolidWorks didn't close, so the Unify3D Agent update wasn't installed. It will be offered again next time."
+    Show-Message "SolidWorks didn't close, so the SolidWorks Agent update wasn't installed. It will be offered again next time."
     exit 1
 }
 Start-Sleep -Seconds 2 # let Windows release the DLLs
@@ -37,12 +37,12 @@ Start-Sleep -Seconds 2 # let Windows release the DLLs
 try {
     $p = Start-Process -FilePath $Installer -ArgumentList "/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/SP-" -Verb RunAs -Wait -PassThru
     Write-Log "Installer exited with code $($p.ExitCode)"
-    if ($p.ExitCode -ne 0) { Show-Message "The Unify3D Agent update didn't finish (installer code $($p.ExitCode)). Details: $Log" }
+    if ($p.ExitCode -ne 0) { Show-Message "The SolidWorks Agent update didn't finish (installer code $($p.ExitCode)). Details: $Log" }
 }
 catch {
     # Most often: the administrator prompt was declined.
     Write-Log "Installer could not run: $($_.Exception.Message)"
-    Show-Message "The Unify3D Agent update wasn't installed: $($_.Exception.Message)"
+    Show-Message "The SolidWorks Agent update wasn't installed: $($_.Exception.Message)"
 }
 
 # 3. Start SolidWorks again.

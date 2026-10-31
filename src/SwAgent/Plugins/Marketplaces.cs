@@ -194,8 +194,8 @@ namespace SwAgent.Plugins
         public PluginSource Source;
         public string SourceError;
 
-        /// <summary>The entry's "unify3d" object: env (merged into the plugin's env), installWith, hideSkills.</summary>
-        public JObject Unify3d = new JObject();
+        /// <summary>The entry's "solidworksAgent" object: env (merged into the plugin's env), installWith, hideSkills.</summary>
+        public JObject SolidWorksAgent = new JObject();
 
         public JObject Json;
     }
@@ -206,7 +206,7 @@ namespace SwAgent.Plugins
         public string Name;
 
         /// <summary>
-        /// The name to show ("Unify3D" for the built-in "unify3d"): the top-level unify3d.displayName, trimmed, at most 48
+        /// The name to show ("SolidWorks Agent" for the built-in "solidworks-agent"): the top-level solidworksAgent.displayName, trimmed, at most 48
         /// characters; else null. The id (Name) stays what installed plugin ids use.
         /// </summary>
         public string DisplayName;
@@ -227,7 +227,7 @@ namespace SwAgent.Plugins
                 Name = PluginManifest.Str(j["name"]),
                 Owner = j["owner"] is JObject o ? PluginManifest.Str(o["name"]) : PluginManifest.Str(j["owner"]),
                 Description = PluginManifest.Str(j["description"]) ?? PluginManifest.Str(j["metadata"]?["description"]),
-                DisplayName = DisplayNameOf((j["unify3d"] as JObject)?["displayName"]),
+                DisplayName = DisplayNameOf(((j["solidworksAgent"] ?? j["unify3d"]) as JObject)?["displayName"]),
             };
             if (m.Name == null || !PluginManifest.NamePattern.IsMatch(m.Name)) throw new InvalidOperationException($"The marketplace name \"{m.Name}\" must be 2-48 characters: lowercase letters, digits and dashes.");
             var seen = new HashSet<string>(StringComparer.Ordinal);
@@ -242,7 +242,7 @@ namespace SwAgent.Plugins
                     Category = PluginManifest.Str(p["category"]),
                     Keywords = (p["keywords"] as JArray ?? p["tags"] as JArray)?.Select(k => (string)k).Where(k => !string.IsNullOrWhiteSpace(k)).ToArray() ?? new string[0],
                     RawSource = p["source"],
-                    Unify3d = p["unify3d"] as JObject ?? new JObject(),
+                    SolidWorksAgent = (p["solidworksAgent"] ?? p["unify3d"]) as JObject ?? new JObject(),
                 };
                 if (e.Name == null || !PluginManifest.NamePattern.IsMatch(e.Name))
                 {
@@ -285,7 +285,7 @@ namespace SwAgent.Plugins
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             var client = new HttpClient { Timeout = TimeSpan.FromMinutes(5) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Unify3D-Agent-Plugins");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("SolidWorks-Agent-Plugins");
             return client;
         });
 

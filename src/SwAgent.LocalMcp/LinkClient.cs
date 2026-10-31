@@ -7,7 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.LocalMcp
 {
@@ -152,7 +152,7 @@ namespace SwAgent.LocalMcp
                 return LinkReply.Fail(ToolCatalog.LinkLost);
             }
             if (o["error"] is JObject e)
-                return LinkReply.Fail((string)e["message"] ?? "Unify3D refused the request.", (string)e["code"] ?? LinkProtocol.ErrFault);
+                return LinkReply.Fail((string)e["message"] ?? "SolidWorks Agent refused the request.", (string)e["code"] ?? LinkProtocol.ErrFault);
             return new LinkReply { Result = o["result"] as JObject ?? new JObject() };
         }
     }

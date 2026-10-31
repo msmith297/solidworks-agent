@@ -73,7 +73,7 @@ namespace SwAgent.Tests.LocalLink
                 var r = (await c.CallAsync(2, "ask", new JObject { ["message"] = "Hi", ["waitMs"] = 200 }))["result"];
                 Assert.Equal("working", (string)r["state"]);
                 var ticket = (string)r["ticket"];
-                Assert.Equal($"Unify3D is still working on it. Call get_unify3d_answer with ticket \"{ticket}\" to get the answer.", (string)r["note"]);
+                Assert.Equal($"SolidWorks Agent is still working on it. Call get_solidworks_agent_answer with ticket \"{ticket}\" to get the answer.", (string)r["note"]);
 
                 // The panel held it (a busy chat), then started the turn, then answered.
                 k.Host.OnState(new JObject { ["tickets"] = new JArray(ticket), ["state"] = "queued" });
@@ -92,7 +92,7 @@ namespace SwAgent.Tests.LocalLink
 
                 var unknown = await c.CallAsync(6, "answer", new JObject { ["ticket"] = "u3d_0000000000000000", ["waitMs"] = 0 });
                 Assert.Equal("unknown-ticket", (string)unknown["error"]["code"]);
-                Assert.Equal("Unify3D doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_unify3d.", (string)unknown["error"]["message"]);
+                Assert.Equal("SolidWorks Agent doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_solidworks_agent.", (string)unknown["error"]["message"]);
             }
         }
 
@@ -126,7 +126,7 @@ namespace SwAgent.Tests.LocalLink
                 k.Runtime.Info("page-2");
                 r = (await c.CallAsync(9, "answer", new JObject { ["ticket"] = taken, ["waitMs"] = 0 }))["result"];
                 Assert.Equal("failed", (string)r["state"]);
-                Assert.Equal("The agent's turn failed: The Unify3D panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed.", (string)r["note"]);
+                Assert.Equal("The agent's turn failed: The SolidWorks Agent panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed.", (string)r["note"]);
                 Assert.Equal("queued", (string)(await c.CallAsync(10, "answer", new JObject { ["ticket"] = waiting, ["waitMs"] = 0 }))["result"]["state"]);
                 Assert.Equal("loading", (string)(await c.CallAsync(11, "status", new JObject()))["result"]["panel"]);
             }
@@ -167,7 +167,7 @@ namespace SwAgent.Tests.LocalLink
             using (var c = k.Connect())
             {
                 c.Hello();
-                var r = await c.CallAsync(2, "tool", new JObject { ["name"] = "unify3d_feature_tree", ["input"] = new JObject { ["max_features"] = 99999, ["include_sub_features"] = false, ["code"] = "evil" } });
+                var r = await c.CallAsync(2, "tool", new JObject { ["name"] = "solidworks_feature_tree", ["input"] = new JObject { ["max_features"] = 99999, ["include_sub_features"] = false, ["code"] = "evil" } });
                 Assert.False((bool)r["result"]["isError"]);
                 var content = (JArray)r["result"]["content"];
                 Assert.Equal("Tree of bushing", (string)Assert.Single(content)["text"]); // the image block is left out
@@ -180,10 +180,10 @@ namespace SwAgent.Tests.LocalLink
                 Assert.True(k.Ui.Posts >= 1);
 
                 k.HasDocument = false;
-                r = await c.CallAsync(3, "tool", new JObject { ["name"] = "unify3d_selection" });
+                r = await c.CallAsync(3, "tool", new JObject { ["name"] = "solidworks_selection" });
                 Assert.Equal("no-document", (string)r["error"]["code"]);
                 Assert.Equal("No document is open in SolidWorks.", (string)r["error"]["message"]);
-                r = await c.CallAsync(4, "tool", new JObject { ["name"] = "unify3d_open_documents" });
+                r = await c.CallAsync(4, "tool", new JObject { ["name"] = "solidworks_open_documents" });
                 Assert.False((bool)r["result"]["isError"]);
                 Assert.False(k.ToolCalls.Last().NeedsDocument);
             }
@@ -194,7 +194,7 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void A_plugin_that_is_off_missing_or_not_approved_refuses_hello()
         {
-            const string off = "The Claude MCP plugin is turned off in Unify3D (Plugins). Turn it on to use Unify3D from Claude Desktop.";
+            const string off = "The Claude MCP plugin is turned off in SolidWorks Agent (Plugins). Turn it on to use SolidWorks Agent from Claude Desktop.";
             using (var k = new LinkKit(hooks: true))
             {
                 using (var c = k.Connect())
@@ -203,7 +203,7 @@ namespace SwAgent.Tests.LocalLink
                     var codex = new PipeClient(k.PipeName);
                     var r = codex.Call(1, "hello", new JObject { ["protocol"] = 1, ["client"] = "codex" });
                     Assert.Equal("off", (string)r["error"]["code"]);
-                    Assert.Equal("The Codex MCP plugin is turned off in Unify3D (Plugins). Turn it on to use Unify3D from Codex.", (string)r["error"]["message"]);
+                    Assert.Equal("The Codex MCP plugin is turned off in SolidWorks Agent (Plugins). Turn it on to use SolidWorks Agent from Codex.", (string)r["error"]["message"]);
                     Assert.Null(codex.ReadLine(3000)); // a refused hello closes the connection
                     codex.Dispose();
                     // turned off while connected: the next request is refused too
@@ -242,12 +242,12 @@ namespace SwAgent.Tests.LocalLink
                 {
                     var r = c.Call(1, "hello", new JObject { ["protocol"] = 2, ["client"] = "claude-desktop" });
                     Assert.Equal("version", (string)r["error"]["code"]);
-                    Assert.Equal("Unify3D Agent and its Claude Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating Unify3D.", (string)r["error"]["message"]);
+                    Assert.Equal("SolidWorks Agent and its Claude Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating SolidWorks Agent.", (string)r["error"]["message"]);
                 }
                 using (var c = k.Connect())
                 {
                     var r = c.Call(1, "hello", new JObject { ["protocol"] = 2, ["client"] = "codex" });
-                    Assert.Equal("Unify3D Agent and its Codex link are different versions. Restart Codex after updating Unify3D.", (string)r["error"]["message"]);
+                    Assert.Equal("SolidWorks Agent and its Codex link are different versions. Restart Codex after updating SolidWorks Agent.", (string)r["error"]["message"]);
                 }
                 using (var c = k.Connect())
                 {
@@ -294,7 +294,7 @@ namespace SwAgent.Tests.LocalLink
                 var pending = k.Runtime.Session.PendingWakes().Count;
                 var r = c.Call(3, "ask", new JObject { ["message"] = "two", ["waitMs"] = 0 });
                 Assert.Equal("limit", (string)r["error"]["code"]);
-                Assert.Equal("Unify3D has used its 1 automatic turns for this hour (Options > Plugins). Your message was not delivered. Try again later, or ask the user to type it in the Unify3D panel.", (string)r["error"]["message"]);
+                Assert.Equal("SolidWorks Agent has used its 1 automatic turns for this hour (Options > Plugins). Your message was not delivered. Try again later, or ask the user to type it in the SolidWorks Agent panel.", (string)r["error"]["message"]);
                 Assert.Equal(pending, k.Runtime.Session.PendingWakes().Count);
                 Assert.Equal(held, k.Runtime.Session.HeldCount);
             }
@@ -315,9 +315,9 @@ namespace SwAgent.Tests.LocalLink
                 Assert.Empty(k.ToolCalls);
 
                 k.Env.Pm.SetConfig(Claude, new JObject { ["allowModelRead"] = false });
-                var off = c.Call(3, "tool", new JObject { ["name"] = "unify3d_model_context" });
+                var off = c.Call(3, "tool", new JObject { ["name"] = "solidworks_model_context" });
                 Assert.Equal("not-allowed", (string)off["error"]["code"]);
-                Assert.Equal("Reading the open model is turned off for Claude Desktop in Unify3D (Plugins > Claude MCP > Settings).", (string)off["error"]["message"]);
+                Assert.Equal("Reading the open model is turned off for Claude Desktop in SolidWorks Agent (Plugins > Claude MCP > Settings).", (string)off["error"]["message"]);
                 k.Host.OnPanel(new JObject { ["chat"] = new JObject { ["title"] = "Bushing mold", ["busy"] = true } });
                 var hidden = c.Call(4, "status", new JObject())["result"];
                 Assert.False((bool)hidden["modelRead"]);
@@ -328,7 +328,7 @@ namespace SwAgent.Tests.LocalLink
                 k.Env.Pm.SetConfig(Claude, new JObject { ["allowModelRead"] = null });
 
                 // 30 reads a minute (the tool and status calls above count: 4 refused tools + 1 + 1 status = 6).
-                for (var i = 0; i < 24; i++) Assert.NotNull(c.Call(10 + i, "tool", new JObject { ["name"] = "unify3d_open_documents" })["result"]);
+                for (var i = 0; i < 24; i++) Assert.NotNull(c.Call(10 + i, "tool", new JObject { ["name"] = "solidworks_open_documents" })["result"]);
                 var busy = c.Call(99, "status", new JObject());
                 Assert.Equal("busy", (string)busy["error"]["code"]);
                 Assert.Equal("Too many requests from Claude Desktop; wait a minute.", (string)busy["error"]["message"]);
@@ -351,7 +351,7 @@ namespace SwAgent.Tests.LocalLink
         public readonly ConcurrentQueue<(string name, JToken data)> Events;
         public readonly ThreadContext Ui = new ThreadContext();
         public readonly LinkHost Host;
-        public readonly string PipeName = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+        public readonly string PipeName = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
         public readonly ConcurrentQueue<ToolCall> ToolCalls = new ConcurrentQueue<ToolCall>();
         public volatile bool HasDocument = true;
 
@@ -374,7 +374,7 @@ namespace SwAgent.Tests.LocalLink
             Host = new LinkHost(Env.Pm, Runtime.Session, Runtime.QueueLinkWake, LinkHost.UiRunner(Ui), ReadStatus, RunTool, "0.2.0")
             {
                 PipeName = PipeName,
-                MutexName = @"Local\Unify3D.Test." + Guid.NewGuid().ToString("N"),
+                MutexName = @"Local\SolidWorks Agent.Test." + Guid.NewGuid().ToString("N"),
             };
             Runtime.PanelReloaded += Host.PanelReloaded;
             Host.Refresh();

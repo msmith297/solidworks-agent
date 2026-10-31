@@ -12,7 +12,7 @@ created: 2026-10-15T00:00:00Z
 updated: 2026-10-17T00:00:00Z
 ---
 
-# Smart Rebuild (built-in Unify3D tool)
+# Smart Rebuild (built-in SolidWorks Agent tool)
 
 Change a design far back in its history and end up with a design as if it had been built that way: same intent, working features, on the new geometry. On a big multi-body part this is hard: done carelessly, one early edit cascades into dozens of broken features. Think like the engineer who built the file before touching it. Work in phases and don't skip any.
 

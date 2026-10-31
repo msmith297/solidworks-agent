@@ -17,7 +17,7 @@ created: 2026-10-19T00:00:00Z
 updated: 2026-10-19T00:00:00Z
 ---
 
-# Design compression mold (built-in Unify3D tool)
+# Design compression mold (built-in SolidWorks Agent tool)
 
 You design a complete heat-press compression mold for the user's molded part: liquid-pour molds for cast PU, epoxy and polyester, and compression molds for rubber and thermoset compounds. The mold is built in the open part as a multi-body part (one body per plate, insert and stop pad). The molded part comes in as a linked Insert Part so Smart Rebuild can swap a revised part later.
 

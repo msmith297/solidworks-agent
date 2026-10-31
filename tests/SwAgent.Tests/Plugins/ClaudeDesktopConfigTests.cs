@@ -45,11 +45,11 @@ namespace SwAgent.Tests.Plugins
         }
     }
 
-    /// <summary>docs/plugins/local-mcp.md C2: mcpServers.unify3d in claude_desktop_config.json, on temp copies.</summary>
+    /// <summary>docs/plugins/local-mcp.md C2: mcpServers.solidworks-agent in claude_desktop_config.json, on temp copies.</summary>
     [Collection("Plugins")] // ClientConfigFile.BeforeReplace is shared
     public class ClaudeDesktopConfigTests
     {
-        private const string Exe = @"C:\Users\someone\AppData\Local\SwAgent\local-mcp\Unify3D.LocalMcp.exe";
+        private const string Exe = @"C:\Users\someone\AppData\Local\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe";
 
         /// <summary>Shaped like the live file: the app's own big preferences object, ISO dates, decimals, unicode, another server with env.</summary>
         internal const string Realistic = "{\n" +
@@ -109,7 +109,7 @@ namespace SwAgent.Tests.Plugins
         }
 
         [Fact]
-        public void Add_changes_only_the_unify3d_entry_and_keeps_order_dates_and_numbers()
+        public void Add_changes_only_the_solidworks_entry_and_keeps_order_dates_and_numbers()
         {
             using (var roots = new ClientRoots())
             {
@@ -119,10 +119,10 @@ namespace SwAgent.Tests.Plugins
 
                 var a = Parse(after);
                 var b = Parse(Realistic);
-                Assert.True(JToken.DeepEquals(ClaudeDesktopConfig.Entry(Exe), a["mcpServers"]["unify3d"]));
+                Assert.True(JToken.DeepEquals(ClaudeDesktopConfig.Entry(Exe), a["mcpServers"]["solidworks-agent"]));
                 Assert.Equal(new[] { "preferences", "mcpServers" }, a.Properties().Select(p => p.Name));
-                Assert.Equal(new[] { "other", "unify3d" }, ((JObject)a["mcpServers"]).Properties().Select(p => p.Name));
-                ((JObject)a["mcpServers"]).Remove("unify3d");
+                Assert.Equal(new[] { "other", "solidworks-agent" }, ((JObject)a["mcpServers"]).Properties().Select(p => p.Name));
+                ((JObject)a["mcpServers"]).Remove("solidworks-agent");
                 Assert.True(JToken.DeepEquals(b, a), "everything else is unchanged");
                 Assert.Contains("\"updatedAt\": \"2026-10-26T15:20:31.123Z\"", after);
                 Assert.Contains("\"scale\": 1.50", after);
@@ -160,21 +160,21 @@ namespace SwAgent.Tests.Plugins
                 Assert.False(Edit(roots.ClaudeConfig, t => ClaudeDesktopConfig.Remove(t, out _), backups));
 
                 ClientRoots.Write(roots.ClaudeConfig, "");
-                Assert.True(JToken.DeepEquals(new JObject { ["mcpServers"] = new JObject { ["unify3d"] = ClaudeDesktopConfig.Entry(Exe) } }, Parse(Add(roots.ClaudeConfig, backups))));
+                Assert.True(JToken.DeepEquals(new JObject { ["mcpServers"] = new JObject { ["solidworks-agent"] = ClaudeDesktopConfig.Entry(Exe) } }, Parse(Add(roots.ClaudeConfig, backups))));
                 Assert.Equal("{}", Remove(roots.ClaudeConfig, backups));
 
                 File.Delete(roots.ClaudeConfig);
-                Assert.Equal("unify3d", Parse(Add(roots.ClaudeConfig, backups))["mcpServers"].Cast<JProperty>().Single().Name);
+                Assert.Equal("solidworks-agent", Parse(Add(roots.ClaudeConfig, backups))["mcpServers"].Cast<JProperty>().Single().Name);
             }
         }
 
         [Fact]
-        public void A_foreign_unify3d_or_invalid_json_is_refused_and_the_file_is_untouched()
+        public void A_foreign_solidworks_or_invalid_json_is_refused_and_the_file_is_untouched()
         {
             using (var roots = new ClientRoots())
             {
                 var backups = Path.Combine(roots.Dir, "backups");
-                var foreign = "{\n  \"mcpServers\": {\n    \"unify3d\": {\n      \"command\": \"node\",\n      \"args\": [\"mine.js\"]\n    }\n  }\n}";
+                var foreign = "{\n  \"mcpServers\": {\n    \"solidworks-agent\": {\n      \"command\": \"node\",\n      \"args\": [\"mine.js\"]\n    }\n  }\n}";
                 ClientRoots.Write(roots.ClaudeConfig, foreign);
                 var ex = Assert.Throws<ClientConfigException>(() => Edit(roots.ClaudeConfig, t => ClaudeDesktopConfig.Add(t, Exe, true), backups));
                 Assert.Equal(ClaudeDesktopConfig.ConflictText, ex.Message);
@@ -186,7 +186,7 @@ namespace SwAgent.Tests.Plugins
 
                 // The same exe for the other client is someone else's entry too.
                 Assert.Equal(LinkEntryState.Conflict, ClaudeDesktopConfig.Inspect(
-                    new JObject { ["mcpServers"] = new JObject { ["unify3d"] = new JObject { ["command"] = Exe, ["args"] = new JArray("--client", "codex") } } }.ToString()));
+                    new JObject { ["mcpServers"] = new JObject { ["solidworks-agent"] = new JObject { ["command"] = Exe, ["args"] = new JArray("--client", "codex") } } }.ToString()));
 
                 const string broken = "{\n  \"preferences\": {\n    \"a\": 1,,\n  }\n}";
                 ClientRoots.Write(roots.ClaudeConfig, broken);
@@ -195,7 +195,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Equal(LinkEntryState.Unreadable, ClaudeDesktopConfig.Inspect(broken));
                 Assert.Equal(broken, File.ReadAllText(roots.ClaudeConfig));
                 Assert.False(Directory.Exists(backups), "nothing backed up when nothing was written");
-                Assert.False(File.Exists(roots.ClaudeConfig + ".unify3d-tmp"));
+                Assert.False(File.Exists(roots.ClaudeConfig + ".solidworks-agent-tmp"));
             }
         }
 
@@ -212,7 +212,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.True(bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF, "BOM kept");
                 var text = Encoding.UTF8.GetString(bytes, 3, bytes.Length - 3);
                 Assert.DoesNotContain("\n", text.Replace("\r\n", ""));
-                Assert.Contains("unify3d", text);
+                Assert.Contains("solidworks-agent", text);
                 Remove(roots.ClaudeConfig, backups);
                 Assert.Equal(new byte[] { 0xEF, 0xBB, 0xBF }.Concat(Encoding.UTF8.GetBytes(crlf)), File.ReadAllBytes(roots.ClaudeConfig));
             }
@@ -244,8 +244,8 @@ namespace SwAgent.Tests.Plugins
                 Assert.Equal(2, calls);
                 var o2 = Parse(File.ReadAllText(roots.ClaudeConfig));
                 Assert.True((bool)o2["preferences"]["menuBarEnabled"], "the app's change survives");
-                Assert.NotNull(o2["mcpServers"]["unify3d"]);
-                Assert.False(File.Exists(roots.ClaudeConfig + ".unify3d-tmp"));
+                Assert.NotNull(o2["mcpServers"]["solidworks-agent"]);
+                Assert.False(File.Exists(roots.ClaudeConfig + ".solidworks-agent-tmp"));
             }
         }
 

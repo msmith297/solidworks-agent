@@ -26,7 +26,7 @@ $ErrorActionPreference = "Continue" # RegAsm's "unsigned assembly with /codebase
 if ($LASTEXITCODE) { throw "RegAsm failed ($LASTEXITCODE)" }
 $ErrorActionPreference = "Stop"
 if (Test-Path "HKLM:\SOFTWARE\SolidWorks\Addins\$guid") {
-    Write-Host "Registered Unify3D Agent ($guid). Restart SolidWorks to load it." -ForegroundColor Green
+    Write-Host "Registered SolidWorks Agent ($guid). Restart SolidWorks to load it." -ForegroundColor Green
 } else {
     Write-Warning "COM registration succeeded but the SolidWorks add-in key is missing. Check $env:LOCALAPPDATA\SwAgent\logs."
 }

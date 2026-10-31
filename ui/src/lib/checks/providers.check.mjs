@@ -84,7 +84,7 @@ await t("O1 text with a reasoning summary: request shape, live blocks, canonical
   assert.deepEqual(Object.keys(b.input[0]), ["type", "role", "content"]);
   assert.equal(b.input[0].role, "developer");
   assert.equal(b.input[0].content[0].type, "input_text");
-  assert.match(b.input[0].content[0].text, /^You are Unify3D Agent/);
+  assert.match(b.input[0].content[0].text, /^You are SolidWorks Agent/);
   assert.deepEqual(b.input[1], { type: "message", role: "user", content: [{ type: "input_text", text: prompt("How thick is the shell?").content[0].text }] });
   assert.deepEqual(
     b.tools.map((x) => x.name ?? x.type),

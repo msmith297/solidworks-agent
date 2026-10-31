@@ -1,6 +1,6 @@
 # Design document: built-in tool "Design compression mold for plastics and resins"
 
-Category: Molding & Toolmaking. Status: ready to build, 2026-10-19. Author: lead engineer (Unify3D Agent).
+Category: Molding & Toolmaking. Status: ready to build, 2026-10-19. Author: lead engineer (SolidWorks Agent).
 
 This document turns the eight research streams into one build plan. It picks one approach per question. No repository file was changed while writing it.
 
@@ -49,7 +49,7 @@ Unit conventions:
 tools/builtin/design-compression-mold/
   TOOL.md                         front matter + the agent's procedure (1.2, 1.3)
   inputs.json                     the PropertyManager page (1.4)
-  icon.png                        ribbon icon, 64 x 64 px: two plates and a cavity, read by UnifyRibbon.LoadIcon
+  icon.png                        ribbon icon, 64 x 64 px: two plates and a cavity, read by AgentRibbon.LoadIcon
   macro.cs                        gathering macro: measures the part when it is already in the document (1.6)
   data/materials.json             96 part-material subtypes in 38 families, with process data (1.5.1)
   data/mold-materials.json        16 mold grades, fasteners, thread inserts, dowels, stock thicknesses (1.5.2)
@@ -98,7 +98,7 @@ The parser splits each line at the first colon only (UserTools.cs:599-610), so `
 
 The body is written as a procedure. It must make sense without this conversation. Headings, in order:
 
-**"# Design compression mold (built-in Unify3D tool)"**: two sentences on what it does, and on what the user gets: a multi-body mold part, `mold.json`, STEP exports, and a setup sheet.
+**"# Design compression mold (built-in SolidWorks Agent tool)"**: two sentences on what it does, and on what the user gets: a multi-body mold part, `mold.json`, STEP exports, and a setup sheet.
 
 **"## How to work"**: these rules override the generic tool-run rules:
 - This is a long, phased job. Follow the phases in order and stop at every gate.
@@ -448,7 +448,7 @@ Full file (spec units; `Tip` text is shown on the page):
 ```
 
 Rules for the page:
-- **Seven groups.** The six above plus the "Unify3D Agent" group (ToolPage.cs:177-188). This breaks today's ids: group ids count from 1 (ToolPage.cs:160) while control ids start at 10 (ToolPage.cs:53). The fix in 2.1.4 is required.
+- **Seven groups.** The six above plus the "SolidWorks Agent" group (ToolPage.cs:177-188). This breaks today's ids: group ids count from 1 (ToolPage.cs:160) while control ids start at 10 (ToolPage.cs:53). The fix in 2.1.4 is required.
 - **`press_temp`** is deliberately not remembered. It follows the material each run unless the user edits it.
 - **A field the selected row has no value for** (row value null) is hidden. An example is `viscosity_cp` for rubber. Its line in the payload reads "n/a for this material".
 
@@ -457,7 +457,7 @@ Rules for the page:
 #### 1.5.1 data/materials.json (part materials)
 
 Source: `N/materials.json` (96 rows, every row with the same keys; schema in N/materials.md 1). Changes before it ships:
-1. **Wrap it.** The file becomes `{ "schema": "unify3d.part-materials/1", "generated": "<iso date>", "sources": { "S1": {"title": ..., "url": ...}, ... "S22": ..., "K-PU": ... }, "rows": [ ... ] }`. The page uses `#rows`. The sources list comes from N/materials.md 7.
+1. **Wrap it.** The file becomes `{ "schema": "solidworksAgent.part-materials/1", "generated": "<iso date>", "sources": { "S1": {"title": ..., "url": ...}, ... "S22": ..., "K-PU": ... }, "rows": [ ... ] }`. The page uses `#rows`. The sources list comes from N/materials.md 7.
 2. **Two new fields on every row:**
    - `processLabel`: "Liquid pour (hot cast)", "Liquid pour (room temperature)", "Foam pour", "Rubber compression", "Compound compression", "LSR compression", "Thermoplastic compression" or "Preform + sinter".
    - `isDefault`: one `true` per family. TDI-ether 90A for its family; for the others, the first row with medium confidence.
@@ -805,12 +805,12 @@ Also add one sentence to `systemPrompt.ts:69`, so the agent can use the new opti
 | File:line | Change |
 |---|---|
 | UserTools.cs:522-564 `ListTools` | Emit `category` (`OneLine`, or null), `ribbonTitle`, `longRun`, `maxSteps` and `requires`. |
-| UserTools.cs:133 `SaveInput`, :217 `EditInput` | New `[ToolParam("Optional category: a box on the Unify3D tab and a section in the Workflows menu, e.g. \"Molding & Toolmaking\". Reuse an existing name.")] public string Category`. `Save` (309) writes `category:` after `icon:`. `Edit` (369) calls `SetHeader(header, "category", ...)` in the 403-409 block, and adds `Category` to the "nothing to change" test. |
+| UserTools.cs:133 `SaveInput`, :217 `EditInput` | New `[ToolParam("Optional category: a box on the SolidWorks Agent tab and a section in the Workflows menu, e.g. \"Molding & Toolmaking\". Reuse an existing name.")] public string Category`. `Save` (309) writes `category:` after `icon:`. `Edit` (369) calls `SetHeader(header, "category", ...)` in the 403-409 block, and adds `Category` to the "nothing to change" test. |
 | AgentController.cs:336 | Allow `category` in the `userTools.setValue` whitelist. For built-ins it goes to builtin-settings.json; `EffectiveFrontMatter` applies it (UserTools.cs:98-106). |
-| UnifyRibbon.cs:60-64 `Signature()` | Append `:{category}:{ribbonTitle}`, so re-categorising marks the ribbon stale. |
-| UnifyRibbon.cs:97-101 | Button title = `ribbonTitle ?? title`. Hint = `"[" + category + "] " + description` when a category is set. |
-| UnifyRibbon.cs:133-141 boxes | Build the boxes as: fixed commands + Options, then one box per built-in category (first-seen order), then uncategorised built-ins, then one box per user category (a user tool in a built-in category's name joins that box), then uncategorised user tools + New Tool. Tab boxes have no captions, so the category shows only in the hint. No flyouts in v1. Command ids stay keyed by name (`StableIds`, 186-216), so hotkeys survive. |
-| ToolRunner.cs, after line 62 | `requires` check. If a listed agent tool is missing from `_tools.Names`, show the status "Unify3D ▸ {title}: needs a newer add-in (missing x, y)" and return. |
+| AgentRibbon.cs:60-64 `Signature()` | Append `:{category}:{ribbonTitle}`, so re-categorising marks the ribbon stale. |
+| AgentRibbon.cs:97-101 | Button title = `ribbonTitle ?? title`. Hint = `"[" + category + "] " + description` when a category is set. |
+| AgentRibbon.cs:133-141 boxes | Build the boxes as: fixed commands + Options, then one box per built-in category (first-seen order), then uncategorised built-ins, then one box per user category (a user tool in a built-in category's name joins that box), then uncategorised user tools + New Tool. Tab boxes have no captions, so the category shows only in the hint. No flyouts in v1. Command ids stay keyed by name (`StableIds`, 186-216), so hotkeys survive. |
+| ToolRunner.cs, after line 62 | `requires` check. If a listed agent tool is missing from `_tools.Names`, show the status "SolidWorks Agent ▸ {title}: needs a newer add-in (missing x, y)" and return. |
 | ui/src/lib/types.ts:269-297 `UserToolInfo` | Add `category?: string \| null; ribbonTitle?: string; longRun?: boolean; maxSteps?: number`. Add the same two last fields to `ToolRunPayload` (252-267). |
 | ui/src/components/ToolsPalette.tsx:24-27, 119-143 | One section per category, titled with the category: built-ins first (Run only, `row(t, true)`), then the user's. Then the existing three uncategorised sections, unchanged. The group key is the trimmed, case-insensitive category; the first spelling seen is shown. |
 | ui/src/agent/systemPrompt.ts:154, 162-164 `toolIndex` | The line becomes `- design-compression-mold (built-in tool, Molding & Toolmaking): ...`. |
@@ -1730,7 +1730,7 @@ Each row says how the tool handles it. **Input** = a page field. **Default** = d
 | 3 | **FE solver and sweep**: MITC4, banded LDLᵀ, Navier, recovery; `MoldSweep` console; `coefficients.csv`; Monte Carlo; sizing table | 2 (API) | no | T1-T18 pass; Sweep 1 gates pass; Monte Carlo acceptance passes (E12 smoke in CI) |
 | 4 | **Agent tools `mold_calc` and `mold_record`**; ToolRegistry `JToken` schema fix; registration; setup-sheet filler; `mold.schema.json` | 2, 3 | record actions need a saved part; calc doesn't | ToolRegistry invoke tests with JSON in/out; record merge/validate/summary tests; schema validation of samples |
 | 5 | **Page extensions**: Units, ToolData, ToolPage, ToolInputs, payload; `tools/dev/page-test/` test tool using every new feature | 0 (S1-S6) | yes for the page | Units and ToolData unit tests; manual page script (6.2) passes; Smart Rebuild and the user's flash-grooves and parametric-block pages unchanged (screenshot compare) |
-| 6 | **Categories, ribbon title, long runs, requires**: UserTools, UnifyRibbon, AgentController, ToolsPalette, systemPrompt, store sticky run, runAgent `maxSteps` and TTL | none | ribbon yes; panel in the browser mock | BuiltInToolsTests extended; mock shows category sections; a 600-step limit run test; follow-up keeps the model |
+| 6 | **Categories, ribbon title, long runs, requires**: UserTools, AgentRibbon, AgentController, ToolsPalette, systemPrompt, store sticky run, runAgent `maxSteps` and TTL | none | ribbon yes; panel in the browser mock | BuiltInToolsTests extended; mock shows category sections; a 600-step limit run test; follow-up keeps the model |
 | 7 | **Geometry**: `MoldApi` (InsertPart, Orient, ScaleForShrink, CopyBody, Plate, Subtract, SplitByPlane, Folder, SetBodyMaterial, Bodies); `mold_part`; `mold_bodies`; `ask_selection`; overlay `face` and translucent temporary bodies; `.slddrw` → PDF; 20 MB PDF cap | 0 (S5, S7-S12), 4 | yes | Fixture tests F1-F6 match the expected numbers (6.2) |
 | 8 | **Flash system port** (`Mold.FlashGrooves`, one fillet per body) and Hole Wizard wrappers | 7 | yes | The flash-grooves verified cases reproduce: the 10 x 8 x 1.5 in test plate (lip 0.125 exact, 3 + 2 runners per side) and the hc-64 replica |
 | 9 | **The tool folder**: TOOL.md, inputs.json, data, macro.cs, icon; BuiltInToolsTests for it; end-to-end runs R1-R6 | 1-8 | yes | All acceptance checks A1-A15 pass on R1-R5; R6 reviewed with the user; step and token budget within target |

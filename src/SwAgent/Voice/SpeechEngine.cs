@@ -11,7 +11,7 @@ using SwAgent.Infrastructure;
 namespace SwAgent.Voice
 {
     /// <summary>
-    /// The local speech-to-text helper (speech\Unify3D.Speech.exe, Whisper). It runs as a child process so native audio
+    /// The local speech-to-text helper (speech\SolidWorksAgent.Speech.exe, Whisper). It runs as a child process so native audio
     /// or inference code can never crash SolidWorks; it exits on its own when SolidWorks does (its stdin closes).
     /// All events are raised on the SolidWorks UI thread.
     /// </summary>
@@ -47,7 +47,7 @@ namespace SwAgent.Voice
         public event Action<int, JArray> Final;
         public event Action<int, string> Failed;
 
-        public static string ExePath => Path.Combine(Paths.AddInDir, "speech", "Unify3D.Speech.exe");
+        public static string ExePath => Path.Combine(Paths.AddInDir, "speech", "SolidWorksAgent.Speech.exe");
 
         /// <summary>Start the helper (if needed) and load the model; the model is kept loaded between recordings.</summary>
         public void Ensure(string modelId)
@@ -57,7 +57,7 @@ namespace SwAgent.Voice
             if (_process != null && !_process.HasExited && _loadedModel == model && Status != State.Error) return;
             if (!File.Exists(ExePath))
             {
-                SetState(State.Error, "The speech component is missing - reinstall Unify3D Agent.");
+                SetState(State.Error, "The speech component is missing - reinstall SolidWorks Agent.");
                 return;
             }
             if (!SpeechModels.Installed(modelId))

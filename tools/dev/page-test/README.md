@@ -9,7 +9,7 @@
 - `Optional`/`Enabled`, the `size` type (2 and 3 boxes) and `info` lines;
 - `ShowWhen` driven by a choice and by a checkbox;
 - `Remember`, `GroupExpanded`, and a required Optional;
-- 12 groups plus the Unify3D Agent group;
+- 12 groups plus the SolidWorks Agent group;
 - the original options (length, angle, plain number, choice, checkbox), which must behave exactly as before.
 
 The unit tests (`tests/SwAgent.Tests/ToolDataTests.cs`, `UnitsTests.cs`, `ToolSpecTests.cs`) already check the page logic without SolidWorks. That logic lives in the headless form, `ToolForm` in `src/SwAgent/Tools/ToolData.cs`. This checklist covers what only SolidWorks can show: whether the native controls follow the form.
@@ -20,7 +20,7 @@ The data in `data/*.json` is test data in the shape of the mold tool's files. It
 
 1. Build and register the add-in as usual.
 2. Copy this folder to `%APPDATA%\SwAgent\tools\page-test`. The folder name must be `page-test`.
-3. Restart SolidWorks. "Page test" appears on the Unify3D tab, in category Developer.
+3. Restart SolidWorks. "Page test" appears on the SolidWorks Agent tab, in category Developer.
 4. To start clean, delete these two files:
    - `%APPDATA%\SwAgent\tools\last-inputs\page-test.json` (remembered values);
    - `%APPDATA%\SwAgent\tools\page-quirks.json` (fallbacks the page chose, see below).
@@ -46,7 +46,7 @@ The page writes the first two values itself when it detects a failure; it shows 
 | S3 | Pick **Tool steel**: Insert grade disappears. Pick Rubber - EPDM: Mixed viscosity and Pot life disappear and Mooney appears. Tick **Show the extra note**. Also watch the info lines (Full strength to ..., Liquid pour ...). | Hidden controls collapse their space, shown ones reappear in place, and info captions repaint at once. | If space isn't collapsed: cosmetic, note it. If hiding misbehaves (controls overlap, or the page draws wrongly), set `"hidden": "disable"` by hand. Hidden inputs then stay in place, greyed out. |
 | S4 | Look at **Heated platen size** and **Max size per plate**. | The boxes are stacked vertically, with Width, Depth and Thickness pictures. Side by side is a later polish. If you can, record the units of `IPropertyManagerPageControl.Top/Left/Width` (dialog units or percent) for that. | Nothing to change in v1. |
 | S5 | (Track D, not this page.) In a part, rename a body with `IBody2.Name = "x"` in an `execute_csharp` cell. Rebuild, save, close and reopen. | The name persists. | The mold tool falls back to folders plus geometric order (its default). |
-| S6 | Count the groups: 12 plus "Unify3D Agent". Click into controls in the last groups and change them. | Every control works. No group steals a control's events. Group ids now come from the same counter as control ids, so they can't collide. | Send the log. |
+| S6 | Count the groups: 12 plus "SolidWorks Agent". Click into controls in the last groups and change them. | Every control works. No group steals a control's events. Group ids now come from the same counter as control ids, so they can't collide. | Send the log. |
 
 ## The page script (design 6.2, about 15 min)
 

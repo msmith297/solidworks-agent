@@ -26,7 +26,7 @@ namespace SwAgent.Tests.Plugins
 
     /// <summary>
     /// The first plugin end to end, without the network: the built-in marketplace's agent-bridge entry exactly as shipped
-    /// (unify3d env, installWith, hideSkills), with only its source pointed at a local clone of the agent-bridge repository
+    /// (solidworks-agent env, installWith, hideSkills), with only its source pointed at a local clone of the agent-bridge repository
     /// (git-subdir over file://, or a folder copy when git is missing). It installs through PluginManager with the trust
     /// step, then the real runtime starts its MCP server and fires its hooks, unpaired: AGENT_BRIDGE_HOME is an empty folder
     /// and the hub URL a closed local port, so mcp.mjs must answer initialize and tools/list and hook.mjs must exit 0 silently.
@@ -105,13 +105,13 @@ namespace SwAgent.Tests.Plugins
                     entry["source"] = "./agent-bridge";
                 }
                 PluginTestEnv.WriteJson(Path.Combine(env.Market, ".claude-plugin", "marketplace.json"), market);
-                CopyDir(Path.Combine(RepoRoot(), "plugins", "agent-bridge-unify3d"), Path.Combine(env.Market, "agent-bridge-unify3d"));
+                CopyDir(Path.Combine(RepoRoot(), "plugins", "agent-bridge-solidworks"), Path.Combine(env.Market, "agent-bridge-solidworks"));
                 env.Pm.AddMarketplace(env.Market);
 
                 // Discover lists it with its companion, before anything is installed.
                 var listed = env.Pm.PluginsJson().OfType<JObject>().Single(p => (string)p["id"] == "agent-bridge@bridge-test");
                 Assert.False((bool)listed["installed"]);
-                Assert.Equal(new[] { "agent-bridge-unify3d@bridge-test" }, listed["installWith"].Select(t => (string)t));
+                Assert.Equal(new[] { "agent-bridge-solidworks@bridge-test" }, listed["installWith"].Select(t => (string)t));
 
                 // Install: it runs programs, so the first call only asks; nothing is installed until the user approves.
                 var ask = env.Pm.Install("agent-bridge@bridge-test");
@@ -121,7 +121,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Contains(ask.NeedsTrust["hooks"], t => ((string)t).Contains("hook.mjs") && ((string)t).Contains("--listen"));
                 var done = env.Pm.Install("agent-bridge@bridge-test", ask.Hash);
                 Assert.True(done.Ok);
-                Assert.Contains("agent-bridge-unify3d@bridge-test", done.AlsoInstalled);
+                Assert.Contains("agent-bridge-solidworks@bridge-test", done.AlsoInstalled);
 
                 // The subfolder's contents sit directly in the version folder (lib.mjs reports a hex folder as its version).
                 var installed = env.Pm.Find("agent-bridge@bridge-test");
@@ -135,12 +135,12 @@ namespace SwAgent.Tests.Plugins
                 // Components: the Claude Code-only skills are hidden, the overlay's skill and /bridge are there.
                 var skills = SkillIndex.All(env.Pm).Select(s => s.Id).ToList();
                 Assert.DoesNotContain(skills, s => s.EndsWith(":revive-session") || s.EndsWith(":agent-bridge-plugin-update") || s.EndsWith(":server-setup"));
-                Assert.Contains("agent-bridge-unify3d:unify3d-bridge", skills);
-                Assert.Contains(CommandIndex.All(env.Pm), c => c.Id == "agent-bridge-unify3d:bridge");
+                Assert.Contains("agent-bridge-solidworks:solidworks-bridge", skills);
+                Assert.Contains(CommandIndex.All(env.Pm), c => c.Id == "agent-bridge-solidworks:bridge");
 
                 // What the runtime gets: the entry's env, expanded.
                 var rt = env.Pm.Runnable().Single(p => p.Name == "agent-bridge");
-                Assert.Equal("Unify3D SolidWorks - " + Environment.MachineName, rt.Env["AGENT_BRIDGE_NAME"]);
+                Assert.Equal("SolidWorks Agent - " + Environment.MachineName, rt.Env["AGENT_BRIDGE_NAME"]);
                 Assert.Equal(Process.GetCurrentProcess().Id.ToString(), rt.Env["AGENT_BRIDGE_OWNER_PID"]);
                 Assert.True(rt.McpServers.ContainsKey("agent-bridge"));
                 Assert.False(rt.Env.ContainsKey("ANTHROPIC_API_KEY"));

@@ -32,7 +32,7 @@ function call(id, name, args) {
       return write({ id, result: text(String(args?.text ?? '')) });
     case 'whoami': {
       const env = {};
-      for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CLAUDE_PROJECT_DIR', 'UNIFY3D', 'UNIFY3D_PID', 'AGENT_BRIDGE_NAME', 'EXTRA'])
+      for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CLAUDE_PROJECT_DIR', 'SOLIDWORKS_AGENT', 'SOLIDWORKS_AGENT_PID', 'AGENT_BRIDGE_NAME', 'EXTRA'])
         env[k] = process.env[k] ?? null;
       return write({ id, result: text(JSON.stringify({ ppid: process.ppid, cwd: process.cwd(), clientName: state.clientName, initialized: state.initialized, env, answers: state.answers })) });
     }

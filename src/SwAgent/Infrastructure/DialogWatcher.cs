@@ -131,7 +131,7 @@ namespace SwAgent.Infrastructure
             }
             Log.Info($"Dismissed a SolidWorks message box during {_tool}: \"{title}\" -> {clicked}");
             return $"SolidWorks showed a message box during {_tool} (title \"{title}\"): \"{(message.Length > 0 ? message : "(no readable text)")}\". " +
-                   $"Unify3D clicked {clicked} so the call could finish. Check whether this changed what the call did, and deal with the cause.";
+                   $"SolidWorks Agent clicked {clicked} so the call could finish. Check whether this changed what the call did, and deal with the cause.";
         }
 
         /// <summary>The button to click: the only one, else the first match in Preference, else -1 (close the window).</summary>

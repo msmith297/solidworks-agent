@@ -62,7 +62,7 @@ namespace SwAgent.Plugins
                 var warnings = await Background(() => pm.Uninstall(Id(p), (bool?)p["deleteData"] == true));
                 return new JObject { ["ok"] = true, ["note"] = warnings.Count > 0 ? string.Join(" ", warnings) : null };
             });
-            // A link plugin's Repair button: add its "unify3d" entry to Claude Desktop's or Codex's config again.
+            // A link plugin's Repair button: add its "solidworks-agent" entry to Claude Desktop's or Codex's config again.
             bridge.RegisterAsync("plugins.repairLink", async p => pm.PluginJson(await Background(() => pm.RepairLink(Id(p)))));
             bridge.Register("plugins.setConfig", p =>
             {

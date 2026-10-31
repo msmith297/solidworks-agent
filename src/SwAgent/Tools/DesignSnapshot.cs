@@ -110,7 +110,7 @@ namespace SwAgent.Tools
         {
             var path = model.GetPathName();
             if (string.IsNullOrEmpty(path) || !File.Exists(path)) return null;
-            var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "Unify3D-snapshot-" + Guid.NewGuid().ToString("N"))).FullName;
+            var dir = Directory.CreateDirectory(Path.Combine(Path.GetTempPath(), "SolidWorksAgent-snapshot-" + Guid.NewGuid().ToString("N"))).FullName;
             // A different name: SolidWorks won't open two documents with the same name, and the close below must never hit the user's.
             var copy = Path.Combine(dir, Path.GetFileNameWithoutExtension(path) + " (saved version " + Guid.NewGuid().ToString("N").Substring(0, 8) + ")" + Path.GetExtension(path));
             File.Copy(path, copy);

@@ -128,7 +128,7 @@ namespace SwAgent.Plugins.Hooks
         /// <summary>
         /// Runs the hooks: async ones are started and left running, sync ones are awaited and their decisions combined.
         /// `input` holds the event's fields; the common ones (session_id, transcript_path, cwd, hook_event_name,
-        /// permission_mode) are added here. Never turn_id: agent-bridge's hook.mjs would take Unify3D for Codex.
+        /// permission_mode) are added here. Never turn_id: agent-bridge's hook.mjs would take SolidWorks Agent for Codex.
         /// </summary>
         public async Task<HookOutcome> RunAsync(List<Spec> specs, string ev, JObject input)
         {

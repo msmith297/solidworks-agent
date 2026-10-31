@@ -295,7 +295,7 @@ t("palette sections: categories first (built-ins first), then today's three grou
 
 const src = {
   commands: [
-    { id: "agent-bridge-unify3d:bridge", name: "bridge", plugin: "agent-bridge-unify3d", description: "Peers and inbox", argumentHint: "[peers | inbox]" },
+    { id: "agent-bridge-solidworks:bridge", name: "bridge", plugin: "agent-bridge-solidworks", description: "Peers and inbox", argumentHint: "[peers | inbox]" },
     { id: "shop:groove-check", name: "groove-check", plugin: "shop", description: "Check flash grooves" },
     { id: "a:deploy", name: "deploy", plugin: "a", description: "Deploy A" },
     { id: "b:deploy", name: "deploy", plugin: "b", description: "Deploy B" },
@@ -353,7 +353,7 @@ t("slash rows filter: name prefixes first, then inside names, then descriptions"
 
 t("parseSlash: commands, plugin-qualified names and ordinary text", () => {
   assert.deepEqual(parseSlash("/model sonnet"), { name: "model", args: "sonnet" });
-  assert.deepEqual(parseSlash("  /agent-bridge-unify3d:bridge  inbox  "), { name: "agent-bridge-unify3d:bridge", args: "inbox" });
+  assert.deepEqual(parseSlash("  /agent-bridge-solidworks:bridge  inbox  "), { name: "agent-bridge-solidworks:bridge", args: "inbox" });
   assert.deepEqual(parseSlash("/clear"), { name: "clear", args: "" });
   assert.deepEqual(parseSlash("/groove-check 2\nand more"), { name: "groove-check", args: "2\nand more" });
   assert.equal(parseSlash("/path/to/file is broken"), null);
@@ -365,7 +365,7 @@ t("parseSlash: commands, plugin-qualified names and ordinary text", () => {
 t("resolveSlash: built-ins win, then commands, skills, tools; ambiguity is reported", () => {
   assert.deepEqual(resolveSlash("help", src), { kind: "builtin", name: "help" });
   assert.equal(resolveSlash("x:help", src).command.id, "x:help");
-  assert.equal(resolveSlash("bridge", src).command.id, "agent-bridge-unify3d:bridge");
+  assert.equal(resolveSlash("bridge", src).command.id, "agent-bridge-solidworks:bridge");
   assert.equal(resolveSlash("Bridge", src).kind, "command");
   assert.deepEqual(resolveSlash("deploy", src), { kind: "ambiguous", options: ["a:deploy", "b:deploy"] });
   assert.equal(resolveSlash("b:deploy", src).command.plugin, "b");

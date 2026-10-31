@@ -873,7 +873,7 @@ namespace SwAgent.UI
         /// <summary>A small note so the user knows what this is and how it goes away.</summary>
         private void DrawBadge(Graphics g, float dpi)
         {
-            const string text = "Unify3D Agent overlay  ·  clears with your next message";
+            const string text = "SolidWorks Agent overlay  ·  clears with your next message";
             using (var font = new Font("Segoe UI", 8f))
             {
                 var size = g.MeasureString(text, font);

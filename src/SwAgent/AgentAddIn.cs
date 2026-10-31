@@ -19,8 +19,8 @@ namespace SwAgent
     /// </summary>
     [ComVisible(true)]
     [Guid("6D2B1C1E-4A0F-4F1E-9C7B-3E5A8D2F7B41")]
-    [Title("Unify3D Agent")]
-    [Summary("Unify3D Agent - AI design agent for SOLIDWORKS: chat about your model and let it build and edit it.")]
+    [Title("SolidWorks Agent")]
+    [Summary("SolidWorks Agent - AI design agent for SOLIDWORKS: chat about your model and let it build and edit it.")]
     [Icon(typeof(Icons), nameof(Icons.Agent))]
     public class AgentAddIn : SwAddInEx
     {
@@ -35,7 +35,7 @@ namespace SwAgent
         internal AgentController Controller { get; private set; }
 
         private ISwTaskPane<ChatPaneControl> _pane;
-        private UnifyRibbon _ribbon;
+        private AgentRibbon _ribbon;
 
         /// <summary>
         /// Every agent tool the add-in offers, registered once at connect (the tests build the same registry: a built-in
@@ -71,7 +71,7 @@ namespace SwAgent
         public override void OnConnect()
         {
             Instance = this;
-            Log.Info($"Unify3D Agent {GetType().Assembly.GetName().Version} connecting to SolidWorks {Application.Sw.RevisionNumber()}");
+            Log.Info($"SolidWorks Agent {GetType().Assembly.GetName().Version} connecting to SolidWorks {Application.Sw.RevisionNumber()}");
             Log.Prune();
             ChatDocument.PruneBackups();
             SoundMuter.RestoreNow(); // if SolidWorks crashed while the agent was working
@@ -116,31 +116,31 @@ namespace SwAgent
                 Application.Documents.RegisterHandler(() => new ChatDocumentHandler());
                 Application.Documents.DocumentActivated += doc => Controller.OnDocumentActivated(doc);
 
-                // Right-click menus come from xCAD; the ribbon tab, menu and toolbar are UnifyRibbon.
+                // Right-click menus come from xCAD; the ribbon tab, menu and toolbar are AgentRibbon.
                 CommandManager.AddContextMenu<FaceContextCommands_e>().CommandClick += _ => AskAboutSelection();
                 CommandManager.AddContextMenu<EdgeContextCommands_e>().CommandClick += _ => AskAboutSelection();
                 CommandManager.AddContextMenu<FeatureContextCommands_e>().CommandClick += _ => AskAboutSelection();
 
-                // One "Unify3D" tab: panel commands and the user's tools. Built at start-up only (see UnifyRibbon).
-                _ribbon = new UnifyRibbon(((Xarial.XCad.SolidWorks.UI.Commands.ISwCommandManager)CommandManager).CmdMgr);
+                // One "SolidWorks Agent" tab: panel commands and the user's tools. Built at start-up only (see AgentRibbon).
+                _ribbon = new AgentRibbon(((Xarial.XCad.SolidWorks.UI.Commands.ISwCommandManager)CommandManager).CmdMgr);
                 _ribbon.Rebuild();
                 Controller.RibbonStale = _ribbon.IsStale;
                 Controller.ShowPaneRequested += () => Safe.Run("Show the pane", ShowPane);
 
                 _pane = this.CreateTaskPaneWinForm<ChatPaneControl>(new TaskPaneSpec
                 {
-                    Title = "Unify3D Agent",
-                    Tooltip = "Unify3D Agent",
+                    Title = "SolidWorks Agent",
+                    Tooltip = "SolidWorks Agent",
                     Icon = new BaseImage(Icons.Agent),
                 });
                 if (_pane.IsControlCreated) InitPane(_pane.Control);
                 else _pane.ControlCreated += InitPane;
 
-                Log.Info("Unify3D Agent connected");
+                Log.Info("SolidWorks Agent connected");
             }
             catch (Exception ex)
             {
-                Log.Error("Unify3D Agent failed to start", ex);
+                Log.Error("SolidWorks Agent failed to start", ex);
                 throw;
             }
         }
@@ -157,8 +157,8 @@ namespace SwAgent
             control.Initialize();
         }
 
-        /// <summary>Callback for every Unify3D ribbon/menu/toolbar command (SolidWorks calls it by name; see UnifyRibbon).</summary>
-        public void OnUnifyCommand(string arg)
+        /// <summary>Callback for every SolidWorks Agent ribbon/menu/toolbar command (SolidWorks calls it by name; see AgentRibbon).</summary>
+        public void OnAgentCommand(string arg)
         {
             try
             {
@@ -194,12 +194,12 @@ namespace SwAgent
             }
             catch (Exception ex)
             {
-                Log.Error($"Unify3D command '{arg}' failed", ex);
+                Log.Error($"SolidWorks Agent command '{arg}' failed", ex);
             }
         }
 
         /// <summary>Enable state: tools and document commands need an open document.</summary>
-        public int OnUnifyEnable(string arg)
+        public int OnAgentEnable(string arg)
         {
             try
             {
@@ -235,7 +235,7 @@ namespace SwAgent
 
         public override void OnDisconnect()
         {
-            Log.Info("Unify3D Agent disconnecting");
+            Log.Info("SolidWorks Agent disconnecting");
             SoundMuter.RestoreNow();
             Controller?.InstallPendingUpdateOnExit();
             _ribbon?.Dispose();

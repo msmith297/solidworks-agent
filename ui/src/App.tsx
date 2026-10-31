@@ -90,7 +90,7 @@ export default function App() {
   }, [theme, swTheme]);
 
   if (bootError) {
-    return <div className="flex h-full items-center justify-center p-6 text-center text-[12px] text-err">Unify3D Agent couldn't connect to SolidWorks: {bootError}</div>;
+    return <div className="flex h-full items-center justify-center p-6 text-center text-[12px] text-err">SolidWorks Agent couldn't connect to SolidWorks: {bootError}</div>;
   }
   if (!booted) {
     return <div className="flex h-full items-center justify-center text-[12px] text-text-3 shimmer">Connecting to SolidWorks…</div>;

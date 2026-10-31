@@ -78,7 +78,7 @@ export const OFFER_RESTART_TOOL: ToolDef = {
   input_schema: {
     type: "object",
     properties: {
-      reason: { type: "string", description: "One short sentence shown with the button, e.g. 'Restart to add Flash grooves to the Unify3D tab.'" },
+      reason: { type: "string", description: "One short sentence shown with the button, e.g. 'Restart to add Flash grooves to the SolidWorks Agent tab.'" },
     },
     required: ["reason"],
   },
@@ -179,7 +179,7 @@ const USER_TOOLS = new Set([ASK_USER_TOOL.name, ASK_FORM_TOOL.name, ASK_SELECTIO
 export const SUB_AGENT_STEPS = 50;
 
 /**
- * The tools a sub-agent gets: the ones its front matter lists that Unify3D has (Claude Code agents list Read, Bash...,
+ * The tools a sub-agent gets: the ones its front matter lists that SolidWorks Agent has (Claude Code agents list Read, Bash...,
  * which don't exist here); every tool when it lists none; read-only tools (no WRITE_TOOLS) when nothing it lists exists.
  */
 export function subAgentTools(listed: string[] | null | undefined, tools: ToolDef[]): ToolDef[] {
@@ -475,7 +475,7 @@ function localTools(opts: AgentRunOptions): ToolDef[] {
 
 /**
  * A tool call with the plugins' PreToolUse and PostToolUse hooks around it (Claude Code semantics): PreToolUse can
- * deny the call, or ask for the user's approval even where none is needed ("allow" never skips Unify3D's own approval);
+ * deny the call, or ask for the user's approval even where none is needed ("allow" never skips SolidWorks Agent's own approval);
  * what hooks add for the model, and a PostToolUse block's reason, come back as text blocks for after the results;
  * `continue: false` ends the turn after this call.
  */

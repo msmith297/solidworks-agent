@@ -18,7 +18,7 @@ namespace SwAgent.Plugins
     /// A small TOML lexer for editing Codex's config.toml as text (docs/plugins/local-mcp.md 7.3): it tracks basic, literal and
     /// multi-line strings, comments and bracket depth (arrays and inline tables may span lines), and reports where each table
     /// header and each key = value statement is, by line. It doesn't build values: the edit splices whole lines, so every line
-    /// outside Unify3D's own block stays byte-identical, and no TOML library has to load inside SolidWorks.
+    /// outside SolidWorks Agent's own block stays byte-identical, and no TOML library has to load inside SolidWorks.
     /// </summary>
     internal sealed class TomlScan
     {
@@ -29,7 +29,7 @@ namespace SwAgent.Plugins
             public string[] Path;
             public bool IsArray;
 
-            /// <summary>The header as written, without a trailing comment ("[mcp_servers.unify3d]").</summary>
+            /// <summary>The header as written, without a trailing comment ("[mcp_servers.solidworks-agent]").</summary>
             public string Raw;
         }
 

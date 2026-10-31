@@ -5,7 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
 using SwAgent.Infrastructure;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.Plugins
 {

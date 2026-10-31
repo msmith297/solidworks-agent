@@ -29,7 +29,7 @@ namespace SwAgent.Tests.Plugins
                     ["name"] = "envy",
                     ["source"] = "./envy",
                     ["description"] = "envy plugin",
-                    ["unify3d"] = new JObject { ["env"] = entryEnv },
+                    ["solidworksAgent"] = new JObject { ["env"] = entryEnv },
                 }),
             });
         }

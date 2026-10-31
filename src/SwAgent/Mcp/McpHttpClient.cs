@@ -67,7 +67,7 @@ namespace SwAgent.Mcp
             _sseOnly = sseOnly;
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             _http = new HttpClient(new HttpClientHandler { UseCookies = false, AllowAutoRedirect = false }) { Timeout = Timeout.InfiniteTimeSpan };
-            _http.DefaultRequestHeaders.UserAgent.ParseAdd("Unify3D-Agent");
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("SolidWorks-Agent");
         }
 
         public string Name { get; }
@@ -97,7 +97,7 @@ namespace SwAgent.Mcp
         {
             ["protocolVersion"] = McpClient.ProtocolVersion,
             ["capabilities"] = new JObject(),
-            ["clientInfo"] = new JObject { ["name"] = "unify3d-agent", ["version"] = typeof(McpHttpClient).Assembly.GetName().Version.ToString(3) },
+            ["clientInfo"] = new JObject { ["name"] = "solidworks-agent", ["version"] = typeof(McpHttpClient).Assembly.GetName().Version.ToString(3) },
         };
 
         public async Task StartAsync()

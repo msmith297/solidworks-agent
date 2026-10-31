@@ -19,8 +19,8 @@
 **Markup pen**
 - The pen stays on while you turn, pan and zoom the model; every view you mark is kept. Esc when you're done.
 
-**Smart Rebuild** (Unify3D ribbon tab)
-- The first built-in Unify3D tool: rebuilds a design around a deep change (e.g. a 2-cavity mould to 3). It surveys how the file is built, picks a strategy, agrees a staged plan with you, saves checkpoints, and keeps a journal so a second attempt learns from the first. Works on a copy; leftover bodies go into a "Garbage" folder.
+**Smart Rebuild** (SolidWorks Agent ribbon tab)
+- The first built-in SolidWorks Agent tool: rebuilds a design around a deep change (e.g. a 2-cavity mould to 3). It surveys how the file is built, picks a strategy, agrees a staged plan with you, saves checkpoints, and keeps a journal so a second attempt learns from the first. Works on a copy; leftover bodies go into a "Garbage" folder.
 
 **Getting started**
 - A first-run **tour** that points at the real controls (skip it any time; Options > Take the tour shows it again).

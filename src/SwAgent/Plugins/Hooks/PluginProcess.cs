@@ -486,7 +486,7 @@ namespace SwAgent.Plugins.Hooks
 
     /// <summary>
     /// The shell hook commands run in. Claude Code on Windows runs them with Git Bash (bash -c), and plugins are written for
-    /// that: $CLAUDE_PLUGIN_ROOT without braces, ${VAR:-x}, 2&gt;/dev/null, .sh scripts, single quotes. So Unify3D does the
+    /// that: $CLAUDE_PLUGIN_ROOT without braces, ${VAR:-x}, 2&gt;/dev/null, .sh scripts, single quotes. So SolidWorks Agent does the
     /// same when Git for Windows is installed, and falls back to cmd.exe (with ${...} expanded beforehand) when it isn't.
     /// usr\bin\bash.exe is started directly - bin\bash.exe is a launcher that would put one more process between the hook
     /// and SolidWorks (agent-bridge finds its MCP peer through the hook's parent and grandparent) - with Git's tool folders

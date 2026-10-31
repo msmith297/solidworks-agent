@@ -18,7 +18,7 @@ namespace SwAgent.Plugins
     /// Installed plugins and marketplaces (design 3): %APPDATA%\SwAgent\plugins\ holds installed.json, marketplaces\ (copies
     /// or clones), cache\&lt;plugin&gt;\&lt;version&gt;\ (installed files, read-only, replaced on update), local\&lt;plugin&gt;\ (the
     /// user's own plugins: the "local" marketplace, editable) and data\&lt;plugin&gt;\ (CLAUDE_PLUGIN_DATA, kept across updates).
-    /// The built-in "unify3d" marketplace ships with the add-in in builtin-plugins\.
+    /// The built-in "solidworks-agent" marketplace ships with the add-in in builtin-plugins\.
     ///
     /// Trust (design critique 16): hooks and MCP servers only run when the hash of the plugin's current hooks and MCP servers
     /// equals the hash the user approved in the panel's trust dialog (Install / Enable with trustHash). The agent's tools
@@ -28,7 +28,7 @@ namespace SwAgent.Plugins
     /// </summary>
     internal sealed class PluginManager : IPluginRuntimeSource
     {
-        public const string BuiltInMarketplace = "unify3d", LocalMarketplace = "local";
+        public const string BuiltInMarketplace = "solidworks-agent", LocalMarketplace = "local";
 
         private static readonly Regex IdPattern = new Regex("^([a-z0-9][a-z0-9-]{1,47})@([a-z0-9][a-z0-9-]{1,47})$");
         private static readonly byte[] Entropy = Encoding.UTF8.GetBytes("SwAgent.PluginConfig.v1");
@@ -86,7 +86,44 @@ namespace SwAgent.Plugins
             Root = root ?? Paths.PluginsDir;
             BuiltInRoot = builtInRoot ?? Path.Combine(Paths.AddInDir, "builtin-plugins");
             Directory.CreateDirectory(Root);
+            MigrateRename();
         }
+
+        /// <summary>
+        /// The product was called Unify3D until 2026-10: installed.json named the built-in marketplace "unify3d". Move it to the
+        /// new ids once (a copy of the old file stays next to it), so installed plugins stay installed, on and approved.
+        /// </summary>
+        private void MigrateRename()
+        {
+            try
+            {
+                if (!File.Exists(InstalledFile)) return;
+                var before = File.ReadAllText(InstalledFile);
+                var after = RenamedState(before);
+                if (after == before) return;
+                File.Copy(InstalledFile, InstalledFile + ".before-rename", true);
+                var tmp = InstalledFile + ".tmp";
+                File.WriteAllText(tmp, after, new UTF8Encoding(false));
+                AtomicFile.Replace(tmp, InstalledFile);
+                var oldData = Path.Combine(DataRoot, "agent-bridge-unify3d");
+                var newData = Path.Combine(DataRoot, "agent-bridge-solidworks");
+                if (Directory.Exists(oldData) && !Directory.Exists(newData)) Directory.Move(oldData, newData);
+                Log.Info("Plugins: moved installed.json to the SolidWorks Agent ids");
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException)
+            {
+                Log.Error("Moving installed.json to the new ids failed", ex);
+            }
+        }
+
+        /// <summary>installed.json's text with the old marketplace id, overlay name, block name and variables replaced.</summary>
+        internal static string RenamedState(string json) => json
+            .Replace("agent-bridge-unify3d", "agent-bridge-solidworks")
+            .Replace("@unify3d\"", "@" + BuiltInMarketplace + "\"")
+            .Replace("${UNIFY3D_", "${SOLIDWORKS_AGENT_")
+            .Replace("\"Unify3D SolidWorks - ", "\"SolidWorks Agent - ")
+            .Replace("\"unify3d\": {", "\"solidworksAgent\": {")
+            .Replace("\"marketplace\": \"unify3d\"", "\"marketplace\": \"" + BuiltInMarketplace + "\"");
 
         // ---------------------------------------------------------------- state (installed.json)
 
@@ -103,7 +140,7 @@ namespace SwAgent.Plugins
             public string InstalledAt;
             public string UpdatedAt;
             public JObject UserConfig = new JObject();
-            public JObject Unify3d = new JObject();
+            public JObject SolidWorksAgent = new JObject();
             public string PendingUpdate;
 
             [JsonIgnore] public string Id => Name + "@" + Marketplace;
@@ -139,7 +176,7 @@ namespace SwAgent.Plugins
                     foreach (var r in s.Plugins.Values)
                     {
                         r.UserConfig = r.UserConfig ?? new JObject();
-                        r.Unify3d = r.Unify3d ?? new JObject();
+                        r.SolidWorksAgent = r.SolidWorksAgent ?? new JObject();
                     }
                     return s;
                 }
@@ -282,7 +319,7 @@ namespace SwAgent.Plugins
 
         /// <summary>
         /// The current trust hash: hooks + MCP servers + its tools' C#, and for a local plugin with hooks or MCP servers every
-        /// file too (its hooks may run them). A local plugin's tools are the user's own (made in Unify3D, like the tools in
+        /// file too (its hooks may run them). A local plugin's tools are the user's own (made in SolidWorks Agent, like the tools in
         /// %APPDATA%\SwAgent\tools), so on their own they need no approval.
         /// </summary>
         internal string CurrentHash(LoadedPlugin p)
@@ -301,7 +338,7 @@ namespace SwAgent.Plugins
         /// The app a link plugin (Claude MCP, Codex MCP) registers in, from the record's copy of its marketplace entry (so uninstall
         /// still knows when the marketplace changed later); null for every other plugin.
         /// </summary>
-        internal static string LinkClientOf(LoadedPlugin p) => p.Local ? null : ClientLinks.ClientOf(p.Record.Marketplace, p.Record.Unify3d);
+        internal static string LinkClientOf(LoadedPlugin p) => p.Local ? null : ClientLinks.ClientOf(p.Record.Marketplace, p.Record.SolidWorksAgent);
 
         public bool IsTrusted(LoadedPlugin p)
         {
@@ -337,17 +374,17 @@ namespace SwAgent.Plugins
             var vars = new Dictionary<string, string>(StringComparer.Ordinal)
             {
                 ["CLAUDE_PLUGIN_ROOT"] = p.Root,
-                ["UNIFY3D_PLUGIN_ROOT"] = p.Root,
+                ["SOLIDWORKS_AGENT_PLUGIN_ROOT"] = p.Root,
                 ["CLAUDE_PLUGIN_DATA"] = dataDir,
-                ["UNIFY3D_DEVICE"] = Environment.MachineName,
-                ["UNIFY3D_PID"] = Process.GetCurrentProcess().Id.ToString(),
+                ["SOLIDWORKS_AGENT_DEVICE"] = Environment.MachineName,
+                ["SOLIDWORKS_AGENT_PID"] = Process.GetCurrentProcess().Id.ToString(),
             };
             Func<string, string> full = text => Expand(text, vars, options, withSecrets: true);
             Func<string, string> forCommands = text => Expand(text, vars, options, withSecrets: false);
 
-            // Entry env first, then plugin.json's unify3d.env, then the user's options (design critique 3).
+            // Entry env first, then plugin.json's solidworksAgent.env, then the user's options (design critique 3).
             var env = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-            foreach (var source in new[] { EntryEnv(p), m.Unify3d?["env"] as JObject })
+            foreach (var source in new[] { EntryEnv(p), m.SolidWorksAgent?["env"] as JObject })
             {
                 foreach (var kv in source?.Properties() ?? Enumerable.Empty<JProperty>())
                 {
@@ -360,9 +397,9 @@ namespace SwAgent.Plugins
                 if (o.Value.Value != null) env["CLAUDE_PLUGIN_OPTION_" + o.Key.ToUpperInvariant()] = o.Value.Value;
             }
             env["CLAUDE_PLUGIN_ROOT"] = p.Root;
-            env["UNIFY3D_PLUGIN_ROOT"] = p.Root;
+            env["SOLIDWORKS_AGENT_PLUGIN_ROOT"] = p.Root;
             env["CLAUDE_PLUGIN_DATA"] = dataDir;
-            env["UNIFY3D"] = "1";
+            env["SOLIDWORKS_AGENT"] = "1";
 
             var servers = new Dictionary<string, JObject>(StringComparer.Ordinal);
             foreach (var kv in m.McpServers)
@@ -400,7 +437,7 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// Environment names a plugin may not set (unify3d.env, an MCP server's env): the Anthropic key and every other
+        /// Environment names a plugin may not set (solidworksAgent.env, an MCP server's env): the Anthropic key and every other
         /// ANTHROPIC_* secret, and CLAUDE_CODE_* (the runtime sets CLAUDE_CODE_SESSION_ID itself), as ChildEnv.Hidden.
         /// OPENAI_* is allowed on purpose: a plugin may give its own MCP server OPENAI_API_KEY from its own
         /// ${user_config.key}. The user's agent key can't leak that way (hidden from the child; ${OPENAI_API_KEY} is "").
@@ -558,16 +595,16 @@ namespace SwAgent.Plugins
             public string Error;
 
             /// <summary>
-            /// What the panel shows (docs/plugins/local-mcp.md 4): the built-in one's unify3d.displayName, else "Unify3D" (an older
+            /// What the panel shows (docs/plugins/local-mcp.md 4): the built-in one's solidworksAgent.displayName, else "SolidWorks Agent" (an older
             /// builtin-plugins copy too); "Your plugins" for local; an added one's display name, else its id.
             /// </summary>
             public string DisplayName =>
-                Name == BuiltInMarketplace ? Manifest?.DisplayName ?? "Unify3D" :
+                Name == BuiltInMarketplace ? Manifest?.DisplayName ?? "SolidWorks Agent" :
                 Name == LocalMarketplace ? "Your plugins" :
                 Manifest?.DisplayName ?? Name;
         }
 
-        /// <summary>The built-in "unify3d", the "local" marketplace and every added one, with their plugin lists.</summary>
+        /// <summary>The built-in "solidworks-agent", the "local" marketplace and every added one, with their plugin lists.</summary>
         public List<MarketplaceInfo> Marketplaces()
         {
             var s = Snapshot();
@@ -589,7 +626,7 @@ namespace SwAgent.Plugins
                 local.Manifest.Plugins.Add(new MarketplaceEntry
                 {
                     Name = p.Name, Description = p.Manifest.Description, Version = p.Manifest.Version, Keywords = p.Manifest.Keywords,
-                    Category = PluginManifest.Str(p.Manifest.Unify3d["category"]),
+                    Category = PluginManifest.Str(p.Manifest.SolidWorksAgent["category"]),
                     Source = new PluginSource { Kind = PluginSource.SourceKind.Relative, Path = "./" + p.Name },
                 });
             }
@@ -744,16 +781,16 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// The marketplace entry's unify3d.env for a plugin. The built-in marketplace ships with the add-in, so its current
+        /// The marketplace entry's solidworksAgent.env for a plugin. The built-in marketplace ships with the add-in, so its current
         /// entry applies at once (e.g. agent-bridge's session id and listening); others use the copy made at install/update.
         /// </summary>
         private JObject EntryEnv(LoadedPlugin p)
         {
-            var saved = p.Record.Unify3d?["env"] as JObject;
+            var saved = p.Record.SolidWorksAgent?["env"] as JObject;
             if (p.Record.Marketplace != BuiltInMarketplace) return saved;
             try
             {
-                return Entry(BuiltInMarketplace, p.Name).Entry.Unify3d?["env"] as JObject ?? saved;
+                return Entry(BuiltInMarketplace, p.Name).Entry.SolidWorksAgent?["env"] as JObject ?? saved;
             }
             catch (Exception ex)
             {
@@ -826,7 +863,7 @@ namespace SwAgent.Plugins
         /// <summary>
         /// Install a plugin from a marketplace (fetch into cache\&lt;plugin&gt;\&lt;version&gt;, enabled). A plugin with hooks or MCP
         /// servers needs the user's approval: without the matching trustHash nothing is installed and NeedsTrust lists what
-        /// it would run. The marketplace entry's unify3d.installWith plugins are installed with it.
+        /// it would run. The marketplace entry's solidworksAgent.installWith plugins are installed with it.
         /// </summary>
         public Outcome Install(string id, string trustHash = null, CancellationToken cancel = default(CancellationToken))
         {
@@ -838,15 +875,15 @@ namespace SwAgent.Plugins
                 if (other != null && other.Record.Marketplace != marketplace)
                     throw new InvalidOperationException($"A plugin named \"{name}\" is already installed from \"{other.Record.Marketplace}\". Uninstall it first.");
                 var (market, entry) = Entry(marketplace, name);
-                // A link plugin (Claude MCP, Codex MCP): the app must be there and its "unify3d" free before the dialog shows.
-                var client = ClientLinks.ClientOf(marketplace, entry.Unify3d);
+                // A link plugin (Claude MCP, Codex MCP): the app must be there and its "solidworks-agent" free before the dialog shows.
+                var client = ClientLinks.ClientOf(marketplace, entry.SolidWorksAgent);
                 if (client != null) Links.Preflight(client);
                 var staged = Stage(id, market, entry, cancel);
                 var manifest = PluginManifest.Load(staged.Dir);
                 if (manifest.Name != name)
                     throw new InvalidOperationException($"The marketplace lists \"{name}\" but the plugin calls itself \"{manifest.Name}\".");
                 var outcome = new Outcome();
-                if (client == null && ClientLinks.Declares(entry.Unify3d)) outcome.Warnings.Add(ClientLinks.NotHonoured);
+                if (client == null && ClientLinks.Declares(entry.SolidWorksAgent)) outcome.Warnings.Add(ClientLinks.NotHonoured);
                 CheckNode(manifest, outcome);
                 var hash = client == null ? staged.Hash : Links.Combine(staged.Hash, client);
                 if (hash != "" && trustHash != hash)
@@ -876,15 +913,15 @@ namespace SwAgent.Plugins
                     {
                         Name = name, Marketplace = marketplace, Version = version, Sha = staged.Sha, Path = dest, Enabled = true,
                         TrustedHash = hash, Source = entry.Source.ToJson(), InstalledAt = other?.Record.InstalledAt ?? Now(), UpdatedAt = Now(),
-                        UserConfig = other?.Record.UserConfig ?? new JObject(), Unify3d = (JObject)entry.Unify3d.DeepClone(),
+                        UserConfig = other?.Record.UserConfig ?? new JObject(), SolidWorksAgent = (JObject)entry.SolidWorksAgent.DeepClone(),
                     };
                     return 0;
                 });
                 if (previous != null && !SamePath(previous, dest)) RemoveFiles(previous);
                 Log.Info($"Installed plugin {id} {version}");
 
-                // The overlay that belongs with it (agent-bridge-unify3d with agent-bridge), from the same marketplace.
-                foreach (var dep in (entry.Unify3d["installWith"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null))
+                // The overlay that belongs with it (agent-bridge-solidworks with agent-bridge), from the same marketplace.
+                foreach (var dep in (entry.SolidWorksAgent["installWith"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null))
                 {
                     var depId = dep.Contains("@") ? dep : dep + "@" + marketplace;
                     try
@@ -1015,7 +1052,7 @@ namespace SwAgent.Plugins
             if (client != null && fromAgent)
             {
                 var label = p.Manifest?.DisplayName ?? p.Name;
-                throw new InvalidOperationException($"{label} changes {Unify3D.LocalLink.LinkProtocol.Label(client)}'s settings, so only the user can turn it on or off in Plugins.");
+                throw new InvalidOperationException($"{label} changes {SolidWorksAgent.LocalLink.LinkProtocol.Label(client)}'s settings, so only the user can turn it on or off in Plugins.");
             }
             var hash = CurrentHash(p);
             var trusted = hash == "" || hash == p.Record.TrustedHash || trustHash == hash;
@@ -1105,12 +1142,12 @@ namespace SwAgent.Plugins
                 if (manifest.Name != p.Name) throw new InvalidOperationException($"The new version calls itself \"{manifest.Name}\".");
                 var version = VersionOf(manifest, entry, staged);
                 var dest = Path.Combine(CacheDir, p.Name, version);
-                var client = ClientLinks.ClientOf(p.Record.Marketplace, entry.Unify3d);
+                var client = ClientLinks.ClientOf(p.Record.Marketplace, entry.SolidWorksAgent);
                 if (SamePath(dest, p.Root) && Directory.Exists(dest) && ContentHash(dest) == ContentHash(staged.Dir))
                 {
                     Fetcher.TryDelete(staged.Dir);
                     _staged.Remove(p.Id);
-                    Mutate(s => { if (s.Plugins.TryGetValue(p.Id, out var r)) { r.Sha = staged.Sha ?? r.Sha; r.Unify3d = (JObject)entry.Unify3d.DeepClone(); r.PendingUpdate = null; } return 0; });
+                    Mutate(s => { if (s.Plugins.TryGetValue(p.Id, out var r)) { r.Sha = staged.Sha ?? r.Sha; r.SolidWorksAgent = (JObject)entry.SolidWorksAgent.DeepClone(); r.PendingUpdate = null; } return 0; });
                     if (!autoUpdate) RefreshLink(p, client, outcome);
                     outcome.Ok = outcome.UpToDate = true;
                     outcome.Plugin = Find(p.Id);
@@ -1141,7 +1178,7 @@ namespace SwAgent.Plugins
                     r.Path = dest;
                     r.UpdatedAt = Now();
                     r.TrustedHash = hash;
-                    r.Unify3d = (JObject)entry.Unify3d.DeepClone();
+                    r.SolidWorksAgent = (JObject)entry.SolidWorksAgent.DeepClone();
                     r.PendingUpdate = null;
                     return 0;
                 });
@@ -1155,7 +1192,7 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// After an update the user asked for: refresh an entry Unify3D owns (normally no write). A missing entry isn't added
+        /// After an update the user asked for: refresh an entry SolidWorks Agent owns (normally no write). A missing entry isn't added
         /// again (the status offers Repair); the start-up auto-update never writes another app's config.
         /// </summary>
         private void RefreshLink(LoadedPlugin p, string client, Outcome outcome)
@@ -1272,8 +1309,8 @@ namespace SwAgent.Plugins
         {
             var vars = new Dictionary<string, string>(StringComparer.Ordinal)
             {
-                ["CLAUDE_PLUGIN_ROOT"] = root, ["UNIFY3D_PLUGIN_ROOT"] = root, ["CLAUDE_PLUGIN_DATA"] = Path.Combine(DataRoot, m.Name ?? ""),
-                ["UNIFY3D_DEVICE"] = Environment.MachineName, ["UNIFY3D_PID"] = Process.GetCurrentProcess().Id.ToString(),
+                ["CLAUDE_PLUGIN_ROOT"] = root, ["SOLIDWORKS_AGENT_PLUGIN_ROOT"] = root, ["CLAUDE_PLUGIN_DATA"] = Path.Combine(DataRoot, m.Name ?? ""),
+                ["SOLIDWORKS_AGENT_DEVICE"] = Environment.MachineName, ["SOLIDWORKS_AGENT_PID"] = Process.GetCurrentProcess().Id.ToString(),
             };
             var none = new Dictionary<string, (string, bool)>();
             var list = new JObject
@@ -1326,11 +1363,11 @@ namespace SwAgent.Plugins
             var agents = AgentIndex.For(m);
             var tools = m.Tools().ToList();
             var notes = new JArray();
-            if (m.Hooks["PermissionRequest"] != null) notes.Add("Remote approvals (PermissionRequest hooks) don't run in Unify3D yet; Unify3D's own approval cards are used.");
+            if (m.Hooks["PermissionRequest"] != null) notes.Add("Remote approvals (PermissionRequest hooks) don't run in SolidWorks Agent yet; SolidWorks Agent's own approval cards are used.");
             markets = markets ?? SafeMarketplaces();
             var entry = MarketplaceEntryOf(p, markets);
             var client = LinkClientOf(p);
-            if (client == null && !p.Local && ClientLinks.Declares(p.Record.Unify3d)) notes.Add(ClientLinks.NotHonoured);
+            if (client == null && !p.Local && ClientLinks.Declares(p.Record.SolidWorksAgent)) notes.Add(ClientLinks.NotHonoured);
             var errors = m.Findings.Where(f => f.StartsWith("error:", StringComparison.Ordinal)).ToList();
             var json = new JObject
             {
@@ -1346,8 +1383,8 @@ namespace SwAgent.Plugins
                 ["repository"] = PluginManifest.Str(m.Json["repository"]),
                 ["license"] = PluginManifest.Str(m.Json["license"]),
                 ["keywords"] = new JArray(m.Keywords.Concat(entry?.Keywords ?? new string[0]).Distinct()),
-                ["category"] = entry?.Category ?? PluginManifest.Str(m.Unify3d["category"]),
-                ["icon"] = PluginManifest.Str(m.Unify3d["icon"]),
+                ["category"] = entry?.Category ?? PluginManifest.Str(m.SolidWorksAgent["category"]),
+                ["icon"] = PluginManifest.Str(m.SolidWorksAgent["icon"]),
                 ["installed"] = true,
                 ["enabled"] = p.Enabled,
                 ["trusted"] = hash == "" || hash == p.Record.TrustedHash,
@@ -1358,7 +1395,7 @@ namespace SwAgent.Plugins
                 ["updatedAt"] = p.Record.UpdatedAt,
                 ["pendingUpdate"] = p.Record.PendingUpdate,
                 ["updateAvailable"] = p.Record.PendingUpdate,
-                ["installWith"] = InstallWithIds(p.Record.Unify3d, p.Record.Marketplace),
+                ["installWith"] = InstallWithIds(p.Record.SolidWorksAgent, p.Record.Marketplace),
                 ["error"] = errors.Count > 0 ? errors[0].Substring("error:".Length).Trim() : null,
                 ["components"] = new JObject
                 {
@@ -1408,7 +1445,7 @@ namespace SwAgent.Plugins
             catch (Exception ex)
             {
                 Log.Warn($"The link status of {plugin} can't be read: {ex.Message}");
-                return new JObject { ["client"] = client, ["label"] = Unify3D.LocalLink.LinkProtocol.Label(client), ["found"] = false, ["entry"] = "unreadable", ["note"] = ex.Message };
+                return new JObject { ["client"] = client, ["label"] = SolidWorksAgent.LocalLink.LinkProtocol.Label(client), ["found"] = false, ["entry"] = "unreadable", ["note"] = ex.Message };
             }
         }
 
@@ -1426,14 +1463,14 @@ namespace SwAgent.Plugins
             }
         }
 
-        /// <summary>A marketplace id's display name ("Unify3D" for "unify3d", "Your plugins" for "local").</summary>
+        /// <summary>A marketplace id's display name ("SolidWorks Agent" for "solidworks-agent", "Your plugins" for "local").</summary>
         private static string DisplayNameOf(string marketplace, List<MarketplaceInfo> markets) =>
             markets?.FirstOrDefault(x => x.Name == marketplace)?.DisplayName ??
-            (marketplace == BuiltInMarketplace ? "Unify3D" : marketplace == LocalMarketplace ? "Your plugins" : marketplace);
+            (marketplace == BuiltInMarketplace ? "SolidWorks Agent" : marketplace == LocalMarketplace ? "Your plugins" : marketplace);
 
-        /// <summary>The marketplace entry's unify3d.hideSkills: Claude Code-only skills that would mislead the agent here.</summary>
+        /// <summary>The marketplace entry's solidworksAgent.hideSkills: Claude Code-only skills that would mislead the agent here.</summary>
         internal static HashSet<string> HiddenSkills(LoadedPlugin p) =>
-            new HashSet<string>((p.Record.Unify3d?["hideSkills"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null), StringComparer.Ordinal);
+            new HashSet<string>((p.Record.SolidWorksAgent?["hideSkills"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null), StringComparer.Ordinal);
 
         /// <summary>The marketplaces with their plugins, for the store's Discover and Marketplaces tabs.</summary>
         public JArray MarketplacesJson()
@@ -1471,7 +1508,7 @@ namespace SwAgent.Plugins
                         ["sourceError"] = e.SourceError,
                         ["installed"] = have != null,
                         ["enabled"] = have?.Enabled ?? false,
-                        ["installWith"] = e.Unify3d["installWith"]?.DeepClone(),
+                        ["installWith"] = e.SolidWorksAgent["installWith"]?.DeepClone(),
                     };
                 })),
             }));
@@ -1505,16 +1542,16 @@ namespace SwAgent.Plugins
                 var dir = Path.GetFullPath(Path.Combine(market.Root, e.Source.Path));
                 if (PluginManifest.IsInside(market.Root, dir)) m = PluginManifest.Load(dir);
             }
-            var hidden = new HashSet<string>((e.Unify3d["hideSkills"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null), StringComparer.Ordinal);
+            var hidden = new HashSet<string>((e.SolidWorksAgent["hideSkills"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => t != null), StringComparer.Ordinal);
             // A link plugin: where it would write, or why it can't (that also disables Install, as any error does).
-            var client = ClientLinks.ClientOf(market.Name, e.Unify3d);
+            var client = ClientLinks.ClientOf(market.Name, e.SolidWorksAgent);
             JObject link = null;
             if (client != null)
             {
                 var loc = Links.Locate(client);
                 link = new JObject
                 {
-                    ["client"] = client, ["label"] = Unify3D.LocalLink.LinkProtocol.Label(client), ["found"] = loc.Found,
+                    ["client"] = client, ["label"] = SolidWorksAgent.LocalLink.LinkProtocol.Label(client), ["found"] = loc.Found,
                     ["configPath"] = loc.ConfigPath, ["note"] = loc.Note,
                 };
             }
@@ -1530,7 +1567,7 @@ namespace SwAgent.Plugins
                 ["author"] = m?.Author == null ? null : new JObject { ["name"] = m.Author },
                 ["homepage"] = PluginManifest.Str(e.Json?["homepage"]) ?? PluginManifest.Str(m?.Json["homepage"]),
                 ["license"] = PluginManifest.Str(m?.Json["license"]),
-                ["category"] = e.Category ?? PluginManifest.Str(m?.Unify3d["category"]),
+                ["category"] = e.Category ?? PluginManifest.Str(m?.SolidWorksAgent["category"]),
                 ["keywords"] = new JArray(e.Keywords),
                 ["installed"] = false,
                 ["enabled"] = false,
@@ -1545,17 +1582,17 @@ namespace SwAgent.Plugins
                     ["hooks"] = m?.HookCommands().Count() ?? 0,
                     ["mcpServers"] = m?.McpServers.Count ?? 0,
                 },
-                ["installWith"] = InstallWithIds(e.Unify3d, market.Name),
+                ["installWith"] = InstallWithIds(e.SolidWorksAgent, market.Name),
                 ["error"] = e.Source == null ? e.SourceError : market.Error ?? (link != null && !(bool)link["found"] ? (string)link["note"] : null),
             };
             if (link != null) json["link"] = link;
-            if (client == null && ClientLinks.Declares(e.Unify3d)) json["notes"] = new JArray(ClientLinks.NotHonoured);
+            if (client == null && ClientLinks.Declares(e.SolidWorksAgent)) json["notes"] = new JArray(ClientLinks.NotHonoured);
             return json;
         }
 
-        /// <summary>A marketplace entry's unify3d.installWith as plugin ids (the companions come from the same marketplace).</summary>
-        private static JArray InstallWithIds(JObject unify3d, string marketplace) =>
-            new JArray((unify3d?["installWith"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => !string.IsNullOrEmpty(t))
+        /// <summary>A marketplace entry's solidworksAgent.installWith as plugin ids (the companions come from the same marketplace).</summary>
+        private static JArray InstallWithIds(JObject ext, string marketplace) =>
+            new JArray((ext?["installWith"] as JArray ?? new JArray()).Select(t => (string)t).Where(t => !string.IsNullOrEmpty(t))
                 .Select(n => n.Contains("@") ? n : n + "@" + marketplace));
 
         /// <summary>The installed plugin's entry in its marketplace (for the store's tags), or null.</summary>

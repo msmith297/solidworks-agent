@@ -4,12 +4,12 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using Newtonsoft.Json;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.LocalMcp
 {
     /// <summary>
-    /// Unify3D.LocalMcp.exe --client claude-desktop|codex: the stdio MCP server Claude Desktop or Codex runs
+    /// SolidWorksAgent.LocalMcp.exe --client claude-desktop|codex: the stdio MCP server Claude Desktop or Codex runs
     /// (docs/plugins/local-mcp.md section 6). stdout carries only MCP messages, one JSON object per line; stderr is the log
     /// (never message text). Start-up opens no connection, so a client starts it fine while SolidWorks is closed. It exits
     /// when stdin closes.
@@ -23,7 +23,7 @@ namespace SwAgent.LocalMcp
             var client = ArgValue(args, "--client");
             if (client == null || !LinkProtocol.Clients.Contains(client))
             {
-                Console.Error.WriteLine($"Unify3D.LocalMcp: pass --client {string.Join("|", LinkProtocol.Clients)}.");
+                Console.Error.WriteLine($"SolidWorksAgent.LocalMcp: pass --client {string.Join("|", LinkProtocol.Clients)}.");
                 return 2;
             }
 
@@ -33,7 +33,7 @@ namespace SwAgent.LocalMcp
             var stderr = new StreamWriter(Console.OpenStandardError(), utf8) { NewLine = "\n", AutoFlush = true };
             void Log(string text)
             {
-                lock (WriteLock) stderr.WriteLine($"{DateTime.Now:HH:mm:ss.fff} unify3d: {text}");
+                lock (WriteLock) stderr.WriteLine($"{DateTime.Now:HH:mm:ss.fff} solidworks-agent: {text}");
             }
 
             var version = Assembly.GetExecutingAssembly().GetName().Version;
@@ -53,7 +53,7 @@ namespace SwAgent.LocalMcp
             string line;
             while ((line = stdin.ReadLine()) != null)
             {
-                // No single line may end the server: the client would lose every unify3d tool until it restarts it.
+                // No single line may end the server: the client would lose every solidworks-agent tool until it restarts it.
                 try
                 {
                     server.HandleLine(line);

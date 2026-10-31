@@ -8,11 +8,11 @@ Nothing in the repository was changed.
 ## 1. End-to-end trace of one tool run
 
 ### 1.1 Start: ribbon button, hotkey, or the panel's Run button
-* Ribbon/menu/toolbar: every command is registered with callback strings `OnUnifyCommand(t<id>)` /
-  `OnUnifyEnable(t<id>)` (src/SwAgent/UI/UnifyRibbon.cs:125). Tool IDs start at 100 and are kept per tool name in
-  `%APPDATA%\SwAgent\tools\command-ids.json` (UnifyRibbon.cs:186-216), so hotkeys survive adding/removing tools.
-* `AgentAddIn.OnUnifyCommand(arg)` (src/SwAgent/AgentAddIn.cs:136-174): `_ribbon.ToolFor(arg)` maps `t104` -> tool
-  name (UnifyRibbon.cs:77-78); a tool goes to `Controller.RunToolAsync(tool, ShowPane)` (AgentAddIn.cs:144) without
+* Ribbon/menu/toolbar: every command is registered with callback strings `OnAgentCommand(t<id>)` /
+  `OnAgentEnable(t<id>)` (src/SwAgent/UI/AgentRibbon.cs:125). Tool IDs start at 100 and are kept per tool name in
+  `%APPDATA%\SwAgent\tools\command-ids.json` (AgentRibbon.cs:186-216), so hotkeys survive adding/removing tools.
+* `AgentAddIn.OnAgentCommand(arg)` (src/SwAgent/AgentAddIn.cs:136-174): `_ribbon.ToolFor(arg)` maps `t104` -> tool
+  name (AgentRibbon.cs:77-78); a tool goes to `Controller.RunToolAsync(tool, ShowPane)` (AgentAddIn.cs:144) without
   opening the panel. Enable state: any `t...` command needs an active document (AgentAddIn.cs:177-188).
 * Panel Workflows menu "Run" on a kind=tool row (built-ins included) calls `rpc("userTools.run", {name})`
   (ui/src/components/ToolsPalette.tsx:143) -> `AgentController` bridge handler (src/SwAgent/AgentController.cs:164-169)
@@ -246,12 +246,12 @@ while the cache is warm). Recommend capping drawing PDFs (e.g. <= 10 MB / <= 20 
 * `list_user_tools` agent tool prints `- name (kind): title - description` (UserTools.cs:279-286).
 * `read_user_tool(name, file?)` (UserTools.cs:288-304): TOOL.md (or any file inside the folder, path-checked by
   `SafePath` 591-597), plus "Extra files in this tool: ..." (296-301) and, for built-ins, a read-only note (302).
-* Ribbon (UnifyRibbon.cs:87-158): only `kind == "tool"` (line 92). Command list: 4 fixed (37-43), the tools, then
+* Ribbon (AgentRibbon.cs:87-158): only `kind == "tool"` (line 92). Command list: 4 fixed (37-43), the tools, then
   New Tool / Options (45-49). Tab boxes (136-141): [fixed + Options] | [built-in tools] | [user tools + New Tool], same
   tab added for part/assembly/drawing (34, 142-151). Built at start-up only; `IsStale()` (58-64) compares a signature
   of name:title:icon-png-mtime and the panel offers Save and restart.
 * Workflows menu (ToolsPalette.tsx:20-173): `builtIn` (all kinds), user `workflows`, user `tools` (lines 25-27);
-  sections "Workflows" (119-125), "Built in - Unify3D tools" (127-134), "Tools - on the Unify3D ribbon tab" (136-143).
+  sections "Workflows" (119-125), "Built in - SolidWorks Agent tools" (127-134), "Tools - on the SolidWorks Agent ribbon tab" (136-143).
   Built-ins get a Run button and no edit/delete (46, 66-78).
 * Built-in shipping: `SwAgent.csproj:57-60` copies `tools\builtin\**\*` to `builtin-tools\` next to the dll (recursive,
   so subfolders such as `data/` ship automatically). `UserTools.BuiltInRoot` = `Paths.AddInDir\builtin-tools`
@@ -267,15 +267,15 @@ C# side
 1. `UserTools.ListTools` (UserTools.cs:537-556): add
    `["category"] = fm.TryGetValue("category", out var cat) && !string.IsNullOrWhiteSpace(cat) ? OneLine(cat) : null`.
 2. `SaveInput` / `EditInput` (UserTools.cs:133-206, 217-277): add
-   `[ToolParam("Optional group shown as its own box on the Unify3D tab and section in the Workflows menu, e.g. \"Molding & Toolmaking\". Reuse an existing category name.")] public string Category`.
+   `[ToolParam("Optional group shown as its own box on the SolidWorks Agent tab and section in the Workflows menu, e.g. \"Molding & Toolmaking\". Reuse an existing category name.")] public string Category`.
    Save: write `category:` after `icon:` (after line 326) when not blank. Edit: `SetHeader(header,"category",...)` in
    the block at 401-409, and add `input.Category` to the "nothing to change" test (374-378).
 3. `userTools.setValue` whitelist (AgentController.cs:336): allow `category` so the user can move a tool from the
    panel; for built-ins it lands in builtin-settings.json and `EffectiveFrontMatter` applies it (UserTools.cs:98-106,
    470-478).
-4. Ribbon (UnifyRibbon.cs):
+4. Ribbon (AgentRibbon.cs):
    * `Signature()` (60-64): append `:{t["category"]}` so recategorising marks the ribbon stale.
-   * Command order (95-102): order tools by (builtIn desc, category ?? "", title) so the Unify3D *menu* reads grouped;
+   * Command order (95-102): order tools by (builtIn desc, category ?? "", title) so the SolidWorks Agent *menu* reads grouped;
      optionally `group.AddSpacer2(...)` between categories for menu separators (verify the index shifts it causes in
      `AddCommandItem2` positions).
    * Boxes (136-141), replacing the single built-in box and the single user box:
@@ -301,8 +301,8 @@ Panel side
 7. ToolsPalette.tsx (25-27, 119-143): build sections as
    * one section per category (title = category; built-ins first inside it, then the user's), each row as today
      (`row(t, true)` for built-ins and workflows, `row(t, false)` for user ribbon tools);
-   * then the existing uncategorised sections unchanged ("Workflows", "Built in - Unify3D tools", "Tools - on the
-     Unify3D ribbon tab"). Empty-state text (120-124) only when there are no uncategorised workflows AND no categories.
+   * then the existing uncategorised sections unchanged ("Workflows", "Built in - SolidWorks Agent tools", "Tools - on the
+     SolidWorks Agent ribbon tab"). Empty-state text (120-124) only when there are no uncategorised workflows AND no categories.
    * Group key: trimmed, case-insensitive category; display the first spelling seen.
 8. mockHost.ts:113-127: give the sample `compression-mold` a category so the UI can be checked in the browser mock.
 

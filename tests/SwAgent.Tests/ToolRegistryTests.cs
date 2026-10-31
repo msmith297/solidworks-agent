@@ -152,7 +152,7 @@ namespace SwAgent.Tests
     public class MoldOverrideTests
     {
         private static JObject Shipped() => JObject.Parse(@"{
-            ""schema"": ""unify3d.part-materials/1"",
+            ""schema"": ""solidworksAgent.part-materials/1"",
             ""rows"": [ { ""id"": ""epdm-70a"", ""shrinkPct"": { ""min"": 1.5, ""typ"": 1.8, ""max"": 2.5 }, ""sg"": { ""typ"": 1.1 } },
                        { ""id"": ""pu-90a"", ""shrinkPct"": { ""typ"": 1.5 } } ],
             ""flash"": { ""lip"": { ""in"": 0.125 } } }");

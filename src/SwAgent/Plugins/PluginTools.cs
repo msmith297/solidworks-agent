@@ -261,7 +261,7 @@ namespace SwAgent.Plugins
             };
             var author = Environment.UserName;
             if (!string.IsNullOrWhiteSpace(author)) json["author"] = new JObject { ["name"] = author };
-            if (!string.IsNullOrWhiteSpace(input.Category)) json["unify3d"] = new JObject { ["category"] = UserTools.CleanCategory(input.Category) };
+            if (!string.IsNullOrWhiteSpace(input.Category)) json["solidworksAgent"] = new JObject { ["category"] = UserTools.CleanCategory(input.Category) };
             Directory.CreateDirectory(Path.Combine(dir, ".claude-plugin"));
             File.WriteAllText(PluginManifest.ManifestPath(dir), json.ToString(Formatting.Indented) + "\n", new UTF8Encoding(false));
             pm.Invalidate();
@@ -308,7 +308,7 @@ namespace SwAgent.Plugins
             if (UserTools.ReservedNames.Contains(tool) || !File.Exists(Path.Combine(from, "TOOL.md")))
                 return ToolResult.Error(UserTools.IsBuiltIn(tool) ? $"'{tool}' is a built-in tool; only the user's own tools can go into a plugin." : $"The user has no tool '{tool}'.");
             var toolsDir = p.Manifest.ToolsPath ?? Path.Combine(p.Root, "tools");
-            if (!PluginManifest.IsInside(p.Root, toolsDir)) return ToolResult.Error("The plugin's unify3d.tools folder is outside the plugin.");
+            if (!PluginManifest.IsInside(p.Root, toolsDir)) return ToolResult.Error("The plugin's solidworksAgent.tools folder is outside the plugin.");
             var to = Path.Combine(toolsDir, tool);
             if (Directory.Exists(to)) return ToolResult.Error($"The plugin already has a tool '{tool}'. Delete it with edit_user_tool / plugin_write_file first, or use another name.");
             Fetcher.CopyDirectory(from, to);
@@ -355,7 +355,7 @@ namespace SwAgent.Plugins
         }
 
         [AgentTool("plugin_package",
-            "Package one of the user's local plugins to share it: a zip and a copy in Documents\\Unify3D Plugins, with a marketplace.json there, so that folder can be " +
+            "Package one of the user's local plugins to share it: a zip and a copy in Documents\\SolidWorks Agent Plugins, with a marketplace.json there, so that folder can be " +
             "added as a marketplace (or shared) on another PC.")]
         public ToolResult Package(ToolContext ctx, PluginInput input)
         {
@@ -513,9 +513,9 @@ namespace SwAgent.Plugins
             foreach (var (ev, command) in m.HookCommands())
             {
                 if (secrets.Any(s => command.Contains(s))) f.Add($"error: {ev} hook puts a sensitive option on its command line; read it from the env variable CLAUDE_PLUGIN_OPTION_<KEY> instead.");
-                if (ev == "PermissionRequest") f.Add("warning: PermissionRequest hooks don't run in Unify3D (its own approval cards are used).");
+                if (ev == "PermissionRequest") f.Add("warning: PermissionRequest hooks don't run in SolidWorks Agent (its own approval cards are used).");
                 else if (!new[] { "PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SessionStart", "SessionEnd" }.Contains(ev))
-                    f.Add($"warning: {ev} hooks don't run in Unify3D.");
+                    f.Add($"warning: {ev} hooks don't run in SolidWorks Agent.");
                 var bash = BashOnly(command);
                 if (bash.Count > 0)
                     f.Add($"warning: {ev} hook \"{command}\" needs Git Bash ({string.Join(", ", bash)}): it runs as in Claude Code where Git for Windows is " +
@@ -565,7 +565,7 @@ namespace SwAgent.Plugins
             var plugins = market["plugins"] as JArray ?? (JArray)(market["plugins"] = new JArray());
             foreach (var old in plugins.OfType<JObject>().Where(x => (string)x["name"] == p.Name).ToList()) old.Remove();
             var entry = new JObject { ["name"] = p.Name, ["source"] = "./" + p.Name, ["description"] = m.Description, ["version"] = version };
-            if (PluginManifest.Str(m.Unify3d["category"]) is string category) entry["category"] = category;
+            if (PluginManifest.Str(m.SolidWorksAgent["category"]) is string category) entry["category"] = category;
             if (m.Keywords.Length > 0) entry["keywords"] = new JArray(m.Keywords);
             plugins.Add(entry);
             Directory.CreateDirectory(Path.GetDirectoryName(marketFile));

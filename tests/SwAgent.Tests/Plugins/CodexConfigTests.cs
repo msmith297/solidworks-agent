@@ -12,11 +12,11 @@ using Xunit;
 
 namespace SwAgent.Tests.Plugins
 {
-    /// <summary>docs/plugins/local-mcp.md C3: [mcp_servers.unify3d] in Codex's config.toml, on temp copies; Tomlyn checks the result.</summary>
+    /// <summary>docs/plugins/local-mcp.md C3: [mcp_servers.solidworks-agent] in Codex's config.toml, on temp copies; Tomlyn checks the result.</summary>
     [Collection("Plugins")]
     public class CodexConfigTests
     {
-        private const string Exe = @"C:\Users\someone\AppData\Local\SwAgent\local-mcp\Unify3D.LocalMcp.exe";
+        private const string Exe = @"C:\Users\someone\AppData\Local\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe";
 
         /// <summary>An anonymised file shaped like the real one: every construct Codex and agent-bridge write.</summary>
         internal const string Realistic =
@@ -89,13 +89,13 @@ namespace SwAgent.Tests.Plugins
             CodexConfig.Check(Realistic, after);
 
             var a = Toml(after);
-            var entry = (JObject)a["mcp_servers"]["unify3d"];
+            var entry = (JObject)a["mcp_servers"]["solidworks-agent"];
             Assert.Equal(Exe, (string)entry["command"]);
             Assert.Equal(new[] { "--client", "codex" }, entry["args"].Values<string>());
             Assert.Equal("20", (string)entry["startup_timeout_sec"]);
             Assert.Equal("120", (string)entry["tool_timeout_sec"]);
-            ((JObject)a["mcp_servers"]).Remove("unify3d");
-            Assert.True(JToken.DeepEquals(Toml(Realistic), a), "the parsed file is the old one plus mcp_servers.unify3d");
+            ((JObject)a["mcp_servers"]).Remove("solidworks-agent");
+            Assert.True(JToken.DeepEquals(Toml(Realistic), a), "the parsed file is the old one plus mcp_servers.solidworks-agent");
 
             Assert.Equal(after, CodexConfig.Add(after, Exe, true)); // idempotent
             Assert.Equal(LinkEntryState.Present, CodexConfig.Inspect(after));
@@ -114,25 +114,25 @@ namespace SwAgent.Tests.Plugins
             var inserted = after.Replace(CodexConfig.EndMarker, "[projects.'D:\\later']\ntrust_level = \"trusted\"\n" + CodexConfig.EndMarker);
             var removed = CodexConfig.Remove(inserted, out _);
             var t = Toml(removed);
-            Assert.Null(t["mcp_servers"]["unify3d"]);
+            Assert.Null(t["mcp_servers"]["solidworks-agent"]);
             Assert.Equal("trusted", (string)t["projects"]["D:\\later"]["trust_level"]);
             Assert.Contains("[projects.'D:\\later']\ntrust_level = \"trusted\"\n", removed);
             Assert.StartsWith(Realistic, removed);
 
             // Our own subtables (an env Codex or the user added) go with the entry.
-            var withEnv = after.Replace(CodexConfig.EndMarker, "[mcp_servers.unify3d.env]\nX = \"1\"\n" + CodexConfig.EndMarker);
+            var withEnv = after.Replace(CodexConfig.EndMarker, "[mcp_servers.solidworks-agent.env]\nX = \"1\"\n" + CodexConfig.EndMarker);
             Assert.Equal(LinkEntryState.Present, CodexConfig.Inspect(withEnv));
             Assert.Equal(Realistic, CodexConfig.Remove(withEnv, out _));
         }
 
         [Theory]
-        [InlineData("[mcp_servers.unify3d]\ncommand = \"node\"\nargs = [\"x.js\"]\n")]
-        [InlineData("[mcp_servers.\"unify3d\"]\ncommand = 'C:\\x\\Unify3D.LocalMcp.exe'\nargs = [\"--client\", \"codex\"]\n")]
-        [InlineData("mcp_servers.unify3d.command = \"node\"\n")]
-        [InlineData("[mcp_servers]\nunify3d = { command = \"node\" }\n")]
-        [InlineData("[mcp_servers]\nunify3d.command = \"node\"\n")]
-        [InlineData("[mcp_servers.unify3d]\ncommand = 'C:\\x\\Unify3D.LocalMcp.exe'\nargs = [\"--client\", \"claude-desktop\"]\n")]
-        public void Any_other_unify3d_is_a_conflict_and_stays(string foreign)
+        [InlineData("[mcp_servers.solidworks-agent]\ncommand = \"node\"\nargs = [\"x.js\"]\n")]
+        [InlineData("[mcp_servers.\"solidworks-agent\"]\ncommand = 'C:\\x\\SolidWorksAgent.LocalMcp.exe'\nargs = [\"--client\", \"codex\"]\n")]
+        [InlineData("mcp_servers.solidworks-agent.command = \"node\"\n")]
+        [InlineData("[mcp_servers]\nsolidworks-agent = { command = \"node\" }\n")]
+        [InlineData("[mcp_servers]\nsolidworks-agent.command = \"node\"\n")]
+        [InlineData("[mcp_servers.solidworks-agent]\ncommand = 'C:\\x\\SolidWorksAgent.LocalMcp.exe'\nargs = [\"--client\", \"claude-desktop\"]\n")]
+        public void Any_other_solidworks_is_a_conflict_and_stays(string foreign)
         {
             // A root key must come before the first table; the rest go at the end.
             var text = foreign.StartsWith("mcp_servers.") ? foreign + Realistic : Realistic + "\n" + foreign;
@@ -190,7 +190,7 @@ namespace SwAgent.Tests.Plugins
                 var added = CodexConfig.Add(noNewline, Exe, true);
                 Assert.StartsWith("model = \"x\"\n\n" + CodexConfig.StartMarker, added);
                 CodexConfig.Check(noNewline, added);
-                Assert.Equal(Exe, (string)Toml(added)["mcp_servers"]["unify3d"]["command"]);
+                Assert.Equal(Exe, (string)Toml(added)["mcp_servers"]["solidworks-agent"]["command"]);
                 // ... and removal gives back the original bytes, without that newline.
                 foreach (var original in new[] { noNewline, "# only a comment", Realistic.TrimEnd('\n'), Realistic.Replace("\n", "\r\n").TrimEnd('\r', '\n') })
                     Assert.Equal(original, CodexConfig.Remove(CodexConfig.Add(original, Exe, true), out _));
@@ -215,19 +215,19 @@ namespace SwAgent.Tests.Plugins
         [Fact]
         public void A_path_with_a_quote_is_written_as_a_basic_string()
         {
-            const string odd = @"C:\Users\O'Brien\AppData\Local\SwAgent\local-mcp\Unify3D.LocalMcp.exe";
+            const string odd = @"C:\Users\O'Brien\AppData\Local\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe";
             var block = CodexConfig.Block(odd, "\n");
             Assert.Contains("command = \"C:\\\\Users\\\\O'Brien\\\\", block);
-            Assert.Equal(odd, (string)Toml(block)["mcp_servers"]["unify3d"]["command"]);
+            Assert.Equal(odd, (string)Toml(block)["mcp_servers"]["solidworks-agent"]["command"]);
             Assert.Contains("command = '" + Exe + "'", CodexConfig.Block(Exe, "\n"));
-            Assert.Equal(Exe, (string)Toml(CodexConfig.Block(Exe, "\n"))["mcp_servers"]["unify3d"]["command"]);
+            Assert.Equal(Exe, (string)Toml(CodexConfig.Block(Exe, "\n"))["mcp_servers"]["solidworks-agent"]["command"]);
         }
 
         [Fact]
         public void A_moved_exe_refreshes_only_the_command_line()
         {
             var after = CodexConfig.Add(Realistic, Exe, true);
-            const string moved = @"D:\Profiles\someone\AppData\Local\SwAgent\local-mcp\Unify3D.LocalMcp.exe";
+            const string moved = @"D:\Profiles\someone\AppData\Local\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe";
             var refreshed = CodexConfig.Add(after, moved, false);
             Assert.Equal(after.Replace("command = '" + Exe + "'", "command = '" + moved + "'"), refreshed);
             CodexConfig.Check(after, refreshed);

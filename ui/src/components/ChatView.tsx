@@ -1176,7 +1176,7 @@ function EmptyState() {
       <div className="mb-4">
         <BrandLogo height={30} />
       </div>
-      <div className="text-[14px] font-semibold text-text">{doc ? `Ask about ${doc.title}` : "Ask Unify3D anything"}</div>
+      <div className="text-[14px] font-semibold text-text">{doc ? `Ask about ${doc.title}` : "Ask SolidWorks Agent anything"}</div>
       <p className="mt-1 max-w-[300px] text-[12px] text-text-2">
         {doc
           ? "It works in the active document through the SolidWorks API. This chat keeps going as you open and switch files."

@@ -99,7 +99,7 @@ namespace SwAgent.Tests.Plugins
                     },
                     ["mcpServers"] = "./servers.json",
                     ["userConfig"] = new JObject { ["api_key"] = new JObject { ["type"] = "string", ["sensitive"] = true }, ["bad key"] = new JObject() },
-                    ["unify3d"] = new JObject { ["tools"] = "./my-tools", ["category"] = "Molding" },
+                    ["solidworksAgent"] = new JObject { ["tools"] = "./my-tools", ["category"] = "Molding" },
                 });
                 PluginTestEnv.WriteJson(Path.Combine(dir, "servers.json"), new JObject
                 {
@@ -109,7 +109,7 @@ namespace SwAgent.Tests.Plugins
                 });
                 PluginTestEnv.Write(Path.Combine(dir, "extra-commands", "go.md"), "---\ndescription: Go\n---\nGo $ARGUMENTS");
                 PluginTestEnv.Write(Path.Combine(dir, "commands", "sub", "deep.md"), "Deep command body");
-                PluginTestEnv.AddTool(dir, "ignored"); // tools/ is not its tools folder: unify3d.tools is
+                PluginTestEnv.AddTool(dir, "ignored"); // tools/ is not its tools folder: solidworksAgent.tools is
                 PluginTestEnv.Write(Path.Combine(dir, "my-tools", "cut-groove", "TOOL.md"), "---\ntitle: Cut groove\n---\nx");
 
                 var m = PluginManifest.Load(dir);

@@ -45,7 +45,7 @@
     <ProjectReference Include="..\SwAgent.LocalMcp\SwAgent.LocalMcp.csproj" ReferenceOutputAssembly="false" Private="false" />
   </ItemGroup>
 
-  <!-- The add-in <-> Unify3D.LocalMcp.exe pipe contract, shared with src/SwAgent.LocalMcp (docs/plugins/local-mcp.md 5.1). -->
+  <!-- The add-in <-> SolidWorksAgent.LocalMcp.exe pipe contract, shared with src/SwAgent.LocalMcp (docs/plugins/local-mcp.md 5.1). -->
   <ItemGroup>
     <Compile Include="..\Shared\LocalLinkProtocol.cs" Link="LocalLink\LocalLinkProtocol.cs" />
   </ItemGroup>
@@ -70,13 +70,13 @@
     <None Include="update.ps1" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- Built-in Unify3D tools (tools/builtin/<name>: TOOL.md, inputs.json, icons, ...) ship next to the dll as builtin-tools,
+  <!-- Built-in SolidWorks Agent tools (tools/builtin/<name>: TOOL.md, inputs.json, icons, ...) ship next to the dll as builtin-tools,
        read-only; see UserTools.BuiltInRoot. Same folder layout as the user's own tools. -->
   <ItemGroup>
     <None Include="..\..\tools\builtin\**\*" Link="builtin-tools\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
-  <!-- The built-in plugin marketplace "unify3d" (plugins/: .claude-plugin/marketplace.json and any plugin folders) ships next to
+  <!-- The built-in plugin marketplace "solidworks-agent" (plugins/: .claude-plugin/marketplace.json and any plugin folders) ships next to
        the dll as builtin-plugins, read-only; see PluginManager.BuiltInRoot. -->
   <ItemGroup>
     <None Include="..\..\plugins\**\*" Link="builtin-plugins\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />

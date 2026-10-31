@@ -13,7 +13,7 @@ export function CrashNotice() {
   if (!crash) return null;
   const what =
     crash.kind === "preview" ? `the preview of “${crash.title ?? crash.tool}”`
-    : crash.kind === "addin" ? `an error in Unify3D Agent itself`
+    : crash.kind === "addin" ? `an error in SolidWorks Agent itself`
     : crash.kind === "tool" ? `the agent's “${crash.title ?? "tool"}” step`
     : crash.kind === "page" ? `the page of the tool “${crash.title ?? crash.tool}”`
     : crash.kind === "macro" ? `the tool “${crash.title ?? crash.tool}”`
@@ -28,7 +28,7 @@ export function CrashNotice() {
         <span className="text-text-2">
           {crash.paused ? `I paused that ${crash.paused} so it can't happen again. ` : ""}
           {crash.helpersDisabled?.length ? `The agent's helper ${crash.helpersDisabled.map((h) => h.name).join(", ")} was involved in two crashes, so it is switched off. ` : ""}
-          Unify3D can find the cause and fix it.
+          SolidWorks Agent can find the cause and fix it.
         </span>
         <span className="mt-1 flex gap-1.5">
           <button className="sw-btn sw-btn-primary !h-[22px]" onClick={() => void askAboutCrash()}>
@@ -65,7 +65,7 @@ export function RestartCard({ title, reason, onDismiss }: { title?: string; reas
             <span className="font-semibold">{reason}</span>
           ) : (
             <>
-              <span className="font-semibold">Restart SolidWorks to add {title ? `“${title}”` : "the new tool"} to the Unify3D tab.</span>{" "}
+              <span className="font-semibold">Restart SolidWorks to add {title ? `“${title}”` : "the new tool"} to the SolidWorks Agent tab.</span>{" "}
               <span className="text-text-2">SolidWorks only loads ribbon buttons when it starts.</span>
             </>
           )}{" "}

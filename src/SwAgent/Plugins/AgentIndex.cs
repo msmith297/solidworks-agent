@@ -19,7 +19,7 @@ namespace SwAgent.Plugins
 
         public string Description => Front.Get("description") ?? PluginCommand.FirstLine(Front.Body);
 
-        /// <summary>The tools it may use, as written (Claude Code names such as Read or Bash included: run_agent drops what Unify3D lacks); null = not limited.</summary>
+        /// <summary>The tools it may use, as written (Claude Code names such as Read or Bash included: run_agent drops what SolidWorks Agent lacks); null = not limited.</summary>
         public string[] Tools => Front.List("tools");
 
         /// <summary>

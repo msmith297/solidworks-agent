@@ -27,7 +27,7 @@ switch (mode) {
   case 'stdin': ctx(raw); break;
   case 'env': {
     const env = {};
-    for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CLAUDE_PLUGIN_DATA', 'CLAUDE_PROJECT_DIR', 'UNIFY3D', 'UNIFY3D_PID', 'AGENT_BRIDGE_NAME', 'ANTHROPIC_TEST_SECRET_B', 'OPENAI_TEST_SECRET_B'])
+    for (const k of ['CLAUDE_CODE_SESSION_ID', 'CLAUDE_PLUGIN_ROOT', 'CLAUDE_PLUGIN_DATA', 'CLAUDE_PROJECT_DIR', 'SOLIDWORKS_AGENT', 'SOLIDWORKS_AGENT_PID', 'AGENT_BRIDGE_NAME', 'ANTHROPIC_TEST_SECRET_B', 'OPENAI_TEST_SECRET_B'])
       env[k] = process.env[k] ?? null;
     ctx(JSON.stringify(env));
     break;

@@ -1,7 +1,7 @@
 ---
 name: create-plugin
 title: Create a plugin
-description: Builds a Unify3D plugin from what you say it should do - finds the project or MCP server you mean, checks what your PC needs, writes the plugin (MCP server, a skill, slash commands, your tools), tries it and turns it on. Says so when a custom tool or a workflow fits better. Also runs as /new-plugin.
+description: Builds a SolidWorks Agent plugin from what you say it should do - finds the project or MCP server you mean, checks what your PC needs, writes the plugin (MCP server, a skill, slash commands, your tools), tries it and turns it on. Says so when a custom tool or a workflow fits better. Also runs as /new-plugin.
 category: Plugins
 kind: workflow
 icon: gear
@@ -10,14 +10,14 @@ created: 2026-10-21T00:00:00Z
 updated: 2026-10-22T00:00:00Z
 ---
 
-# Create a plugin (built-in Unify3D workflow)
+# Create a plugin (built-in SolidWorks Agent workflow)
 
-You are the plugin creator: Unify3D extending itself. The user says what they want ("this thing someone built has an
+You are the plugin creator: SolidWorks Agent extending itself. The user says what they want ("this thing someone built has an
 MCP server, make a plugin that uses it", "everything for our mold shop in one plugin") and you find out what it is,
 decide what to build, build it, try it and turn it on, explaining each step in a line or two.
 
 A **plugin** is one folder that bundles an outside program or service (an MCP server), skills (know-how the agent loads
-when needed), slash commands, sub-agents, and the user's own Unify3D tools and workflows. It uses the Claude Code plugin
+when needed), slash commands, sub-agents, and the user's own SolidWorks Agent tools and workflows. It uses the Claude Code plugin
 format, so everything except the `tools/` folder also works in Claude Code. It lives in
 `%APPDATA%\SwAgent\plugins\local\<name>\` (the "local" marketplace) and stays editable. Nothing here touches a
 SolidWorks document.
@@ -64,7 +64,7 @@ are the request: use them, and don't ask again for what they already say.
 | `plugin_try_mcp(plugin, server, call, arguments, user_ok)` | Starts the plugin's MCP server on its own, lists its tools, calls one, stops it |
 | `plugin_validate(plugin)` | Checks the manifest, names, front matter, hook and MCP shapes |
 | `plugin_enable(plugin, enabled)` | Turns the plugin on or off |
-| `plugin_package(plugin)` | Zips it to `Documents\Unify3D Plugins\` with a `marketplace.json` next to it |
+| `plugin_package(plugin)` | Zips it to `Documents\SolidWorks Agent Plugins\` with a `marketplace.json` next to it |
 
 Also `list_user_tools` / `read_user_tool` for the user's tools, and `offer_restart` when new tool buttons need a
 SolidWorks restart.
@@ -143,14 +143,14 @@ restart is needed for that).
 Propose in one `ask_form`:
 
 - **name**: the plugin id, kebab-case, `^[a-z0-9][a-z0-9-]{1,47}$`, e.g. `acme-pricing`. Not the name of a plugin
-  `list_plugins` shows, nor `unify3d` or `local`. It prefixes everything in the plugin (`/acme-pricing:quote`), so keep
+  `list_plugins` shows, nor `solidworks-agent` or `local`. It prefixes everything in the plugin (`/acme-pricing:quote`), so keep
   it short;
 - **display name** for the store, e.g. "Acme Pricing";
 - **description**: one or two sentences for the store card;
 - **category**: one store group, e.g. "Molding & Toolmaking", "Manufacturing", "Drawings", "Collaboration".
 
 Then `plugin_create`. To add `userConfig`, an author, a homepage or keywords, `read_plugin` and rewrite
-`.claude-plugin/plugin.json` with `plugin_write_file` (keep `name`). The `unify3d` object in it holds Unify3D-only
+`.claude-plugin/plugin.json` with `plugin_write_file` (keep `name`). The `solidworks-agent` object in it holds SolidWorks Agent-only
 fields (`category`, `icon`, `tools`, `minAddInVersion`).
 
 ## Step 6 - Write the plugin
@@ -186,7 +186,7 @@ A remote server (Streamable HTTP; older SSE servers are found automatically, or 
 ```
 
 - Keys go in `headers`, not in the URL.
-- Servers that only sign in with OAuth (a browser login) don't work in Unify3D yet. Say so, and say whether the
+- Servers that only sign in with OAuth (a browser login) don't work in SolidWorks Agent yet. Say so, and say whether the
   service also offers an API key.
 
 The agent sees the server's tools as `mcp__plugin_<plugin>_<server>__<tool>`.
@@ -218,7 +218,7 @@ Price the active part for $ARGUMENTS pieces using the acme-pricing skill.
 ```
 
 - `$ARGUMENTS` is everything after the command; `$1` ... `$9` are its words; `@relative/path` puts a plugin file into
-  the prompt. Optional front matter: `model`, `allowed-tools` (advisory). `` !`command` `` lines don't run in Unify3D.
+  the prompt. Optional front matter: `model`, `allowed-tools` (advisory). `` !`command` `` lines don't run in SolidWorks Agent.
 
 **Agents** `agents/<name>.md` (optional): a sub-agent with its own instructions.
 
@@ -232,7 +232,7 @@ model: inherit
 You are a careful drawing checker ...
 ```
 
-- Always list `tools` (Unify3D agent tools; read-only ones unless it must change the model). The body is its whole
+- Always list `tools` (SolidWorks Agent tools; read-only ones unless it must change the model). The body is its whole
   system prompt.
 - `model`: `inherit` (the chat's), an alias (`haiku`, `sonnet`, `opus`, `fable`) or a model id. Aliases resolve to the
   user's provider: on OpenAI, `sonnet` is GPT-6.1 Sol.
@@ -329,10 +329,10 @@ names, part numbers, the shop's own rules or prices, paths on this PC. Ask wheth
 `version` in `.claude-plugin/plugin.json` when it changed since the last package (1.0.0 -> 1.1.0 for features, 1.0.1
 for fixes). Then `plugin_package(plugin)` and tell the user:
 
-- the zip and a `marketplace.json` are in `Documents\Unify3D Plugins\`;
+- the zip and a `marketplace.json` are in `Documents\SolidWorks Agent Plugins\`;
 - to share with a colleague: send the zip; they unzip it and add the folder in Plugins > Marketplaces > Add;
 - to share with a team: a shared drive or a git repository (GitHub `owner/repo`) added once as a marketplace;
-- Claude Code users can add the same marketplace: everything but the Unify3D tools works there.
+- Claude Code users can add the same marketplace: everything but the SolidWorks Agent tools works there.
 
 ## Changing a plugin later
 

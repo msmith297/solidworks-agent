@@ -38,7 +38,7 @@ namespace SwAgent.Tests.Plugins
                     {
                         ["name"] = "agent-bridge",
                         ["source"] = new JObject { ["source"] = "git-subdir", ["url"] = "https://github.com/msmith297/agent-bridge.git", ["path"] = "plugin" },
-                        ["unify3d"] = new JObject { ["installWith"] = new JArray("agent-bridge-unify3d"), ["env"] = new JObject { ["AGENT_BRIDGE_NAME"] = "x" } },
+                        ["solidworksAgent"] = new JObject { ["installWith"] = new JArray("agent-bridge-solidworks"), ["env"] = new JObject { ["AGENT_BRIDGE_NAME"] = "x" } },
                     },
                     new JObject { ["name"] = "zip", ["source"] = new JObject { ["source"] = "url", ["url"] = "https://example.invalid/p.zip" } },
                     new JObject { ["name"] = "plain-http", ["source"] = new JObject { ["source"] = "url", ["url"] = "http://example.invalid/p.zip" } },
@@ -64,7 +64,7 @@ namespace SwAgent.Tests.Plugins
             Assert.Equal(PluginSource.SourceKind.GitSubdir, ab.Source.Kind);
             Assert.Equal("plugin", ab.Source.SubPath);
             Assert.Equal("msmith297/agent-bridge", ab.Source.GitHubRepoName); // fetchable as a zip without git
-            Assert.Equal("agent-bridge-unify3d", (string)ab.Unify3d["installWith"][0]);
+            Assert.Equal("agent-bridge-solidworks", (string)ab.SolidWorksAgent["installWith"][0]);
             Assert.Equal(PluginSource.SourceKind.Url, byName["zip"].Source.Kind);
             Assert.Contains("https", byName["plain-http"].SourceError);
             Assert.Contains("npm", byName["npm"].SourceError);
@@ -149,7 +149,7 @@ namespace SwAgent.Tests.Plugins
                 var m = env.Pm.AddMarketplace(env.Market);
                 Assert.Equal("test-market", m.Name);
                 Assert.Equal(env.Market, m.Root);
-                Assert.Equal(new[] { "unify3d", "local", "test-market" }, env.Pm.Marketplaces().Select(x => x.Name).ToArray());
+                Assert.Equal(new[] { "solidworks-agent", "local", "test-market" }, env.Pm.Marketplaces().Select(x => x.Name).ToArray());
                 Assert.Throws<InvalidOperationException>(() => env.Pm.AddMarketplace(env.Market)); // already added
 
                 // a plugin added to the folder shows at once
@@ -160,7 +160,7 @@ namespace SwAgent.Tests.Plugins
                 var reserved = Path.Combine(env.Dir, "reserved");
                 PluginTestEnv.WriteJson(Path.Combine(reserved, ".claude-plugin", "marketplace.json"), new JObject { ["name"] = "local", ["plugins"] = new JArray() });
                 Assert.Throws<InvalidOperationException>(() => env.Pm.AddMarketplace(reserved));
-                Assert.Throws<InvalidOperationException>(() => env.Pm.RemoveMarketplace("unify3d"));
+                Assert.Throws<InvalidOperationException>(() => env.Pm.RemoveMarketplace("solidworks-agent"));
                 env.Pm.RemoveMarketplace("test-market");
                 Assert.True(Directory.Exists(env.Market)); // the user's folder is never deleted
                 Assert.Equal(2, env.Pm.Marketplaces().Count);

@@ -28,7 +28,7 @@ t("web research: off means no server tools; Opus and Sonnet get the dynamic vers
 
 const plugins = [
   { id: "acme@local", name: "acme", installed: true, userConfig: { api_key: { type: "string", title: "Acme API key", sensitive: true }, region: { type: "string" } }, config: { api_key: { set: true }, region: "eu" } },
-  { id: "store-only@unify3d", name: "store-only", installed: false, userConfig: { k: { type: "string", sensitive: true } } },
+  { id: "store-only@solidworks-agent", name: "store-only", installed: false, userConfig: { k: { type: "string", sensitive: true } } },
 ];
 
 t("ask_secret only stores into a declared sensitive option", () => {

@@ -125,7 +125,7 @@ export function AutoUpdatePrompt() {
         <IconUpdate size={14} />
       </span>
       <span className="flex-1">
-        <span className="font-semibold">Keep Unify3D Agent up to date automatically?</span>{" "}
+        <span className="font-semibold">Keep SolidWorks Agent up to date automatically?</span>{" "}
         <span className="text-text-2">New versions download in the background and install when you close SolidWorks. You can change this in Options.</span>
         <span className="mt-1 flex gap-1.5">
           <button className="sw-btn sw-btn-primary !h-[22px]" onClick={() => saveSettings({ autoUpdate: true })}>

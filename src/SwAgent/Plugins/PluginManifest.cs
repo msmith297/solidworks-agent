@@ -13,7 +13,7 @@ namespace SwAgent.Plugins
     /// <summary>
     /// A plugin folder read the way Claude Code reads it (design 2): .claude-plugin/plugin.json, the default component
     /// folders (commands, skills, agents, hooks/hooks.json, .mcp.json) plus the extra paths plugin.json names, and the
-    /// Unify3D additions (tools/ and the "unify3d" object). Problems are collected in Findings rather than thrown, so a
+    /// SolidWorks Agent additions (tools/ and the "solidworksAgent" object). Problems are collected in Findings rather than thrown, so a
     /// plugin with a broken hook still shows in the store. No SolidWorks types: tested headless.
     /// </summary>
     internal sealed class PluginManifest
@@ -21,7 +21,7 @@ namespace SwAgent.Plugins
         /// <summary>Plugin and marketplace names (Claude Code's kebab-case; also safe as a folder name).</summary>
         public static readonly Regex NamePattern = new Regex("^[a-z0-9][a-z0-9-]{1,47}$");
 
-        /// <summary>The hook events Claude Code defines (Unify3D fires the ones in design 4.5).</summary>
+        /// <summary>The hook events Claude Code defines (SolidWorks Agent fires the ones in design 4.5).</summary>
         public static readonly string[] HookEvents =
         {
             "PreToolUse", "PostToolUse", "UserPromptSubmit", "Stop", "SubagentStop", "SessionStart", "SessionEnd",
@@ -46,13 +46,13 @@ namespace SwAgent.Plugins
         /// <summary>userConfig options by key: { type, title, description, default, sensitive }.</summary>
         public Dictionary<string, JObject> UserConfig = new Dictionary<string, JObject>(StringComparer.Ordinal);
 
-        /// <summary>plugin.json "unify3d" (tools, category, icon, minAddInVersion, env).</summary>
-        public JObject Unify3d = new JObject();
+        /// <summary>plugin.json "solidworks-agent" (tools, category, icon, minAddInVersion, env).</summary>
+        public JObject SolidWorksAgent = new JObject();
 
         /// <summary>Folders (and single .md files) commands, agents and skills are read from.</summary>
         public List<string> CommandPaths = new List<string>(), AgentPaths = new List<string>(), SkillPaths = new List<string>();
 
-        /// <summary>The folder of Unify3D tools (default ./tools).</summary>
+        /// <summary>The folder of SolidWorks Agent tools (default ./tools).</summary>
         public string ToolsPath;
 
         /// <summary>Problems found while reading: "error: ..." blocks a use of the part, "warning: ..." doesn't.</summary>
@@ -73,7 +73,7 @@ namespace SwAgent.Plugins
         public IEnumerable<string> ToolCodeFiles() =>
             Tools().SelectMany(t => Directory.GetFiles(t.Dir, "*.cs", SearchOption.AllDirectories)).Concat(HelperFiles()).OrderBy(f => f, StringComparer.OrdinalIgnoreCase);
 
-        /// <summary>The folder of C# helpers for agent cells (default ./helpers, next to tools/; plugin.json unify3d.helpers overrides).</summary>
+        /// <summary>The folder of C# helpers for agent cells (default ./helpers, next to tools/; plugin.json solidworksAgent.helpers overrides).</summary>
         public string HelpersPath;
 
         /// <summary>
@@ -116,13 +116,13 @@ namespace SwAgent.Plugins
             m.Description = Str(j["description"]) ?? "";
             m.Author = j["author"] is JObject a ? Str(a["name"]) : Str(j["author"]);
             m.Keywords = (j["keywords"] as JArray)?.Select(k => (string)k).Where(k => !string.IsNullOrWhiteSpace(k)).ToArray() ?? new string[0];
-            m.Unify3d = j["unify3d"] as JObject ?? new JObject();
+            m.SolidWorksAgent = (j["solidworksAgent"] ?? j["unify3d"]) as JObject ?? new JObject();
 
             m.CommandPaths = ComponentPaths(m, "commands", "commands");
             m.AgentPaths = ComponentPaths(m, "agents", "agents");
             m.SkillPaths = ComponentPaths(m, "skills", "skills");
-            m.ToolsPath = Str(m.Unify3d["tools"]) is string tp ? m.Resolve(tp, "unify3d.tools") : Path.Combine(m.Root, "tools");
-            m.HelpersPath = Str(m.Unify3d["helpers"]) is string hp ? m.Resolve(hp, "unify3d.helpers") : Path.Combine(m.Root, "helpers");
+            m.ToolsPath = Str(m.SolidWorksAgent["tools"]) is string tp ? m.Resolve(tp, "solidworksAgent.tools") : Path.Combine(m.Root, "tools");
+            m.HelpersPath = Str(m.SolidWorksAgent["helpers"]) is string hp ? m.Resolve(hp, "solidworksAgent.helpers") : Path.Combine(m.Root, "helpers");
 
             // Hooks: hooks/hooks.json, plus plugin.json "hooks" (a path, a list of paths or an inline object).
             var hookFile = Path.Combine(m.Root, "hooks", "hooks.json");
@@ -180,7 +180,7 @@ namespace SwAgent.Plugins
         public string Resolve(string relative, string what)
         {
             if (string.IsNullOrWhiteSpace(relative)) return null;
-            var r = relative.Replace("${CLAUDE_PLUGIN_ROOT}", ".").Replace("${UNIFY3D_PLUGIN_ROOT}", ".");
+            var r = relative.Replace("${CLAUDE_PLUGIN_ROOT}", ".").Replace("${SOLIDWORKS_AGENT_PLUGIN_ROOT}", ".");
             if (Path.IsPathRooted(r))
             {
                 Findings.Add($"error: {what}: \"{relative}\" must be a relative path inside the plugin.");

@@ -1,12 +1,12 @@
-# Writing a Unify3D plugin
+# Writing a SolidWorks Agent plugin
 
-For people who write plugins for Unify3D Agent by hand, and for checking what the built-in plugin creator
+For people who write plugins for SolidWorks Agent by hand, and for checking what the built-in plugin creator
 (`tools/builtin/create-plugin`, also `/new-plugin`) produces. The runtime behind it is specified in
 [design.md](design.md); where this page and the design differ, this page describes the corrected contract the add-in
 implements.
 
-A Unify3D plugin is a **Claude Code plugin** plus, optionally, **Unify3D tools**. A folder that works in Claude Code
-installs in Unify3D unchanged, as far as its parts apply (section 2), and a Unify3D plugin's commands, skills, agents,
+A SolidWorks Agent plugin is a **Claude Code plugin** plus, optionally, **SolidWorks Agent tools**. A folder that works in Claude Code
+installs in SolidWorks Agent unchanged, as far as its parts apply (section 2), and a SolidWorks Agent plugin's commands, skills, agents,
 hooks and MCP servers work in Claude Code.
 
 ## 1. The folder
@@ -20,7 +20,7 @@ my-plugin/
   agents/<name>.md                sub-agents
   hooks/hooks.json                hooks
   .mcp.json                       MCP servers
-  tools/<tool>/TOOL.md ...        Unify3D tools and workflows (Unify3D only)
+  tools/<tool>/TOOL.md ...        SolidWorks Agent tools and workflows (SolidWorks Agent only)
 ```
 
 Everything except `.claude-plugin/plugin.json` is optional.
@@ -42,7 +42,7 @@ Everything except `.claude-plugin/plugin.json` is optional.
     "erp_url": { "type": "string", "title": "ERP address", "description": "Base URL of the shop's ERP", "default": "" },
     "erp_key": { "type": "string", "title": "ERP API key", "sensitive": true }
   },
-  "unify3d": {
+  "solidworksAgent": {
     "category": "Molding & Toolmaking",
     "icon": "./icon.png",
     "tools": "./tools",
@@ -59,29 +59,29 @@ Everything except `.claude-plugin/plugin.json` is optional.
   (a path or an inline object) work as in Claude Code: extra locations next to the default folders.
 - `userConfig`: settings the user fills in under Plugins > Installed. A `sensitive` value is stored encrypted (DPAPI)
   and never shown again.
-- `unify3d`: Unify3D-only fields. Claude Code does not use them.
+- `solidworks-agent`: SolidWorks Agent-only fields. Claude Code does not use them.
 
   | Field | Meaning |
   |---|---|
   | `category` | The store group. Each tool keeps its own `category` for the ribbon and the Workflows menu. |
   | `icon` | A tool icon name (`macro`, `part`, `assembly`, `drawing`, `tree`, `select`, `camera`, `rebuild`, `gear`, `book`, `markup`, `shield`) or a path in the plugin, e.g. `./icon.png` (128 x 128, transparent). |
-  | `tools` | Where the Unify3D tools are, default `./tools`. |
-  | `minAddInVersion` | The oldest Unify3D Agent version the plugin needs, e.g. `0.2.0`. |
+  | `tools` | Where the SolidWorks Agent tools are, default `./tools`. |
+  | `minAddInVersion` | The oldest SolidWorks Agent version the plugin needs, e.g. `0.2.0`. |
   | `env` | Extra environment variables for this plugin's own hooks and MCP servers (section 5). |
 
 ## 2. Claude Code compatibility
 
-| Part | Claude Code | Unify3D |
+| Part | Claude Code | SolidWorks Agent |
 |---|---|---|
-| `plugin.json` fields | all | all; `unify3d` added |
+| `plugin.json` fields | all | all; `solidworks-agent` added |
 | Commands | yes | yes: `$ARGUMENTS`, `$1`-`$9`, `@path`, `description`, `argument-hint`, `model`; `allowed-tools` is advisory; `` !`cmd` `` is **not run** (left as text, with a note) |
 | Skills | yes | yes: listed in the agent's skills index, loaded with `use_skill`, extra files read with `read_plugin_file` |
-| Agents | yes | yes, through `run_agent`; tool names Unify3D doesn't have (`Read`, `Bash`, `Edit` ...) are dropped, and an agent left with none gets read-only tools |
+| Agents | yes | yes, through `run_agent`; tool names SolidWorks Agent doesn't have (`Read`, `Bash`, `Edit` ...) are dropped, and an agent left with none gets read-only tools |
 | Hooks | yes | `type: "command"` only, six events (section 6); run with Git Bash as in Claude Code, or `cmd.exe` on a PC without Git for Windows |
 | MCP servers | stdio, HTTP, SSE | stdio, HTTP and SSE; no OAuth (section 7) |
 | Output styles, LSP servers, `settings.json`, status line | yes | ignored |
-| `tools/` (Unify3D tools) | ignored | yes (section 3) |
-| `unify3d` in `plugin.json` and marketplace entries | ignored | yes |
+| `tools/` (SolidWorks Agent tools) | ignored | yes (section 3) |
+| `solidworks-agent` in `plugin.json` and marketplace entries | ignored | yes |
 
 ### Commands
 
@@ -122,19 +122,19 @@ model: inherit
 You are a careful drawing checker ...
 ```
 
-`tools` lists Unify3D agent tools; `execute_csharp`, `undo` and `rebuild` change the model, everything else reads.
+`tools` lists SolidWorks Agent tools; `execute_csharp`, `undo` and `rebuild` change the model, everything else reads.
 `model` is `inherit`, `haiku`, `sonnet`, `opus`, `fable` or a model id. Aliases resolve to the user's provider: on a
 chat that runs on OpenAI, `haiku` is GPT-6 Luna, `sonnet` GPT-6.1 Sol, `opus` and `fable` GPT-6 Astra; a model id of a
 provider the user has no key for becomes the same tier on the chat's provider. The body is the whole system prompt of the sub-agent,
 which does not see the chat. Sub-agents can't use the panel's `ask_*` tools.
 
-## 3. Unify3D tools in a plugin
+## 3. SolidWorks Agent tools in a plugin
 
 `tools/<tool>/` holds a tool or workflow folder exactly like the user's own (`%APPDATA%\SwAgent\tools\<tool>`) and the
 built-in ones (`tools/builtin/<tool>` in this repository): `TOOL.md` with front matter, optional `inputs.json` (the
 tool's inputs page), `macro.cs`, `preview.cs`, `icon.svg` / `icon.png`, and any data files.
 
-- In Unify3D a plugin tool is named `<plugin>:<tool>` (e.g. `pu-mold-shop:flash-grooves`): on the ribbon, in the
+- In SolidWorks Agent a plugin tool is named `<plugin>:<tool>` (e.g. `pu-mold-shop:flash-grooves`): on the ribbon, in the
   Workflows menu, in `[Run tool: ...]` / `[Run workflow: ...]` and for `read_user_tool`. Inside the plugin, refer to
   sibling tools by that full name.
 - Installed plugin tools are read-only like the built-in ones; the user's settings for them (intelligence, category,
@@ -152,7 +152,7 @@ tool's inputs page), `macro.cs`, `preview.cs`, `icon.svg` / `icon.png`, and any 
 
 ### Helpers for the agent's code
 
-`helpers/<ClassName>.cs` (next to `tools/`; `"unify3d": { "helpers": "./other" }` moves it) holds C# helpers the
+`helpers/<ClassName>.cs` (next to `tools/`; `"solidworksAgent": { "helpers": "./other" }` moves it) holds C# helpers the
 agent's code cells can call, compiled together with the helpers the agent writes itself (`save_helper`):
 
 - One file per helper: `namespace SwAgent.UserHelpers { public static class <ClassName> { ... } }`, the class named
@@ -174,21 +174,21 @@ agent's code cells can call, compiled together with the helpers the agent writes
 
 ## 4. Variables
 
-Expanded in hook commands, MCP `command` / `args` / `env`, `unify3d.env` values, and command and skill text:
+Expanded in hook commands, MCP `command` / `args` / `env`, `solidworksAgent.env` values, and command and skill text:
 
 | Variable | Value |
 |---|---|
-| `${CLAUDE_PLUGIN_ROOT}`, `${UNIFY3D_PLUGIN_ROOT}` | The installed plugin folder (read-only; replaced on update) |
+| `${CLAUDE_PLUGIN_ROOT}`, `${SOLIDWORKS_AGENT_PLUGIN_ROOT}` | The installed plugin folder (read-only; replaced on update) |
 | `${CLAUDE_PLUGIN_DATA}` | `%APPDATA%\SwAgent\plugins\data\<plugin>`: writable, survives updates |
-| `${UNIFY3D_DEVICE}` | This PC's name |
-| `${UNIFY3D_PID}` | The process id of SolidWorks (`SLDWORKS.exe`) |
+| `${SOLIDWORKS_AGENT_DEVICE}` | This PC's name |
+| `${SOLIDWORKS_AGENT_PID}` | The process id of SolidWorks (`SLDWORKS.exe`) |
 | `${user_config.<key>}` | The user's value for a `userConfig` key |
 | `${NAME}`, `${NAME:-default}` | An environment variable of the hook or MCP server (section 5); **not** in command and skill text |
 
 Command and skill text goes to the model, so it gets only the plugin variables and non-sensitive `userConfig` values:
 any other `${...}` stays as written, and SolidWorks' environment is never read into it. Hook commands run by Git Bash
 are left for bash to expand (only `${user_config.<key>}` is put in first), exactly as in Claude Code; with `cmd.exe`,
-Unify3D expands `${...}` itself from the hook's environment. Keep `sensitive` `userConfig` values off command lines and
+SolidWorks Agent expands `${...}` itself from the hook's environment. Keep `sensitive` `userConfig` values off command lines and
 out of `args`: read them from the environment (section 5).
 
 ## 5. The environment of hooks and MCP servers
@@ -199,11 +199,11 @@ Every hook and MCP server of a plugin gets the add-in's environment plus:
 |---|---|
 | `CLAUDE_PLUGIN_ROOT` | The plugin folder |
 | `CLAUDE_PLUGIN_DATA` | The plugin's data folder |
-| `CLAUDE_PROJECT_DIR` | `%USERPROFILE%` (Unify3D has no project folder) |
-| `CLAUDE_CODE_SESSION_ID` | The Unify3D session id (the same as `session_id` on hook stdin) |
-| `UNIFY3D` | `1`, so a script can tell it runs under Unify3D |
+| `CLAUDE_PROJECT_DIR` | `%USERPROFILE%` (SolidWorks Agent has no project folder) |
+| `CLAUDE_CODE_SESSION_ID` | The SolidWorks Agent session id (the same as `session_id` on hook stdin) |
+| `SOLIDWORKS_AGENT` | `1`, so a script can tell it runs under SolidWorks Agent |
 | `CLAUDE_PLUGIN_OPTION_<KEY>` | Each `userConfig` value, key in capitals (sensitive ones too) |
-| the plugin's `unify3d.env` | After the marketplace entry's `unify3d.env` (section 8); `userConfig` wins over both |
+| the plugin's `solidworksAgent.env` | After the marketplace entry's `solidworksAgent.env` (section 8); `userConfig` wins over both |
 
 `PATH` is refreshed from the registry, so a Node.js installed after SolidWorks started is found. Your AI provider keys
 are never in a plugin's environment: every `ANTHROPIC_*` and `OPENAI_*` variable is hidden, and `${OPENAI_API_KEY}` or
@@ -211,12 +211,12 @@ are never in a plugin's environment: every `ANTHROPIC_*` and `OPENAI_*` variable
 `userConfig` (`"env": { "OPENAI_API_KEY": "${user_config.openai_key}" }`); `ANTHROPIC_*` and `CLAUDE_CODE_*` can't be
 set.
 
-**The session.** Unify3D has one session id per PC, kept in `%APPDATA%\SwAgent\plugins\session.json` and reused after
+**The session.** SolidWorks Agent has one session id per PC, kept in `%APPDATA%\SwAgent\plugins\session.json` and reused after
 every restart (a second SolidWorks running at the same time gets a temporary one). `/clear` and new chats keep the
 session. Several chats can run under one session.
 
 **Working folder.** Hooks and MCP servers start in `%USERPROFILE%`, and `cwd` on hook stdin is the same folder. Use
-absolute paths. A hook that needs the active document gets it as `unify3d_document` on stdin (when the panel knows
+absolute paths. A hook that needs the active document gets it as `solidworks_document` on stdin (when the panel knows
 one).
 
 ## 6. Hooks
@@ -236,7 +236,7 @@ Claude Code's hook format and protocol (`hooks/hooks.json`, or `hooks` in `plugi
 
 ### Support matrix
 
-| Event | Fired in Unify3D | When | stdin extras |
+| Event | Fired in SolidWorks Agent | When | stdin extras |
 |---|---|---|---|
 | `SessionStart` | yes | Once per session, when the panel first loads, after the enabled MCP servers have started (or 30 s). The matcher is matched against `source`. | `source: "startup"` |
 | `UserPromptSubmit` | yes | Before a prompt the user typed, a queued user message or a ribbon tool run is sent. Not for agent-bridge style wake-ups or Stop continuations. Not in sub-agent runs. | `prompt` |
@@ -244,10 +244,10 @@ Claude Code's hook format and protocol (`hooks/hooks.json`, or `hooks` in `plugi
 | `PostToolUse` | yes | After the tool returned | `tool_name`, `tool_input`, `tool_response` |
 | `Stop` | yes | The agent's turn ended normally (not on abort, error, refusal or step limit). Not in sub-agent runs. | `stop_hook_active` |
 | `SessionEnd` | yes | SolidWorks closes or the add-in disconnects; best effort, 3 s | `reason` |
-| `PermissionRequest` | **no** | Unify3D's approval cards can't be answered by a hook (so agent-bridge's remote approvals don't work) | |
+| `PermissionRequest` | **no** | SolidWorks Agent's approval cards can't be answered by a hook (so agent-bridge's remote approvals don't work) | |
 | `Notification`, `SubagentStart`, `SubagentStop`, `PreCompact`, others | **no** | | |
 
-| Hook field | Unify3D |
+| Hook field | SolidWorks Agent |
 |---|---|
 | `type: "command"` | yes |
 | `type: "prompt"`, `type: "agent"`, HTTP hooks | no |
@@ -291,7 +291,7 @@ JSON on stdout (exit 0):
 - `decision: "block"` with `reason`: `Stop` continues the turn with the reason; `PostToolUse` adds the reason after
   the tool result.
 - `PreToolUse`: `hookSpecificOutput.permissionDecision` `allow`, `deny` or `ask`, with `permissionDecisionReason`.
-  `ask` shows Unify3D's approval card for that call.
+  `ask` shows SolidWorks Agent's approval card for that call.
 - `continue: false` with `stopReason`: the run stops.
 - `systemMessage`: shown to the user as a notice.
 
@@ -342,7 +342,7 @@ A remote server, with its key in a header (never in the URL):
 }
 ```
 
-| MCP feature | Unify3D |
+| MCP feature | SolidWorks Agent |
 |---|---|
 | stdio transport (newline-delimited JSON-RPC 2.0) | yes |
 | Streamable HTTP (`"type": "http"`): JSON or SSE answers, `Mcp-Session-Id`, `MCP-Protocol-Version`, `DELETE` at the end | yes |
@@ -350,7 +350,7 @@ A remote server, with its key in a header (never in the URL):
 | `headers` with `${user_config.<key>}` (sensitive values included) and `${ENV}` | yes; values are never logged, URLs are logged without their query |
 | OAuth sign-in | no: a 401 without a configured header says "needs OAuth - not supported yet" |
 | A standalone GET stream for server messages in Streamable HTTP | no (`list_changed` is seen when an answer stream carries it) |
-| `initialize` (protocol `2025-06-18`, client `unify3d-agent`), then `notifications/initialized` | yes; `initialize` may take up to 45 s, 3 minutes for `npx`, `uvx`, `pipx`, `bunx` and `docker` (the first start downloads) |
+| `initialize` (protocol `2025-06-18`, client `solidworks-agent`), then `notifications/initialized` | yes; `initialize` may take up to 45 s, 3 minutes for `npx`, `uvx`, `pipx`, `bunx` and `docker` (the first start downloads) |
 | Server `instructions` | yes: added to the agent's system prompt |
 | `tools/list`, `tools/call`, `notifications/tools/list_changed` | yes |
 | Tool results: text, images, `isError` | yes |
@@ -382,7 +382,7 @@ A remote server, with its key in a header (never in the URL):
 ## 8. Trust and safety
 
 Hooks and MCP servers run programs on the user's PC, and a tool's `macro.cs` / `preview.cs` (any `.cs` in its folder)
-runs C# inside SolidWorks. Unify3D runs them only for plugins whose current hooks, MCP configuration and tool code the
+runs C# inside SolidWorks. SolidWorks Agent runs them only for plugins whose current hooks, MCP configuration and tool code the
 user approved:
 
 - Installing or enabling a plugin with hooks, MCP servers or tools with C# shows every command line it will run and
@@ -390,12 +390,12 @@ user approved:
 - The approval is for exactly those commands and that code (by content). An update, or an edit of a local plugin's
   hooks or MCP servers, that changes them stops them until the user approves again; a tool whose code changed isn't
   offered (ribbon, palette, panel form, `run_tool_macro`, `test_tool`) until then. Tools without C# need no approval,
-  and neither do the tools of the user's own plugins in `plugins\local` (they are made in Unify3D, like the user's
+  and neither do the tools of the user's own plugins in `plugins\local` (they are made in SolidWorks Agent, like the user's
   own tools).
 - Turns a plugin starts (a wake) never inherit auto-approval: write tools (`execute_csharp`, `run_tool_macro`, `undo`,
   `rebuild`) show the approval card, unless the user chose read-only.
 - The agent cannot approve: its plugin tools (`plugin_create`, `plugin_write_file`, `plugin_enable` ...) never do.
-- The built-in "unify3d" marketplace is trusted. Third-party marketplaces don't auto-update by default.
+- The built-in "solidworks-agent" marketplace is trusted. Third-party marketplaces don't auto-update by default.
 - Options > Plugins can turn all plugin hooks or all MCP servers off.
 
 When you write a plugin:
@@ -430,29 +430,29 @@ Plugin `source` kinds:
 | A folder in a git repository | `{ "source": "git-subdir", "url": "https://github.com/owner/repo.git", "path": "plugin" }` |
 | A zip | `{ "source": "url", "url": "https://example.com/plugin.zip" }` |
 
-- Unify3D uses `git.exe` when it is installed. Without git, any `github.com` source (also `git` and `git-subdir`
+- SolidWorks Agent uses `git.exe` when it is installed. Without git, any `github.com` source (also `git` and `git-subdir`
   URLs on github.com) is downloaded as a zip from codeload.github.com, which only works for **public** repositories.
 - A plugin without a `version` is installed under its commit.
 
-### Unify3D fields on a marketplace entry
+### SolidWorks Agent fields on a marketplace entry
 
-A marketplace entry may carry a `unify3d` object for plugins whose own files you can't change:
+A marketplace entry may carry a `solidworks-agent` object for plugins whose own files you can't change:
 
 | Field | Meaning |
 |---|---|
-| `env` | Environment for that plugin's hooks and MCP servers, applied before the plugin's own `unify3d.env` and its `userConfig` |
+| `env` | Environment for that plugin's hooks and MCP servers, applied before the plugin's own `solidworksAgent.env` and its `userConfig` |
 | `installWith` | Names of plugins in the same marketplace that are installed together with this one (companions) |
-| `hideSkills` | The plugin's skills Unify3D should not offer (e.g. ones written for Claude Code only) |
-| `registerMcpIn` | **Built-in marketplace only.** `"claude-desktop"` or `"codex"`: installing the plugin adds an MCP server named `unify3d` (Unify3D's own `Unify3D.LocalMcp.exe`) to that app's config, after the user confirms it in the install dialog; turning it off or uninstalling removes it. Used by Claude MCP and Codex MCP (`docs/plugins/local-mcp.md`). Elsewhere the plugin installs as an ordinary one and the field is reported as unused. |
+| `hideSkills` | The plugin's skills SolidWorks Agent should not offer (e.g. ones written for Claude Code only) |
+| `registerMcpIn` | **Built-in marketplace only.** `"claude-desktop"` or `"codex"`: installing the plugin adds an MCP server named `solidworks-agent` (SolidWorks Agent's own `SolidWorksAgent.LocalMcp.exe`) to that app's config, after the user confirms it in the install dialog; turning it off or uninstalling removes it. Used by Claude MCP and Codex MCP (`docs/plugins/local-mcp.md`). Elsewhere the plugin installs as an ordinary one and the field is reported as unused. |
 
-A marketplace may also carry a top-level `"unify3d": { "displayName": "..." }` (at most 48 characters): the name the
+A marketplace may also carry a top-level `"solidworksAgent": { "displayName": "..." }` (at most 48 characters): the name the
 Plugins screen shows for it, while its `name` stays the id in plugin ids (`plugin@name`). The built-in marketplace shows
-as "Unify3D" and the local one as "Your plugins".
+as "SolidWorks Agent" and the local one as "Your plugins".
 
 ### Packaging
 
 From the agent: "package my plugin" (`plugin_package`), or Plugins > Create > Package. It writes
-`Documents\Unify3D Plugins\<name>-<version>.zip` and a `marketplace.json` next to it that lists the plugin, so that
+`Documents\SolidWorks Agent Plugins\<name>-<version>.zip` and a `marketplace.json` next to it that lists the plugin, so that
 folder is a ready marketplace.
 
 ### Sharing
@@ -476,9 +476,9 @@ The built-in marketplace (`plugins/.claude-plugin/marketplace.json` in this repo
 {
   "name": "agent-bridge",
   "source": { "source": "git-subdir", "url": "https://github.com/msmith297/agent-bridge.git", "path": "plugin" },
-  "unify3d": {
-    "env": { "AGENT_BRIDGE_NAME": "Unify3D SolidWorks - ${UNIFY3D_DEVICE}", "AGENT_BRIDGE_OWNER_PID": "${UNIFY3D_PID}" },
-    "installWith": ["agent-bridge-unify3d"],
+  "solidworksAgent": {
+    "env": { "AGENT_BRIDGE_NAME": "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}", "AGENT_BRIDGE_OWNER_PID": "${SOLIDWORKS_AGENT_PID}" },
+    "installWith": ["agent-bridge-solidworks"],
     "hideSkills": ["revive-session", "agent-bridge-plugin-update", "server-setup"]
   }
 }
@@ -488,19 +488,19 @@ The built-in marketplace (`plugins/.claude-plugin/marketplace.json` in this repo
   background listener which process to watch (SolidWorks), so a listener whose SolidWorks is gone stops.
 - Its hooks (`client/hook.mjs`) use `UserPromptSubmit` and `PostToolUse` to deliver mail, `Stop` to continue a turn
   when mail is waiting, and async `Stop` / `SessionStart` hooks with `--listen` and `asyncRewake` to wake an idle
-  agent. `PermissionRequest` (remote approvals) is never fired in Unify3D.
-- The companion `plugins/agent-bridge-unify3d` adds a skill for acting on bridge messages inside SolidWorks and the
+  agent. `PermissionRequest` (remote approvals) is never fired in SolidWorks Agent.
+- The companion `plugins/agent-bridge-solidworks` adds a skill for acting on bridge messages inside SolidWorks and the
   `/bridge` command; it has no hooks or MCP servers, so it needs no trust prompt.
-- **Known limitation (needs a change in agent-bridge).** Unify3D's MCP client calls itself `unify3d-agent`, and
+- **Known limitation (needs a change in agent-bridge).** SolidWorks Agent's MCP client calls itself `solidworks-agent`, and
   agent-bridge's `mcp.mjs` only registers a peer under `CLAUDE_CODE_SESSION_ID` when its client is Claude Code. So the
-  Unify3D peer registers without the session id, and its hooks reach it only by binding through the process tree. After
+  SolidWorks Agent peer registers without the session id, and its hooks reach it only by binding through the process tree. After
   a SolidWorks or server restart the hooks keep finding the session's old, offline row and never bind again: no mail is
-  injected, nothing wakes, and the bridge name and "listen always" set with `/bridge` are lost. Calling Unify3D
+  injected, nothing wakes, and the bridge name and "listen always" set with `/bridge` are lost. Calling SolidWorks Agent
   "claude" instead is not a fix: agent-bridge would count it as part of the user's Claude Code app (its account, its
   Bridge Manager, revive requests). The fix belongs in agent-bridge, e.g. in `client/mcp.mjs` `register()`:
-  `SESSION_ID = kind === 'claude' || process.env.UNIFY3D === '1' ? CLAUDE_SESSION_ID : null;` (or the hub re-links a
+  `SESSION_ID = kind === 'claude' || process.env.SOLIDWORKS_AGENT === '1' ? CLAUDE_SESSION_ID : null;` (or the hub re-links a
   stale row for any kind but Claude, as it does for Codex).
 - **A local hub's broker.** With agent-bridge set to a local hub, `mcp.mjs` starts its broker as a detached process.
-  Under Unify3D it lands in the add-in's job objects, so it ends when that MCP server is stopped (disable, Restart,
+  Under SolidWorks Agent it lands in the add-in's job objects, so it ends when that MCP server is stopped (disable, Restart,
   update) or SolidWorks closes; other agents on the PC that use the same local broker lose it until one of them starts
   it again. Hosted hubs are not affected.

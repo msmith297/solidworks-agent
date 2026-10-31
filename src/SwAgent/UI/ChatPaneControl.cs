@@ -17,7 +17,7 @@ namespace SwAgent.UI
     /// </summary>
     [System.ComponentModel.ToolboxItem(false)]
     // xCAD takes the Task Pane tab's tooltip and icon from these attributes (TaskPaneSpec is only a fallback).
-    [System.ComponentModel.DisplayName("Unify3D Agent")]
+    [System.ComponentModel.DisplayName("SolidWorks Agent")]
     [Xarial.XCad.Base.Attributes.Icon(typeof(Icons), nameof(Icons.Agent))]
     public class ChatPaneControl : UserControl
     {

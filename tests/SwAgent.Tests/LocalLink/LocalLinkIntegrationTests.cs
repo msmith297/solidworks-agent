@@ -10,21 +10,21 @@ using SwAgent.Plugins.Hooks;
 using SwAgent.Plugins.LocalLink;
 using SwAgent.Tests.Plugins;
 using Tomlyn.Model;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 using Xunit;
 
 namespace SwAgent.Tests.LocalLink
 {
     /// <summary>
     /// docs/plugins/local-mcp.md I1, both tracks together: the repository's built-in marketplace (a copy), Claude MCP and Codex MCP
-    /// installed through the trust step into fake client folders, the real Unify3D.LocalMcp.exe started exactly as the written
+    /// installed through the trust step into fake client folders, the real SolidWorksAgent.LocalMcp.exe started exactly as the written
     /// config entry says, the real LinkServer + LinkHost on a test pipe, and a fake panel that answers each wake. Never the
     /// user's pipe, mutex or real Claude Desktop / Codex folders.
     /// </summary>
     [Collection("Plugins")]
     public class LocalLinkIntegrationTests
     {
-        private const string Claude = "claude-mcp@unify3d", Codex = "codex-mcp@unify3d";
+        private const string Claude = "claude-mcp@solidworks-agent", Codex = "codex-mcp@solidworks-agent";
 
         private const string CodexOriginal =
             "# My Codex settings\r\n" +
@@ -47,7 +47,7 @@ namespace SwAgent.Tests.LocalLink
             public readonly ThreadContext Ui = new ThreadContext();
             public readonly ConcurrentQueue<JObject> Taken = new ConcurrentQueue<JObject>();
             public readonly ConcurrentQueue<int> ToolThreads = new ConcurrentQueue<int>();
-            public readonly string PipeName = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+            public readonly string PipeName = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
             public RuntimeHost Runtime;
             public LinkHost Host;
             private readonly CancellationTokenSource _stop = new CancellationTokenSource();
@@ -79,7 +79,7 @@ namespace SwAgent.Tests.LocalLink
                 Host = new LinkHost(Pm, Runtime.Session, Runtime.QueueLinkWake, LinkHost.UiRunner(Ui), ReadStatus, RunTool, "0.2.0")
                 {
                     PipeName = PipeName,
-                    MutexName = @"Local\Unify3D.Test." + Guid.NewGuid().ToString("N"),
+                    MutexName = @"Local\SolidWorks Agent.Test." + Guid.NewGuid().ToString("N"),
                 };
                 Host.Start();
                 Assert.True(RuntimeTestKit.Until(() => Host.Server?.Serving == true, TimeSpan.FromSeconds(10)).GetAwaiter().GetResult(), "the test pipe serves");
@@ -121,14 +121,14 @@ namespace SwAgent.Tests.LocalLink
             /// <summary>The exe as Claude Desktop would start it: command and args from the written claude_desktop_config.json.</summary>
             public McpProcess ClaudeDesktopStarts(string pipe)
             {
-                var entry = JObject.Parse(File.ReadAllText(Roots.ClaudeConfig))["mcpServers"]["unify3d"];
+                var entry = JObject.Parse(File.ReadAllText(Roots.ClaudeConfig))["mcpServers"]["solidworks-agent"];
                 return new McpProcess(pipe, (string)entry["command"], string.Join(" ", entry["args"].Values<string>()));
             }
 
             /// <summary>The exe as Codex would start it: command and args from the written config.toml.</summary>
             public McpProcess CodexStarts(string pipe)
             {
-                var entry = (TomlTable)((TomlTable)Tomlyn.Toml.ToModel(File.ReadAllText(Roots.CodexConfig))["mcp_servers"])["unify3d"];
+                var entry = (TomlTable)((TomlTable)Tomlyn.Toml.ToModel(File.ReadAllText(Roots.CodexConfig))["mcp_servers"])["solidworks-agent"];
                 return new McpProcess(pipe, (string)entry["command"], string.Join(" ", ((TomlArray)entry["args"]).Cast<string>()));
             }
 
@@ -181,10 +181,10 @@ namespace SwAgent.Tests.LocalLink
                 k.StartLink("Fillet added: 2 mm on the four top edges.");
                 using (var mcp = k.ClaudeDesktopStarts(k.PipeName))
                 {
-                    Assert.Equal("unify3d", (string)Init(mcp)["result"]["serverInfo"]["name"]);
+                    Assert.Equal("solidworks-agent", (string)Init(mcp)["result"]["serverInfo"]["name"]);
 
-                    // ask_unify3d: a wake from Claude Desktop into the open chat, the panel's answer back over stdio.
-                    var ask = mcp.Tool(1, "ask_unify3d", new JObject { ["message"] = "Add a 2 mm fillet to the top edges." });
+                    // ask_solidworks_agent: a wake from Claude Desktop into the open chat, the panel's answer back over stdio.
+                    var ask = mcp.Tool(1, "ask_solidworks_agent", new JObject { ["message"] = "Add a 2 mm fillet to the top edges." });
                     Assert.False((bool)ask["result"]["isError"]);
                     Assert.Equal("Fillet added: 2 mm on the four top edges.", Text(ask));
                     Assert.Equal("done", (string)ask["result"]["structuredContent"]["state"]);
@@ -194,21 +194,21 @@ namespace SwAgent.Tests.LocalLink
                     Assert.Equal((string)ask["result"]["structuredContent"]["ticket"], (string)wake["ticket"]);
                     Assert.Contains("<message>\nAdd a 2 mm fillet to the top edges.\n</message>", (string)wake["text"]);
 
-                    // A short wait gives a ticket; get_unify3d_answer picks the answer up later.
-                    var quick = mcp.Tool(2, "ask_unify3d", new JObject { ["message"] = "And the bottom edges?", ["wait_seconds"] = 0 });
+                    // A short wait gives a ticket; get_solidworks_agent_answer picks the answer up later.
+                    var quick = mcp.Tool(2, "ask_solidworks_agent", new JObject { ["message"] = "And the bottom edges?", ["wait_seconds"] = 0 });
                     var ticket = (string)quick["result"]["structuredContent"]["ticket"];
                     Assert.NotEqual("done", (string)quick["result"]["structuredContent"]["state"]);
-                    Assert.Contains($"get_unify3d_answer with ticket \"{ticket}\"", Text(quick));
+                    Assert.Contains($"get_solidworks_agent_answer with ticket \"{ticket}\"", Text(quick));
                     Assert.True(RuntimeTestKit.Until(() => k.Host.Tickets.Find(ticket)?.State == LinkTickets.Done, TimeSpan.FromSeconds(10)).GetAwaiter().GetResult());
-                    var later = mcp.Tool(3, "get_unify3d_answer", new JObject { ["ticket"] = ticket });
+                    var later = mcp.Tool(3, "get_solidworks_agent_answer", new JObject { ["ticket"] = ticket });
                     Assert.Equal("Fillet added: 2 mm on the four top edges.", Text(later));
 
                     // Status and a read-only model tool; the tool ran on the (fake) SolidWorks UI thread.
-                    var status = Text(mcp.Tool(4, "unify3d_status"));
-                    Assert.Contains("SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0.", status);
+                    var status = Text(mcp.Tool(4, "solidworks_status"));
+                    Assert.Contains("SolidWorks 2026 SP1.0 is running with SolidWorks Agent 0.2.0.", status);
                     Assert.Contains("Active document: bushing.SLDPRT (part).", status);
                     Assert.Contains("Open chat: \"Bushing\" (idle).", status);
-                    Assert.Equal("get_model_context: bushing.SLDPRT, 3 features", Text(mcp.Tool(5, "unify3d_model_context")));
+                    Assert.Equal("get_model_context: bushing.SLDPRT, 3 features", Text(mcp.Tool(5, "solidworks_model_context")));
                     Assert.All(k.ToolThreads, t => Assert.Equal(k.Ui.ThreadId, t));
                 }
 
@@ -229,12 +229,12 @@ namespace SwAgent.Tests.LocalLink
             using (var k = new Kit())
             {
                 k.Install(Codex);
-                using (var mcp = k.CodexStarts("Unify3D.Test.nobody-serves-" + Guid.NewGuid().ToString("N")))
+                using (var mcp = k.CodexStarts("SolidWorks Agent.Test.nobody-serves-" + Guid.NewGuid().ToString("N")))
                 {
                     Init(mcp);
-                    var status = mcp.Tool(1, "unify3d_status");
+                    var status = mcp.Tool(1, "solidworks_status");
                     Assert.Contains("SolidWorks isn't running", Text(status));
-                    var ask = mcp.Tool(2, "ask_unify3d", new JObject { ["message"] = "Hello?" });
+                    var ask = mcp.Tool(2, "ask_solidworks_agent", new JObject { ["message"] = "Hello?" });
                     Assert.True((bool)ask["result"]["isError"]);
                     Assert.Contains("SolidWorks isn't running", Text(ask));
                 }
@@ -242,7 +242,7 @@ namespace SwAgent.Tests.LocalLink
         }
 
         [Fact]
-        public void Install_adds_exactly_one_unify3d_entry_and_uninstall_restores_each_file()
+        public void Install_adds_exactly_one_solidworks_entry_and_uninstall_restores_each_file()
         {
             using (var k = new Kit())
             {
@@ -251,18 +251,18 @@ namespace SwAgent.Tests.LocalLink
                 Assert.True(File.Exists(k.Deployer.Exe), "the exe was deployed to the per-user folder");
 
                 var claude = JObject.Parse(File.ReadAllText(k.Roots.ClaudeConfig));
-                Assert.Equal(new[] { "other", "unify3d" }, ((JObject)claude["mcpServers"]).Properties().Select(p => p.Name));
-                Assert.Equal(k.Deployer.Exe, (string)claude["mcpServers"]["unify3d"]["command"]);
-                Assert.Equal(new[] { "--client", LinkProtocol.ClaudeDesktop }, claude["mcpServers"]["unify3d"]["args"].Values<string>());
+                Assert.Equal(new[] { "other", "solidworks-agent" }, ((JObject)claude["mcpServers"]).Properties().Select(p => p.Name));
+                Assert.Equal(k.Deployer.Exe, (string)claude["mcpServers"]["solidworks-agent"]["command"]);
+                Assert.Equal(new[] { "--client", LinkProtocol.ClaudeDesktop }, claude["mcpServers"]["solidworks-agent"]["args"].Values<string>());
                 Assert.Equal("Ctrl+Alt+Space", (string)claude["preferences"]["quickEntryShortcut"]);
 
                 var codexText = File.ReadAllText(k.Roots.CodexConfig);
                 Assert.StartsWith(CodexOriginal, codexText);
                 var servers = (TomlTable)Tomlyn.Toml.ToModel(codexText)["mcp_servers"];
-                Assert.Equal(new[] { "other", "unify3d" }, servers.Keys.OrderBy(x => x));
-                Assert.Equal(k.Deployer.Exe, (string)((TomlTable)servers["unify3d"])["command"]);
-                Assert.Equal(new[] { "--client", LinkProtocol.Codex }, ((TomlArray)((TomlTable)servers["unify3d"])["args"]).Cast<string>());
-                Assert.Equal(1, codexText.Split(new[] { "[mcp_servers.unify3d]" }, StringSplitOptions.None).Length - 1);
+                Assert.Equal(new[] { "other", "solidworks-agent" }, servers.Keys.OrderBy(x => x));
+                Assert.Equal(k.Deployer.Exe, (string)((TomlTable)servers["solidworks-agent"])["command"]);
+                Assert.Equal(new[] { "--client", LinkProtocol.Codex }, ((TomlArray)((TomlTable)servers["solidworks-agent"])["args"]).Cast<string>());
+                Assert.Equal(1, codexText.Split(new[] { "[mcp_servers.solidworks-agent]" }, StringSplitOptions.None).Length - 1);
 
                 Assert.Empty(k.Pm.Uninstall(Claude));
                 Assert.Empty(k.Pm.Uninstall(Codex));
@@ -272,20 +272,20 @@ namespace SwAgent.Tests.LocalLink
         }
 
         [Fact]
-        public void The_built_in_marketplace_shows_as_Unify3D_and_ids_stay_at_unify3d()
+        public void The_built_in_marketplace_shows_as_SolidWorksAgent_and_ids_stay_at_solidworks_agent()
         {
             using (var k = new Kit())
             {
                 var market = k.Pm.MarketplacesJson().OfType<JObject>().Single(m => (string)m["name"] == PluginManager.BuiltInMarketplace);
-                Assert.Equal("unify3d", PluginManager.BuiltInMarketplace);
-                Assert.Equal("Unify3D", (string)market["displayName"]);
+                Assert.Equal("solidworks-agent", PluginManager.BuiltInMarketplace);
+                Assert.Equal("SolidWorks Agent", (string)market["displayName"]);
 
                 k.Install(Claude);
-                var all = k.Pm.PluginsJson().OfType<JObject>().Where(p => (string)p["marketplace"] == "unify3d").ToList();
-                foreach (var id in new[] { Claude, Codex, "agent-bridge@unify3d" })
+                var all = k.Pm.PluginsJson().OfType<JObject>().Where(p => (string)p["marketplace"] == "solidworks-agent").ToList();
+                foreach (var id in new[] { Claude, Codex, "agent-bridge@solidworks-agent" })
                 {
                     var p = all.Single(x => (string)x["id"] == id);
-                    Assert.Equal("Unify3D", (string)p["marketplaceDisplayName"]);
+                    Assert.Equal("SolidWorks Agent", (string)p["marketplaceDisplayName"]);
                 }
                 Assert.Equal("Claude MCP", (string)all.Single(x => (string)x["id"] == Claude)["displayName"]);
                 Assert.Equal("Codex MCP", (string)all.Single(x => (string)x["id"] == Codex)["displayName"]);

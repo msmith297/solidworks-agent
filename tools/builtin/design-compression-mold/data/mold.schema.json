@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://unify3d.ai/schemas/unify3d.mold/1",
+  "$id": "https://solidworksAgent.ai/schemas/unify3d.mold/1",
   "title": "unify3d.mold/1 - compression mold design record and simulator manifest",
   "description": "mold.json in the folder '<mold file name>.mold' next to the mold part. Numbers are mm, deg, MPa, degC, kg, kN, cP, min unless the key names another unit (_g, _s, _Nm, _mm2, _mm3, _K, _um, Pct). Consumers ignore unknown keys; additive changes keep /1. The arrays mold_record merges by id (checks, simulations, stages, decisions, bodies, airTraps, vents, layout.cavities, partingLine.planes, hardware.bolts/dowels/fits/stops/tcWells, part.fragile/criticalFaces/drawing.tolerances) carry a string id. Written by: mold_record init (schema, id, tool, status, dates, units, files.moldPart, inputs, reserved material data), mold_calc (materials.part, process, shrink, layout, hardware, structural, checks), mold_part (part), mold_bodies (bodies), the agent (identity, scope, files.moldedPart, frame, part.drawing, part.criticalFaces, partingLine, airTraps, vents, process.pour plan, stages, decisions, bodies[].machining.notes, hardware.bom, setup, views, report, simulations), mold_record setup_sheet / machining_sheet (setupSheet, machiningSheet).",
   "type": "object",

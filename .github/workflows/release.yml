@@ -59,7 +59,7 @@ jobs:
           Invoke-WebRequest "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile installer/redist/MicrosoftEdgeWebview2Setup.exe
           $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
           if (-not (Test-Path $iscc)) { choco install innosetup -y --no-progress; }
-          & $iscc /DAppVersion=${{ steps.v.outputs.version }} /DFileVersion=${{ steps.v.outputs.numeric }} installer/Unify3DAgent.iss
+          & $iscc /DAppVersion=${{ steps.v.outputs.version }} /DFileVersion=${{ steps.v.outputs.numeric }} installer/SolidWorksAgent.iss
           if ($LASTEXITCODE) { throw "Inno Setup failed" }
           Get-ChildItem dist/*.exe | ForEach-Object {
             "$((Get-FileHash $_ -Algorithm SHA256).Hash.ToLower())  $($_.Name)" | Set-Content -NoNewline -Encoding ascii "$($_.FullName).sha256"

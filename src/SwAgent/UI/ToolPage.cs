@@ -215,7 +215,7 @@ namespace SwAgent.UI
 
             if (_spec.Preview != null && _spec.Paused.Contains("preview"))
             {
-                Message("The live preview is paused: SolidWorks closed while drawing it last time. Ask Unify3D to fix this tool.");
+                Message("The live preview is paused: SolidWorks closed while drawing it last time. Ask SolidWorks Agent to fix this tool.");
             }
             else if (_spec.Preview != null)
             {
@@ -286,7 +286,7 @@ namespace SwAgent.UI
 
             if (_spec.Agent)
             {
-                var group = (IPropertyManagerPageGroup)Group(_nextId++, "Unify3D Agent", (int)swAddGroupBoxOptions_e.swGroupBoxOptions_Visible);
+                var group = (IPropertyManagerPageGroup)Group(_nextId++, "SolidWorks Agent", (int)swAddGroupBoxOptions_e.swGroupBoxOptions_Visible);
                 AddLabel(group, "Intelligence");
                 var id = _nextId++;
                 _tierBoxId = id;

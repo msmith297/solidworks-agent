@@ -9,7 +9,7 @@ using Xunit;
 
 namespace SwAgent.Tests
 {
-    /// <summary>Built-in Unify3D tools ship as folders next to the add-in, load like the user's tools, and are read-only.</summary>
+    /// <summary>Built-in SolidWorks Agent tools ship as folders next to the add-in, load like the user's tools, and are read-only.</summary>
     /// <remarks>Not parallel: it writes builtin-settings.json, which other tests read while they list tools.</remarks>
     [Collection("Memory")]
     public class BuiltInToolsTests

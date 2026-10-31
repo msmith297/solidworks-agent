@@ -17,7 +17,7 @@ namespace SwAgent
         private static readonly Color Ink = Color.FromArgb(0x3B, 0x42, 0x4C);
         private static readonly Dictionary<string, byte[]> Cache = new Dictionary<string, byte[]>();
 
-        /// <summary>The Unify3D "U" mark (assets/brand/mark-128.png).</summary>
+        /// <summary>The SolidWorks Agent red cube mark (assets/brand/mark-128.png).</summary>
         public static byte[] Agent
         {
             get
@@ -35,7 +35,7 @@ namespace SwAgent
             }
         }
 
-        // Unify3D style: brushed steel and graphite, like the logo - no colour accents.
+        // Command icons: brushed steel and graphite - no colour accents (the red belongs to the logo).
         private static readonly Color SteelTop = Color.FromArgb(0xF4, 0xF5, 0xF6);
         private static readonly Color SteelBot = Color.FromArgb(0x9A, 0xA0, 0xA6);
         private static readonly Color GraphiteTop = Color.FromArgb(0x55, 0x5A, 0x60);

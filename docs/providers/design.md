@@ -1,4 +1,4 @@
-# Model providers for Unify3D Agent (Claude + OpenAI, more later) - design
+# Model providers for SolidWorks Agent (Claude + OpenAI, more later) - design
 
 Written 2026-10-23 on branch `claude/awesome-blackburn-350fc3` at `7a2bf2d`. Status: design for the build. Read with
 `HANDOFF.md` (sections 1-6). Inputs: an inventory of everything in the repo that assumes Claude or the Anthropic API (by
@@ -1166,7 +1166,7 @@ Inventory sections A-S, item by item. The track is CORE (C), EDGES (E) or the co
 - Content and docs:
   - `README.md`, `HANDOFF.md`;
   - `docs/plugins/authoring.md`, `design.md`, `creator-v2.md`;
-  - `plugins/agent-bridge-unify3d/skills/unify3d-bridge/SKILL.md` (and its test fixture copy);
+  - `plugins/agent-bridge-solidworks/skills/solidworks-bridge/SKILL.md` (and its test fixture copy);
   - `tools/builtin/create-plugin/TOOL.md`.
 
 **Acceptance:**

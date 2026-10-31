@@ -9,7 +9,7 @@ export interface MenuRow {
   /** What the row inserts ("/name" or "@name" is shown). */
   name: string;
   description: string;
-  /** Where it comes from (a plugin, "Unify3D", "Tool"). */
+  /** Where it comes from (a plugin, "SolidWorks Agent", "Tool"). */
   source?: string;
   /** A command's argument hint, shown after the name. */
   hint?: string;

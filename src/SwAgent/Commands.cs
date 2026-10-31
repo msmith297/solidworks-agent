@@ -6,13 +6,13 @@ using Xarial.XCad.UI.Commands.Enums;
 
 namespace SwAgent
 {
-    // The ribbon tab, menu and toolbar are built in UI/UnifyRibbon.cs; these are the right-click menus.
+    // The ribbon tab, menu and toolbar are built in UI/AgentRibbon.cs; these are the right-click menus.
 
     /// <summary>Right-click on a face.</summary>
     [ContextMenuCommandGroupInfo(2, typeof(IXFace))]
     public enum FaceContextCommands_e
     {
-        [Title("Ask Unify3D")]
+        [Title("Ask SolidWorks Agent")]
         [Icon(typeof(Icons), nameof(Icons.Selection))]
         AskAgent,
     }
@@ -21,7 +21,7 @@ namespace SwAgent
     [ContextMenuCommandGroupInfo(3, typeof(IXEdge))]
     public enum EdgeContextCommands_e
     {
-        [Title("Ask Unify3D")]
+        [Title("Ask SolidWorks Agent")]
         [Icon(typeof(Icons), nameof(Icons.Selection))]
         AskAgent,
     }
@@ -30,7 +30,7 @@ namespace SwAgent
     [ContextMenuCommandGroupInfo(4, typeof(IXFeature))]
     public enum FeatureContextCommands_e
     {
-        [Title("Ask Unify3D")]
+        [Title("Ask SolidWorks Agent")]
         [Icon(typeof(Icons), nameof(Icons.Selection))]
         AskAgent,
     }

@@ -12,7 +12,7 @@ using SwAgent.Infrastructure;
 namespace SwAgent.Plugins.Hooks
 {
     /// <summary>
-    /// The Unify3D session that hooks and MCP servers see: one id per PC, reused across SolidWorks restarts, because
+    /// The SolidWorks Agent session that hooks and MCP servers see: one id per PC, reused across SolidWorks restarts, because
     /// plugins key state on it (agent-bridge keeps the agent's name, listening mode and project per session id, so
     /// "listen always" survives a restart). A second SolidWorks running at the same time gets a temporary id.
     ///
@@ -65,7 +65,7 @@ namespace SwAgent.Plugins.Hooks
         {
             var file = Paths.PluginSessionFile;
             // Per data folder, so tests (SWAGENT_DATA_DIR) never take the id of a running SolidWorks.
-            var name = @"Local\Unify3DAgent.Session." + Hash(file.ToLowerInvariant());
+            var name = @"Local\SolidWorksAgent.Session." + Hash(file.ToLowerInvariant());
             Mutex mutex = null;
             var owner = false;
             try
@@ -133,14 +133,14 @@ namespace SwAgent.Plugins.Hooks
             if (plugin != null)
             {
                 env["CLAUDE_PLUGIN_ROOT"] = plugin.Root;
-                env["UNIFY3D_PLUGIN_ROOT"] = plugin.Root;
+                env["SOLIDWORKS_AGENT_PLUGIN_ROOT"] = plugin.Root;
                 if (!string.IsNullOrEmpty(plugin.DataDir)) env["CLAUDE_PLUGIN_DATA"] = plugin.DataDir;
             }
             env["CLAUDE_PROJECT_DIR"] = ProjectDir;
             env["CLAUDE_CODE_SESSION_ID"] = Id;
-            env["UNIFY3D"] = "1";
-            env["UNIFY3D_PID"] = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
-            env["UNIFY3D_DEVICE"] = Environment.MachineName;
+            env["SOLIDWORKS_AGENT"] = "1";
+            env["SOLIDWORKS_AGENT_PID"] = System.Diagnostics.Process.GetCurrentProcess().Id.ToString();
+            env["SOLIDWORKS_AGENT_DEVICE"] = Environment.MachineName;
             foreach (var key in env.Keys.ToList()) env[key] = ChildEnv.Expand(env[key], env);
             return env;
         }

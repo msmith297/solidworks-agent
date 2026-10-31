@@ -178,7 +178,7 @@ def validate(rows):
 
 def document(rows):
     return {
-        "schema": "unify3d.part-materials/1",
+        "schema": "solidworksAgent.part-materials/1",
         "generated": GENERATED,
         "generator": "tools/dev/mold-data/gen_materials.py",
         "definitions": {

@@ -1,41 +1,41 @@
-# Claude MCP and Codex MCP: a local link from Claude Desktop and Codex to the Unify3D agent - design
+# Claude MCP and Codex MCP: a local link from Claude Desktop and Codex to the SolidWorks Agent - design
 
 Written 2026-10-26. It extends `docs/plugins/design.md` (plugins, marketplaces, trust, wakes) and HANDOFF.md sections 7
 and 13. Nothing here is built yet. Section 10 splits the build into two tracks.
 
 ## 0. What the user asked for
 
-- "fix: this marketplace name should be 'Unify3D'". The built-in marketplace shows as "unify3d" in the Plugins screen
+- "fix: this marketplace name should be 'SolidWorks Agent'". The built-in marketplace shows as "solidworks-agent" in the Plugins screen
   (the marketplace dropdown, each plugin's subtitle, the trust dialog, the Marketplaces tab).
-- "add ClaudeMCP and CodexMCP plugins to our unify3d marketplace, which when installed will allow a user to have Claude
-  Desktop or Codex Desktop talk to [the Unify3D agent] just locally (most people won't use agent bridge)".
+- "add ClaudeMCP and CodexMCP plugins to our solidworks-agent marketplace, which when installed will allow a user to have Claude
+  Desktop or Codex Desktop talk to [the SolidWorks Agent] just locally (most people won't use agent bridge)".
 
 Decided product shape:
 - The link is local and needs no hub.
-- Installing **Claude MCP** (or **Codex MCP**) adds a local stdio MCP server named `unify3d` to Claude Desktop's config
-  (or Codex's). The user confirms first, in the plugin's install dialog, that Unify3D will edit that app's config.
+- Installing **Claude MCP** (or **Codex MCP**) adds a local stdio MCP server named `solidworks-agent` to Claude Desktop's config
+  (or Codex's). The user confirms first, in the plugin's install dialog, that SolidWorks Agent will edit that app's config.
 - Turning the plugin off, or uninstalling it, removes exactly that entry and nothing else.
 
 ## 1. Decisions in one page
 
 | Topic | Decision |
 |---|---|
-| Marketplace name | The id stays `unify3d`, so installed ids such as `agent-bridge@unify3d` keep working. A new display name, "Unify3D", comes from `marketplace.json` `unify3d.displayName`, with a built-in fallback. The panel shows display names everywhere and keeps ids as values. |
-| Plugins | Two entries in the built-in marketplace: `claude-mcp` ("Claude MCP") and `codex-mcp` ("Codex MCP"). Each is a small plugin folder (plugin.json, README, icon, one option). The entry's `unify3d.registerMcpIn` is `"claude-desktop"` or `"codex"`. This field is honoured only in the built-in marketplace. |
-| What it registers | `mcpServers.unify3d` in `claude_desktop_config.json`, and `[mcp_servers.unify3d]` in Codex's `config.toml`. Both run `%LOCALAPPDATA%\SwAgent\local-mcp\Unify3D.LocalMcp.exe --client claude-desktop` (or `codex`). |
-| When Unify3D edits a client config | Only on a click: install, turn on, turn off, uninstall, or Repair. Never at start-up and never from the agent. Every write is a backup, a semantic check and an atomic replace. Unify3D never touches another entry. |
-| The MCP exe | `src/SwAgent.LocalMcp` (net48 console, `Unify3D.LocalMcp.exe`, no Node). It is a dual-era MCP server: 2026-07-28 per-request `_meta` and `server/discover`, plus `initialize` for 2025-11-25 and earlier. The add-in copies it to a per-user folder, so a running copy never blocks an add-in update. |
-| The channel | One named pipe per user and Windows session: `\\.\pipe\Unify3D.Agent.Link.<user SID>.<session id>`. Its ACL grants the current user only; NETWORK is denied and remote clients are rejected. A named mutex makes one SolidWorks serve it. Messages are newline-delimited JSON with `protocol: 1`. |
-| Tools | `ask_unify3d`, `get_unify3d_answer`, `unify3d_status`, and four read-only model tools: `unify3d_model_context`, `unify3d_feature_tree`, `unify3d_selection`, `unify3d_open_documents`. |
+| Marketplace name | The id stays `solidworks-agent`, so installed ids such as `agent-bridge@solidworks-agent` keep working. A new display name, "SolidWorks Agent", comes from `marketplace.json` `solidworksAgent.displayName`, with a built-in fallback. The panel shows display names everywhere and keeps ids as values. |
+| Plugins | Two entries in the built-in marketplace: `claude-mcp` ("Claude MCP") and `codex-mcp` ("Codex MCP"). Each is a small plugin folder (plugin.json, README, icon, one option). The entry's `solidworksAgent.registerMcpIn` is `"claude-desktop"` or `"codex"`. This field is honoured only in the built-in marketplace. |
+| What it registers | `mcpServers.solidworks-agent` in `claude_desktop_config.json`, and `[mcp_servers.solidworks-agent]` in Codex's `config.toml`. Both run `%LOCALAPPDATA%\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe --client claude-desktop` (or `codex`). |
+| When SolidWorks Agent edits a client config | Only on a click: install, turn on, turn off, uninstall, or Repair. Never at start-up and never from the agent. Every write is a backup, a semantic check and an atomic replace. SolidWorks Agent never touches another entry. |
+| The MCP exe | `src/SwAgent.LocalMcp` (net48 console, `SolidWorksAgent.LocalMcp.exe`, no Node). It is a dual-era MCP server: 2026-07-28 per-request `_meta` and `server/discover`, plus `initialize` for 2025-11-25 and earlier. The add-in copies it to a per-user folder, so a running copy never blocks an add-in update. |
+| The channel | One named pipe per user and Windows session: `\\.\pipe\SolidWorksAgent.Link.<user SID>.<session id>`. Its ACL grants the current user only; NETWORK is denied and remote clients are rejected. A named mutex makes one SolidWorks serve it. Messages are newline-delimited JSON with `protocol: 1`. |
+| Tools | `ask_solidworks_agent`, `get_solidworks_agent_answer`, `solidworks_status`, and four read-only model tools: `solidworks_model_context`, `solidworks_feature_tree`, `solidworks_selection`, `solidworks_open_documents`. |
 | A message from Claude Desktop | It becomes a wake (`source` "claude-desktop", `plugin` "claude-mcp", `from` "Claude Desktop", `ticket`) in the chat open in the panel. It shows as "Message from Claude Desktop". It is untrusted (`fromWake`), so write tools ask in the panel. It follows the hourly limit and the busy-chat hold. |
-| The answer | When the turn ends, the panel reports its final assistant text to the add-in (`localLink.answer`). `ask_unify3d` waits up to 50 s. Past that it returns "still working" with a ticket, and `get_unify3d_answer` waits again. |
+| The answer | When the turn ends, the panel reports its final assistant text to the add-in (`localLink.answer`). `ask_solidworks_agent` waits up to 50 s. Past that it returns "still working" with a ticket, and `get_solidworks_agent_answer` waits again. |
 | Safety | The exe can reach only five pipe methods. The model tools on the pipe are a fixed list of four read-only ones. A message can only start a turn that asks the user before any change. Reading the model can be switched off per plugin. Message text never goes into logs. |
 
 ## 2. What exists today (2026-10-26, branch `claude/awesome-blackburn-350fc3`)
 
 | Piece | Where | What it does now |
 |---|---|---|
-| Built-in marketplace | `plugins/.claude-plugin/marketplace.json` (`"name": "unify3d"`), shipped as `builtin-plugins\` | `PluginManager.BuiltInMarketplace = "unify3d"` is both id and label. `MarketplacesJson()` and `PluginJson()`/`EntryJson()` send `name`/`marketplace` only. |
+| Built-in marketplace | `plugins/.claude-plugin/marketplace.json` (`"name": "solidworks-agent"`), shipped as `builtin-plugins\` | `PluginManager.BuiltInMarketplace = "solidworks-agent"` is both id and label. `MarketplacesJson()` and `PluginJson()`/`EntryJson()` send `name`/`marketplace` only. |
 | Where the panel shows it | `ui/src/components/PluginsScreen.tsx` | The `Title` subtitle shows `p.marketplace`. The Discover dropdown option label is `{m}`. The trust dialog says `marketplace "${p.marketplace}"`. The Marketplaces tab title is `m.name`. `mockHost.ts` mirrors all of this. |
 | Wakes | `Plugins/Hooks/Session.cs` (`Wake`, `AddWake` counts against `AutomaticPerHour`; over the limit it is held in `_held`), `RuntimeHost.OnRewake`, which emits `session.wake` | The panel's `pullWakes` calls `session.takeWakes`, then `receiveWake`, which uses `wakeThread()` (the open chat, or a new one) and holds the wake while the chat is busy or `endsOnUser`. Then `deliverWakes` → `submitBlocks(..., { fromWake: true, consoleWake })` → `ackWakes`. |
 | Untrusted turns | `ui/src/lib/hooks.ts` `wakeApproval`, `isConsoleWake`; `store.ts` `startRun` (`untrustedWake`) | Write tools (`WRITE_TOOLS`) ask, or follow read-only. `consoleWake` only for agent-bridge's own console. |
@@ -44,7 +44,7 @@ Decided product shape:
 | RPCs | `UI/WebBridge.cs` `Register` / `RegisterAsync`; handlers run on the SolidWorks UI thread | `tools.run` in `AgentController.AttachBridge`: NativeFault check, `SwBusyGate.WaitAsync` for model tools, then `_tools.InvokeAsync`. |
 | Read-only model tools | `Tools/ModelTools.cs`: `get_model_context`, `get_feature_tree` (`max_features`, `include_sub_features`), `get_selection`, `list_open_documents` | Each needs a `ToolContext` (document = the chat's document). |
 | Install, trust, uninstall | `PluginManager.Install` (stage → `NeedsTrust` with `TrustList` → `Place` → `Mutate`), `Enable`, `Uninstall`, `CurrentHash`; the panel's `pluginAction` + `approveTrust` | The trust hash covers hooks, MCP servers and tool C# only. A plugin without them installs without a dialog. |
-| Shipped helper exes | `src/SwAgent.Speech` → `bin\<cfg>\net48\speech\Unify3D.Speech.exe` through a `ProjectReference ReferenceOutputAssembly="false"` | This is the pattern for the new exe. The installer copies `bin\Release\net48\*` recursively into `{autopf}\Unify3D Agent`, which the user can't write to. |
+| Shipped helper exes | `src/SwAgent.Speech` → `bin\<cfg>\net48\speech\SolidWorksAgent.Speech.exe` through a `ProjectReference ReferenceOutputAssembly="false"` | This is the pattern for the new exe. The installer copies `bin\Release\net48\*` recursively into `{autopf}\SolidWorks Agent`, which the user can't write to. |
 
 ## 3. Research: the client configs (verified 2026-10-26)
 
@@ -69,11 +69,11 @@ Decided product shape:
     into the same file. A writer must keep every other key as it is, and must expect the app to rewrite the file while
     it runs.
 - **Extensions:** Desktop Extensions (`.mcpb`, Settings > Extensions) are the store route. A config entry is still the
-  documented way for a command-line server you run yourself, so Unify3D writes the config entry. An `.mcpb` bundle is
+  documented way for a command-line server you run yourself, so SolidWorks Agent writes the config entry. An `.mcpb` bundle is
   a possible later fallback for machines where admins block config-file servers (section 11). Team and Enterprise
   admins can allow or block extensions; the docs don't say whether that covers config-file servers (hand check H3).
 - **Tool-call timeout:** Not documented. Claude Desktop has used the MCP TypeScript SDK's 60 s request default. That
-  is why `ask_unify3d` returns by 50 s (hand check H4).
+  is why `ask_solidworks_agent` returns by 50 s (hand check H4).
 
 ### 3.2 Codex (desktop app, CLI, IDE extension)
 
@@ -119,20 +119,20 @@ Decided product shape:
   selects legacy semantics for the rest of that stdio process. Claude Desktop and Codex may be either era on a given
   day, so the exe must be dual-era.
 - **stdio rules:** Each message is one line of UTF-8 JSON, with no embedded newlines. stdout carries only MCP
-  messages; stderr is for logs (Claude Desktop saves it to `mcp-server-unify3d.log`). The server exits when stdin
+  messages; stderr is for logs (Claude Desktop saves it to `mcp-server-solidworks-agent.log`). The server exits when stdin
   closes. Cancellation is `notifications/cancelled`.
 - **Stateful tools:** The spec suggests explicit handles returned by one tool and passed to the next, which is the
   ticket in section 6.
 
-## 4. Marketplace display name ("Unify3D")
+## 4. Marketplace display name ("SolidWorks Agent")
 
-- **`marketplace.json`:** Add a top-level `"unify3d": { "displayName": "Unify3D" }`. The `"name": "unify3d"` stays.
-  Claude Code ignores the file (it isn't one of its marketplaces), and other Unify3D marketplaces may use the same
+- **`marketplace.json`:** Add a top-level `"solidworks-agent": { "displayName": "SolidWorks Agent" }`. The `"name": "solidworks-agent"` stays.
+  Claude Code ignores the file (it isn't one of its marketplaces), and other SolidWorks Agent marketplaces may use the same
   field.
 - **C# (`Plugins/Marketplaces.cs`):**
-  - `MarketplaceManifest.DisplayName` = `j["unify3d"]?["displayName"]`, trimmed and at most 48 characters, else null.
+  - `MarketplaceManifest.DisplayName` = `j["solidworks-agent"]?["displayName"]`, trimmed and at most 48 characters, else null.
   - `PluginManager.MarketplaceInfo.DisplayName`:
-    - the built-in marketplace: manifest value, else `"Unify3D"`, so an old `builtin-plugins` copy shows right too;
+    - the built-in marketplace: manifest value, else `"SolidWorks Agent"`, so an old `builtin-plugins` copy shows right too;
     - local: `"Your plugins"`;
     - added marketplaces: manifest value, else the id.
 - **JSON for the panel:**
@@ -154,32 +154,32 @@ Decided product shape:
 
 ### 5.1 Shared contract file
 
-`src/Shared/LocalLinkProtocol.cs` is compiled into both `SwAgent.dll` and `Unify3D.LocalMcp.exe` through a linked
+`src/Shared/LocalLinkProtocol.cs` is compiled into both `SwAgent.dll` and `SolidWorksAgent.LocalMcp.exe` through a linked
 `<Compile Include="..\Shared\LocalLinkProtocol.cs" Link="LocalLink\LocalLinkProtocol.cs" />`. It holds no logic beyond
 names:
 
 ```csharp
-namespace Unify3D.LocalLink
+namespace SolidWorksAgent.LocalLink
 {
-    /// <summary>The add-in <-> Unify3D.LocalMcp.exe pipe contract (docs/plugins/local-mcp.md section 5).</summary>
+    /// <summary>The add-in <-> SolidWorksAgent.LocalMcp.exe pipe contract (docs/plugins/local-mcp.md section 5).</summary>
     internal static class LinkProtocol
     {
         public const int Version = 1;                       // bump on any incompatible change; both sides check it
-        public const string PipeEnv = "UNIFY3D_LINK_PIPE";   // exe only: a test pipe name
+        public const string PipeEnv = "SOLIDWORKS_AGENT_LINK_PIPE";   // exe only: a test pipe name
         public const int MaxLineBytes = 1 << 20;            // a longer line closes the connection
         public const string ClaudeDesktop = "claude-desktop", Codex = "codex";
         public static readonly string[] Clients = { ClaudeDesktop, Codex };
         public static string Label(string client) => client == Codex ? "Codex" : client == ClaudeDesktop ? "Claude Desktop" : client;
         public static string Plugin(string client) => client == Codex ? "codex-mcp" : "claude-mcp";
 
-        /// <summary>\\.\pipe\Unify3D.Agent.Link.&lt;user SID&gt;.&lt;session id&gt;: one per user and Windows session.</summary>
+        /// <summary>\\.\pipe\SolidWorksAgent.Link.&lt;user SID&gt;.&lt;session id&gt;: one per user and Windows session.</summary>
         public static string DefaultPipeName() =>
-            "Unify3D.Agent.Link." + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value + "." +
+            "SolidWorksAgent.Link." + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value + "." +
             System.Diagnostics.Process.GetCurrentProcess().SessionId;
 
         /// <summary>Held by the SolidWorks that serves the pipe (Local\ = this session).</summary>
         public static string MutexName() =>
-            @"Local\Unify3D.Agent.Link." + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
+            @"Local\SolidWorksAgent.Link." + System.Security.Principal.WindowsIdentity.GetCurrent().User.Value;
 
         // methods
         public const string Hello = "hello", Status = "status", Ask = "ask", Answer = "answer", Tool = "tool";
@@ -192,10 +192,10 @@ namespace Unify3D.LocalLink
         /// <summary>The model tools the pipe may run: read-only, fixed. Pipe name -> add-in tool.</summary>
         public static readonly string[][] ModelTools =
         {
-            new[] { "unify3d_model_context", "get_model_context" },
-            new[] { "unify3d_feature_tree", "get_feature_tree" },
-            new[] { "unify3d_selection", "get_selection" },
-            new[] { "unify3d_open_documents", "list_open_documents" },
+            new[] { "solidworks_model_context", "get_model_context" },
+            new[] { "solidworks_feature_tree", "get_feature_tree" },
+            new[] { "solidworks_selection", "get_selection" },
+            new[] { "solidworks_open_documents", "list_open_documents" },
         };
     }
 }
@@ -204,7 +204,7 @@ namespace Unify3D.LocalLink
 ### 5.2 The pipe
 
 - **Name:** `LinkProtocol.DefaultPipeName()`. The SID and session id keep users and RDP sessions apart; neither is a
-  secret. The add-in never reads `UNIFY3D_LINK_PIPE`: tests pass the name to the server's constructor.
+  secret. The add-in never reads `SOLIDWORKS_AGENT_LINK_PIPE`: tests pass the name to the server's constructor.
 - **Security:** `NamedPipeServerStream(name, InOut, maxInstances 8, Byte, Asynchronous, 64 KB, 64 KB, pipeSecurity)`
   with a `PipeSecurity` that holds:
   - Allow `ReadWrite | CreateNewInstance | Synchronize` for the current user's SID. Set the owner to that SID.
@@ -225,10 +225,10 @@ namespace Unify3D.LocalLink
   creates any pipe instance. A second SolidWorks of the same user doesn't serve. It retries every 30 s on its listener
   thread (no SolidWorks calls there) and takes over when the first one closes.
   - Its log says "Another SolidWorks window serves the Claude/Codex link".
-  - `unify3d_status` from the serving window reports only its own SolidWorks.
+  - `solidworks_status` from the serving window reports only its own SolidWorks.
   - Without the mutex, two SolidWorks windows would share one pipe name and clients would land on either at random.
 - **Which wakes it serves:** Each SolidWorks serves only its own panel, which is the one the user sees in that window.
-- **When it listens:** The server runs while at least one of `claude-mcp@unify3d` and `codex-mcp@unify3d` is installed,
+- **When it listens:** The server runs while at least one of `claude-mcp@solidworks-agent` and `codex-mcp@solidworks-agent` is installed,
   enabled and approved (section 7.4). It starts and stops on `PluginManager.Changed` (on a background thread) and at
   add-in start. Each `hello` checks again for its own client.
 
@@ -266,13 +266,13 @@ namespace Unify3D.LocalLink
   "params": { "ticket": "u3d_...", "waitMs": 50000 } }
 
 { "id": 5, "method": "tool",                  { "id": 5, "result": { "content": [ { "type": "text", "text": "..." } ],
-  "params": { "name": "unify3d_feature_tree",   "isError": false } }   // ToolResult.ToJson(), text only
+  "params": { "name": "solidworks_feature_tree",   "isError": false } }   // ToolResult.ToJson(), text only
               "input": { "max_features": 200 } } }
 ```
 
 - **Versioning:**
-  - `hello.protocol` must equal `LinkProtocol.Version`. If not, the error is `version`: "Unify3D Agent and its Claude
-    Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating Unify3D." The
+  - `hello.protocol` must equal `LinkProtocol.Version`. If not, the error is `version`: "SolidWorks Agent and its Claude
+    Desktop link are different versions. Restart Claude Desktop (quit it from the tray) after updating SolidWorks Agent." The
     text says Codex for Codex.
   - New optional fields don't bump the version. New required ones do.
 - **Request limits:** `message` must not be empty and is at most 20,000 characters. `waitMs` is clamped to 0..55,000.
@@ -283,10 +283,10 @@ namespace Unify3D.LocalLink
 `LinkHost.Ask(client, message, waitMs)` runs on the pipe thread. Nothing in it touches SolidWorks.
 
 1. The plugin for `client` must be on and approved. If not, error `off`: "The Claude MCP plugin is turned off in
-   Unify3D (Plugins). Turn it on to use Unify3D from Claude Desktop."
-2. `Session.TryCountAutomatic(now)`. If the hour is used up, error `limit`: "Unify3D has used its 20 automatic turns
+   SolidWorks Agent (Plugins). Turn it on to use SolidWorks Agent from Claude Desktop."
+2. `Session.TryCountAutomatic(now)`. If the hour is used up, error `limit`: "SolidWorks Agent has used its 20 automatic turns
    for this hour (Options > Plugins). Your message was not delivered. Try again later, or ask the user to type it in
-   the Unify3D panel."
+   the SolidWorks Agent panel."
    - Unlike agent-bridge mail (already leased, so held in `_held`), the caller is waiting live and can retry. The
      message is refused, not held.
 3. A ticket `u3d_` + 16 hex from `RandomNumberGenerator`.
@@ -335,7 +335,7 @@ namespace Unify3D.LocalLink
   - `deliverWakes` reports `state: "working"` when it starts the turn. With automatic turns paused, it reports
     `state: "paused"` and appends the wake without a turn.
   - `updateRun` reports `state: "approval"` when an approval or question card opens in a chat holding tickets, and
-    `"working"` when it closes, so the client can tell its user to look at the Unify3D panel.
+    `"working"` when it closes, so the client can tell its user to look at the SolidWorks Agent panel.
 - **Reporting the answer:** In `startRun`'s `finally`, when the turn is *not* continued by a Stop hook (a continuation
   keeps the tickets for its own end), the thread's tickets are taken and reported:
   ```ts
@@ -350,7 +350,7 @@ namespace Unify3D.LocalLink
 - **Panel state:** `localLink.panel({ chat: { title, busy } | null })` is sent when the active chat, its title or its
   busy state changes, and at ready. `status` uses the last value. A panel that never reported counts as `"loading"`.
 - **Panel reload:** When a reloaded panel calls `session.info`, the add-in marks every `working` ticket `failed`:
-  "The Unify3D panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed." Queued
+  "The SolidWorks Agent panel was reloaded and the answer was lost. Your message is in the chat; ask again if needed." Queued
   wakes are still handed over by `takeWakes`, so their tickets stay as they are.
 
 **Add-in RPCs** (`LinkHost.Attach(bridge)`):
@@ -369,13 +369,13 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 | State | `ask` / `answer` result `note` (plain text the exe returns to the model) |
 |---|---|
 | `done` | The answer is returned as it is. |
-| `working` | "Unify3D is still working on it. Call get_unify3d_answer with ticket "u3d_..." to get the answer." |
-| `approval` | "Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. Tell the user, then call get_unify3d_answer with ticket "u3d_..."." |
-| `queued` | "The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket "u3d_..." later." |
-| `paused` | "Unify3D has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_unify3d_answer with ticket "u3d_..." later." |
+| `working` | "SolidWorks Agent is still working on it. Call get_solidworks_agent_answer with ticket "u3d_..." to get the answer." |
+| `approval` | "SolidWorks Agent is waiting for the user to approve a change (or answer a question) in the SolidWorks Agent panel in SolidWorks. Tell the user, then call get_solidworks_agent_answer with ticket "u3d_..."." |
+| `queued` | "The SolidWorks Agent chat is busy (or the panel is still loading). Your message goes next. Call get_solidworks_agent_answer with ticket "u3d_..." later." |
+| `paused` | "SolidWorks Agent has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_solidworks_agent_answer with ticket "u3d_..." later." |
 | `stopped` | "The user stopped the agent before it finished. Partial reply: ..." (when there is text). |
 | `failed` | "The agent's turn failed: <error>." |
-| unknown ticket | `unknown-ticket`: "Unify3D doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_unify3d." |
+| unknown ticket | `unknown-ticket`: "SolidWorks Agent doesn't know that ticket: SolidWorks was restarted, or the answer expired after an hour. Ask again with ask_solidworks_agent." |
 
 ### 5.7 Status and model tools on the UI thread
 
@@ -390,7 +390,7 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 - **`tool`:**
   - Map the name through `LinkProtocol.ModelTools`; anything else is `not-allowed`.
   - The `allowModelRead` option of that client's plugin (section 7.1) must be on. If not, `not-allowed`: "Reading the
-    open model is turned off for Claude Desktop in Unify3D (Plugins > Claude MCP > Settings)."
+    open model is turned off for Claude Desktop in SolidWorks Agent (Plugins > Claude MCP > Settings)."
   - The document is the active one (`_app.Documents.Active`). With none open, model tools return `no-document`: "No
     document is open in SolidWorks." `list_open_documents` still works.
   - The result is text only, at most 200 KB.
@@ -409,7 +409,7 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 
 ### 6.1 Project
 
-- **`SwAgent.LocalMcp.csproj`:** SDK-style, `OutputType Exe`, `net48`, `AnyCPU`, `AssemblyName Unify3D.LocalMcp`,
+- **`SwAgent.LocalMcp.csproj`:** SDK-style, `OutputType Exe`, `net48`, `AnyCPU`, `AssemblyName SolidWorksAgent.LocalMcp`,
   `RootNamespace SwAgent.LocalMcp`, `AppendTargetFrameworkToOutputPath false`.
   - `OutputPath ..\SwAgent\bin\$(Configuration)\net48\local-mcp\`.
   - It references `Newtonsoft.Json 13.0.3`, the add-in's version, and links `..\Shared\LocalLinkProtocol.cs`.
@@ -421,15 +421,15 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
   - `LinkClient.cs`: the pipe, `hello`, one request.
   - `ToolCatalog.cs`: tool definitions and texts.
 - **Arguments:** `--client claude-desktop|codex` (required; anything else exits 2 with a stderr line).
-  `UNIFY3D_LINK_PIPE` overrides the pipe name, for tests.
+  `SOLIDWORKS_AGENT_LINK_PIPE` overrides the pipe name, for tests.
 - **Startup:** Fast, with no pipe connection, so Codex's 10 s `startup_timeout_sec` and Claude's start never fail when
   SolidWorks is closed. The exe connects on each tool call.
 
 ### 6.2 Where the exe runs from
 
-- **Where:** Clients run `%LOCALAPPDATA%\SwAgent\local-mcp\Unify3D.LocalMcp.exe` (`Paths.LocalMcpDir`), not the
+- **Where:** Clients run `%LOCALAPPDATA%\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe` (`Paths.LocalMcpDir`), not the
   install folder.
-- **Why:** A running copy (Claude Desktop keeps it running) would lock the files under `Program Files\Unify3D Agent`.
+- **Why:** A running copy (Claude Desktop keeps it running) would lock the files under `Program Files\SolidWorks Agent`.
   A downloaded update would then fail to replace them after SolidWorks closes. The path also never changes across
   updates, so the client config never needs rewriting.
 - **`LocalMcpDeployer.Ensure()`** runs at add-in start (background, files only) and before every config write:
@@ -447,7 +447,7 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 - **stdin:** UTF-8, line by line. Blank lines are ignored. A line that doesn't parse gets JSON-RPC `-32700` with
   `id: null`.
 - **stderr:** logs only (start, era, tool name, ticket, durations; never message text).
-- **Concurrency:** Each request runs as a task, so `unify3d_status` answers while `ask_unify3d` waits.
+- **Concurrency:** Each request runs as a task, so `solidworks_status` answers while `ask_solidworks_agent` waits.
   `notifications/cancelled` cancels that request's wait (the message already delivered stays delivered) and nothing
   more is sent for it.
 - **Modern requests** (`params._meta["io.modelcontextprotocol/protocolVersion"]` present):
@@ -455,7 +455,7 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
     "2025-06-18", "2025-03-26", "2024-11-05"], requested }`.
   - Results carry `"resultType": "complete"`.
   - `server/discover` returns `supportedVersions` (the same list), `capabilities: { tools: {} }`,
-    `_meta["io.modelcontextprotocol/serverInfo"]: { name: "unify3d", title: "Unify3D Agent", version }` and
+    `_meta["io.modelcontextprotocol/serverInfo"]: { name: "solidworks-agent", title: "SolidWorks Agent", version }` and
     `instructions` (below).
 - **Legacy:**
   - `initialize` answers with the requested `protocolVersion` if it is one of the four legacy versions, else
@@ -470,31 +470,31 @@ Each returns `{ ok: true }`. Unknown tickets are ignored: they expired, or Solid
 
 `instructions`:
 
-> Unify3D Agent is an AI agent inside SolidWorks on this PC. It can create new parts, assemblies and drawings, change the
+> SolidWorks Agent is an AI agent inside SolidWorks on this PC. It can create new parts, assemblies and drawings, change the
 > user's open models and answer questions about them, and it asks the user in its panel before any change. Use
-> ask_unify3d for any CAD work in SolidWorks, even when no document is open (it can start a new part). The unify3d_*
+> ask_solidworks_agent for any CAD work in SolidWorks, even when no document is open (it can start a new part). The solidworks_*
 > read tools only give quick facts about the open document. If SolidWorks isn't running, say so to the user.
 
-(ToolCatalog.cs holds the current tool descriptions; `ask_unify3d` leads with "Use for any CAD work in SolidWorks:
-create new parts...", and `unify3d_model_context` no longer says "Call this first".)
+(ToolCatalog.cs holds the current tool descriptions; `ask_solidworks_agent` leads with "Use for any CAD work in SolidWorks:
+create new parts...", and `solidworks_model_context` no longer says "Call this first".)
 
 ### 6.4 Tools
 
 | Tool | Input schema | Annotations | Does |
 |---|---|---|---|
-| `ask_unify3d` | `{ message: string (1..20000, "What to ask or tell the Unify3D agent. Write it as you would to a colleague; it sees the user's open model."), wait_seconds?: integer 0..55 (default 50) }`, `required: ["message"]`, `additionalProperties: false` | `title: "Ask Unify3D"`, `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: false`, `openWorldHint: false` | pipe `ask`. Text = the answer, or the note with the ticket; `structuredContent: { ticket, state, answer? }`. |
-| `get_unify3d_answer` | `{ ticket: string, wait_seconds?: integer 0..55 (default 50) }`, `required: ["ticket"]` | `readOnlyHint: true` | pipe `answer` |
-| `unify3d_status` | `{}` (`additionalProperties: false`) | `readOnlyHint: true` | pipe `status`, as sentences: "SolidWorks 2026 SP1.0 is running with Unify3D Agent 0.2.0. Active document: bushing.SLDPRT (part). Open chat: "Bushing mold" (idle). Automatic turns left this hour: 17 of 20." |
-| `unify3d_model_context` | `{}` | `readOnlyHint: true` | pipe `tool` → `get_model_context` |
-| `unify3d_feature_tree` | `{ max_features?: integer 1..2000, include_sub_features?: boolean }` | `readOnlyHint: true` | → `get_feature_tree` |
-| `unify3d_selection` | `{}` | `readOnlyHint: true` | → `get_selection` |
-| `unify3d_open_documents` | `{}` | `readOnlyHint: true` | → `list_open_documents` |
+| `ask_solidworks_agent` | `{ message: string (1..20000, "What to ask or tell the SolidWorks Agent. Write it as you would to a colleague; it sees the user's open model."), wait_seconds?: integer 0..55 (default 50) }`, `required: ["message"]`, `additionalProperties: false` | `title: "Ask SolidWorks Agent"`, `readOnlyHint: false`, `destructiveHint: false`, `idempotentHint: false`, `openWorldHint: false` | pipe `ask`. Text = the answer, or the note with the ticket; `structuredContent: { ticket, state, answer? }`. |
+| `get_solidworks_agent_answer` | `{ ticket: string, wait_seconds?: integer 0..55 (default 50) }`, `required: ["ticket"]` | `readOnlyHint: true` | pipe `answer` |
+| `solidworks_status` | `{}` (`additionalProperties: false`) | `readOnlyHint: true` | pipe `status`, as sentences: "SolidWorks 2026 SP1.0 is running with SolidWorks Agent 0.2.0. Active document: bushing.SLDPRT (part). Open chat: "Bushing mold" (idle). Automatic turns left this hour: 17 of 20." |
+| `solidworks_model_context` | `{}` | `readOnlyHint: true` | pipe `tool` → `get_model_context` |
+| `solidworks_feature_tree` | `{ max_features?: integer 1..2000, include_sub_features?: boolean }` | `readOnlyHint: true` | → `get_feature_tree` |
+| `solidworks_selection` | `{}` | `readOnlyHint: true` | → `get_selection` |
+| `solidworks_open_documents` | `{}` | `readOnlyHint: true` | → `list_open_documents` |
 
 Descriptions (as sent to the model):
-- `ask_unify3d`: "Send a message to the Unify3D agent running inside SolidWorks on this PC and get its reply. It sees
-  the user's open models and can change them; any change waits for the user's OK in the Unify3D panel. If the reply
-  takes longer than wait_seconds you get a ticket: call get_unify3d_answer with it."
-- `get_unify3d_answer`: "Get the Unify3D agent's reply to an earlier ask_unify3d, by its ticket. Waits up to
+- `ask_solidworks_agent`: "Send a message to the SolidWorks Agent running inside SolidWorks on this PC and get its reply. It sees
+  the user's open models and can change them; any change waits for the user's OK in the SolidWorks Agent panel. If the reply
+  takes longer than wait_seconds you get a ticket: call get_solidworks_agent_answer with it."
+- `get_solidworks_agent_answer`: "Get the SolidWorks Agent's reply to an earlier ask_solidworks_agent, by its ticket. Waits up to
   wait_seconds."
 - The read tools: their add-in descriptions, with "the chat's document" replaced by "the active SolidWorks document".
 
@@ -502,9 +502,9 @@ Error texts, all returned as `isError: true` tool results (never protocol errors
 
 | Case | Text |
 |---|---|
-| No pipe (`FileNotFound` on connect, 2 s) | "SolidWorks isn't running, or the Unify3D Agent add-in isn't loaded in it. Open SolidWorks with Unify3D Agent, then try again." |
-| Pipe exists but no reply to `hello` in 5 s | "Unify3D didn't answer within 5 seconds. SolidWorks may be busy (a rebuild or a dialog). Try again in a moment." |
-| Access denied | "Windows refused the connection to Unify3D (a different Windows user, or an app sandbox). Run Claude Desktop as the same user as SolidWorks." Codex gets the same text with "Codex". |
+| No pipe (`FileNotFound` on connect, 2 s) | "SolidWorks isn't running, or the SolidWorks Agent add-in isn't loaded in it. Open SolidWorks with SolidWorks Agent, then try again." |
+| Pipe exists but no reply to `hello` in 5 s | "SolidWorks Agent didn't answer within 5 seconds. SolidWorks may be busy (a rebuild or a dialog). Try again in a moment." |
+| Access denied | "Windows refused the connection to SolidWorks Agent (a different Windows user, or an app sandbox). Run Claude Desktop as the same user as SolidWorks." Codex gets the same text with "Codex". |
 | `error.code` from the add-in | `error.message` as it is (5.3 to 5.7) |
 
 ## 7. The plugins and the client configs
@@ -513,48 +513,48 @@ Error texts, all returned as `isError: true` tool results (never protocol errors
 
 ```jsonc
 // plugins/.claude-plugin/marketplace.json (additions)
-"unify3d": { "displayName": "Unify3D" },
+"solidworks-agent": { "displayName": "SolidWorks Agent" },
 "plugins": [
-  /* agent-bridge, agent-bridge-unify3d unchanged */
+  /* agent-bridge, agent-bridge-solidworks unchanged */
   {
     "name": "claude-mcp",
     "source": "./claude-mcp",
     "version": "1.0.0",
-    "description": "Lets Claude Desktop on this PC talk to Unify3D: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the Unify3D panel. Adds an MCP server named \"unify3d\" to Claude Desktop's settings. Works on this PC only; no agent-bridge needed.",
+    "description": "Lets Claude Desktop on this PC talk to SolidWorks Agent: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the SolidWorks Agent panel. Adds an MCP server named \"solidworks-agent\" to Claude Desktop's settings. Works on this PC only; no agent-bridge needed.",
     "category": "Connections",
     "keywords": ["claude", "claude-desktop", "mcp", "local"],
-    "unify3d": { "registerMcpIn": "claude-desktop" }
+    "solidworksAgent": { "registerMcpIn": "claude-desktop" }
   },
   {
     "name": "codex-mcp",
     "source": "./codex-mcp",
     "version": "1.0.0",
-    "description": "Lets Codex on this PC (the app, CLI and IDE extension) talk to Unify3D: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the Unify3D panel. Adds an MCP server named \"unify3d\" to Codex's config.toml. Works on this PC only; no agent-bridge needed.",
+    "description": "Lets Codex on this PC (the app, CLI and IDE extension) talk to SolidWorks Agent: send the agent in SolidWorks a message and get its reply, and read the open model. Changes still need your OK in the SolidWorks Agent panel. Adds an MCP server named \"solidworks-agent\" to Codex's config.toml. Works on this PC only; no agent-bridge needed.",
     "category": "Connections",
     "keywords": ["codex", "openai", "mcp", "local"],
-    "unify3d": { "registerMcpIn": "codex" }
+    "solidworksAgent": { "registerMcpIn": "codex" }
   }
 ]
 ```
 
 - **Plugin folders:** `plugins/claude-mcp/` and `plugins/codex-mcp/` each hold:
   - `.claude-plugin/plugin.json`:
-    - `name` and `displayName` ("Claude MCP" / "Codex MCP"), `version` 1.0.0, `description`, `author: { name: "Unify3D" }`;
-    - `unify3d: { category: "Connections", icon: "./icon.png" }`;
+    - `name` and `displayName` ("Claude MCP" / "Codex MCP"), `version` 1.0.0, `description`, `author: { name: "SolidWorks Agent" }`;
+    - `solidworks-agent: { category: "Connections", icon: "./icon.png" }`;
     - one option: `userConfig.allowModelRead { type: "boolean", title: "Let Claude Desktop read the open model",
-      description: "The unify3d_* tools: model summary, feature tree, selection, open documents.", default: true }`;
+      description: "The solidworks_* tools: model summary, feature tree, selection, open documents.", default: true }`;
   - `README.md`, saying what it does, how to remove it, and the restart step;
   - `icon.png` (+ `icon.svg`).
 - **No other components:** no hooks, MCP servers, skills or tools. The agent learns nothing new: the wake preamble is
   enough.
 - **The `registerMcpIn` field:**
-  - It is read from the marketplace entry and copied into `PluginRecord.Unify3d` at install, as `env` and `installWith`
+  - It is read from the marketplace entry and copied into `PluginRecord.SolidWorksAgent` at install, as `env` and `installWith`
     are. Uninstall therefore still knows what to remove if the marketplace changes later.
   - It is honoured only when `Marketplace == BuiltInMarketplace` and the value is one of `LinkProtocol.Clients`.
     Elsewhere the plugin installs as an ordinary one, with a finding: "registerMcpIn is only used by the built-in
-    Unify3D marketplace."
-  - The command is always Unify3D's own exe; nothing in a marketplace can change it.
-- **`authoring.md`:** Its table of marketplace `unify3d` fields gets one row for `registerMcpIn`, marked built-in only.
+    SolidWorks Agent marketplace."
+  - The command is always SolidWorks Agent's own exe; nothing in a marketplace can change it.
+- **`authoring.md`:** Its table of marketplace `solidworks-agent` fields gets one row for `registerMcpIn`, marked built-in only.
 
 ### 7.2 Locating the clients (`Plugins/ClientLinks/ClientLocator.cs`)
 
@@ -591,23 +591,23 @@ SolidWorks call.
 
 ### 7.3 Writers (`ClaudeDesktopConfig.cs`, `CodexConfig.cs`, `ClientConfigFile.cs`)
 
-The entry Unify3D owns, and only this:
+The entry SolidWorks Agent owns, and only this:
 
 ```json
-"unify3d": {
-  "command": "C:\\Users\\<u>\\AppData\\Local\\SwAgent\\local-mcp\\Unify3D.LocalMcp.exe",
+"solidworks-agent": {
+  "command": "C:\\Users\\<u>\\AppData\\Local\\SwAgent\\local-mcp\\SolidWorksAgent.LocalMcp.exe",
   "args": ["--client", "claude-desktop"]
 }
 ```
 
 ```toml
-# >>> unify3d (managed by Unify3D Agent: the Codex MCP plugin; turn it off in Unify3D to remove) >>>
-[mcp_servers.unify3d]
-command = 'C:\Users\<u>\AppData\Local\SwAgent\local-mcp\Unify3D.LocalMcp.exe'
+# >>> solidworks-agent (managed by SolidWorks Agent: the Codex MCP plugin; turn it off in SolidWorks Agent to remove) >>>
+[mcp_servers.solidworks-agent]
+command = 'C:\Users\<u>\AppData\Local\SwAgent\local-mcp\SolidWorksAgent.LocalMcp.exe'
 args = ["--client", "codex"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
-# <<< unify3d <<<
+# <<< solidworks-agent <<<
 ```
 
 - **TOML strings:** A literal string (`'...'`) unless the path contains `'`; then a basic string with `\\` and `\"`
@@ -615,12 +615,12 @@ tool_timeout_sec = 120
 - **Approvals:** Codex's approval settings aren't set. The user's own setting applies, and the read tools carry
   `readOnlyHint`, so `writes` mode does what it says.
 
-**Ownership.** An entry named `unify3d` is Unify3D's when:
-- its `command` file name is `Unify3D.LocalMcp.exe` (case-insensitive), and
+**Ownership.** An entry named `solidworks-agent` is SolidWorks Agent's when:
+- its `command` file name is `SolidWorksAgent.LocalMcp.exe` (case-insensitive), and
 - its `args` contain `--client <this client>`.
 
-Anything else named `unify3d` is a **conflict**:
-- Install and enable stop: "Claude Desktop already has an MCP server named "unify3d" that Unify3D didn't add. Rename or
+Anything else named `solidworks-agent` is a **conflict**:
+- Install and enable stop: "Claude Desktop already has an MCP server named "solidworks-agent" that SolidWorks Agent didn't add. Rename or
   remove it in Claude Desktop's settings, then try again." Codex gets the same text with "Codex".
 - Turn off and uninstall leave it alone and report it.
 
@@ -632,14 +632,14 @@ Anything else named `unify3d` is a **conflict**:
    - JSON: parse before and after. They must be equal except for the one entry (`JToken.DeepEquals` on everything
      else).
    - TOML: the line-level guarantee below. The tests also do a full parse with Tomlyn.
-   - On any mismatch, write nothing and stop with "Unify3D couldn't change <file> safely; nothing was changed."
+   - On any mismatch, write nothing and stop with "SolidWorks Agent couldn't change <file> safely; nothing was changed."
 4. If the result equals the input, stop: the edit is idempotent and nothing is written.
 5. Back up the original file:
    - to `%APPDATA%\SwAgent\plugins\data\<plugin>\backups\<file>-<yyyyMMdd-HHmmss>`, keeping the newest 5, and never
      next to the client's file;
    - other servers' `env` blocks may hold keys, so backups stay in the user's own data folder, are never logged, and
      never go into a chat.
-6. Write `<path>.unify3d-tmp` next to the target, with the same encoding, BOM and line endings.
+6. Write `<path>.solidworks-agent-tmp` next to the target, with the same encoding, BOM and line endings.
 7. Re-read the target's hash. If it changed since step 1 (the client wrote meanwhile), start again from step 1, up to 3
    times. Then `AtomicFile.Replace(tmp, path)`.
 8. Delete the temp file on failure.
@@ -651,7 +651,7 @@ Anything else named `unify3d` is a **conflict**:
   were written. Write with 2-space indent.
 - Key order is kept. `mcpServers` is created at the end when absent. When the last entry is removed, `mcpServers` is
   removed too.
-- Invalid JSON is never overwritten: "Claude Desktop's settings file isn't valid JSON (line N). Unify3D won't change
+- Invalid JSON is never overwritten: "Claude Desktop's settings file isn't valid JSON (line N). SolidWorks Agent won't change
   it. Fix it (Claude Desktop > Settings > Developer > Edit Config), then try again."
 
 **TOML specifics.** The text is edited, not parsed and re-serialized, so it needs no TOML library inside SolidWorks.
@@ -661,21 +661,21 @@ Anything else named `unify3d` is a **conflict**:
 - bracket depth, so arrays and inline tables can span lines.
 
 It finds the line ranges of table headers (`[a.b]`, `[[a]]`, quoted keys). With those ranges:
-- **Add:** if no owned `[mcp_servers.unify3d]` exists, append the block at the end of the file, after a blank line.
+- **Add:** if no owned `[mcp_servers.solidworks-agent]` exists, append the block at the end of the file, after a blank line.
 - **Remove:** delete these lines and nothing else:
-  - the `[mcp_servers.unify3d]` table and its own subtables (`[mcp_servers.unify3d.env]`,
-    `[mcp_servers.unify3d.tools.*]`), each up to the next header that isn't one of them;
+  - the `[mcp_servers.solidworks-agent]` table and its own subtables (`[mcp_servers.solidworks-agent.env]`,
+    `[mcp_servers.solidworks-agent.tools.*]`), each up to the next header that isn't one of them;
   - our two marker comments, when they sit directly around it.
 
   Lines between our markers that belong to another table are kept, in case Codex inserted a table there. Never "delete
   everything between the markers".
-- **Conflict detection:** any other definition of `unify3d` under `mcp_servers` is a conflict:
-  - a root dotted key `mcp_servers.unify3d.*`;
-  - an `[mcp_servers]` table with `unify3d = {` or `unify3d.` keys;
-  - quoted forms such as `[mcp_servers."unify3d"]`.
+- **Conflict detection:** any other definition of `solidworks-agent` under `mcp_servers` is a conflict:
+  - a root dotted key `mcp_servers.solidworks-agent.*`;
+  - an `[mcp_servers]` table with `solidworks-agent = {` or `solidworks-agent.` keys;
+  - quoted forms such as `[mcp_servers."solidworks-agent"]`.
 - **Guarantee:** every line outside the added or removed range is byte-identical, which a test checks. Add followed by
   remove gives back the original bytes. A file that `TomlScan` can't lex (an unclosed string) is not changed: "Codex's
-  config.toml couldn't be read safely. Unify3D won't change it."
+  config.toml couldn't be read safely. SolidWorks Agent won't change it."
 
 ### 7.4 What install, enable, disable, uninstall and repair do
 
@@ -685,9 +685,9 @@ These hooks go into `PluginManager`, under `_op`:
 |---|---|---|
 | Install | Trust first (7.5). Then `LocalMcpDeployer.Ensure()`, then **register**, then place files and save the record. If placing fails, unregister. | If registering fails (client missing, conflict, invalid file), the install throws that message and nothing is installed. |
 | Turn on | Trust check (the stored hash), then register | A changed config path or exe path changes the hash, so the dialog shows again |
-| Turn off | Unregister | Unify3D's own `Enable(false)` succeeds even if unregistering fails. `Outcome.Warnings` gets "Remove "unify3d" from <path> by hand." |
+| Turn off | Unregister | SolidWorks Agent's own `Enable(false)` succeeds even if unregistering fails. `Outcome.Warnings` gets "Remove "solidworks-agent" from <path> by hand." |
 | Uninstall | Unregister, then remove files | The same warning on failure. `Uninstall` returns warnings and `plugins.uninstall` returns `{ ok, note }`. Backups stay. |
-| Update | Register again (idempotent: normally no write) | It only refreshes an entry Unify3D owns. A missing entry is not re-added; the status shows Repair. |
+| Update | Register again (idempotent: normally no write) | It only refreshes an entry SolidWorks Agent owns. A missing entry is not re-added; the status shows Repair. |
 | Repair (`plugins.repairLink({ id })`, new) | Register | Only from the button |
 | SolidWorks start | `LocalMcpDeployer.Ensure()` only | No client-config writes without a click |
 
@@ -707,14 +707,14 @@ config.
   A never-approved link plugin is therefore untrusted. It needs the dialog on install, and again whenever any of those
   four change.
 - **`TrustList`** adds `links: string[]`, one line per client:
-  `Claude Desktop: adds the MCP server "unify3d" to C:\Users\...\claude_desktop_config.json, which runs C:\Users\...\Unify3D.LocalMcp.exe --client claude-desktop`.
+  `Claude Desktop: adds the MCP server "solidworks-agent" to C:\Users\...\claude_desktop_config.json, which runs C:\Users\...\SolidWorksAgent.LocalMcp.exe --client claude-desktop`.
 - **`types.ts`:** `TrustRequest.links?: string[]`.
 - **`approveTrust`:**
   - It shows the links section first, titled "Changes to another app".
-  - Its note: "Unify3D edits this file now and removes the entry when you turn the plugin off or uninstall it. Nothing
+  - Its note: "SolidWorks Agent edits this file now and removes the entry when you turn the plugin off or uninstall it. Nothing
     else in the file changes."
   - For a plugin with only links, the intro line says "**Claude MCP** lets Claude Desktop on this PC send messages to
-    the Unify3D agent and read your open model. Changes it asks for still need your OK in the Unify3D panel. Messages
+    the SolidWorks Agent and read your open model. Changes it asks for still need your OK in the SolidWorks Agent panel. Messages
     and answers go to Claude Desktop's AI provider." (The Codex text names Codex and OpenAI.) It drops "runs code on
     this PC".
   - The button says "Install" or "Turn on", as now.
@@ -744,7 +744,7 @@ config.
 - **Notes, in order:**
   1. Not found: the 7.2 text.
   2. `conflict`: the 7.3 text.
-  3. `missing`: "The "unify3d" entry isn't in Claude Desktop's settings any more (it was removed or the file was
+  3. `missing`: "The "solidworks-agent" entry isn't in Claude Desktop's settings any more (it was removed or the file was
      replaced). Press Repair to add it again."
   4. `present` with `lastSeen` older than `writtenAt` (or none): "Added to Claude Desktop. Quit Claude Desktop (from
      the tray icon) and open it again to load it." For Codex: "Added to Codex. Restart Codex (or start a new CLI
@@ -779,31 +779,31 @@ config.
 - **Turning it off:**
   - Turning the plugin off removes the client entry and refuses its `hello` at once.
   - The `allowModelRead` option turns off just the model reads.
-  - Options > Plugins > MCP servers off doesn't affect this link: it isn't one of Unify3D's own MCP servers. The
+  - Options > Plugins > MCP servers off doesn't affect this link: it isn't one of SolidWorks Agent's own MCP servers. The
     plugin's own switch is the control.
 - **Data:**
   - Messages, answers and model facts go to the client's AI provider, which the trust dialog says.
   - Nothing is logged except lengths, ticket ids and tool names.
   - Backups of client configs stay in the user's data folder (7.3).
 - **Client configs:**
-  - Unify3D writes them only on the user's clicks (7.4).
+  - SolidWorks Agent writes them only on the user's clicks (7.4).
   - The agent can't trigger a write.
-  - Every write is backed up, semantically checked and atomic, and touches only Unify3D's own entry.
+  - Every write is backed up, semantically checked and atomic, and touches only SolidWorks Agent's own entry.
 
 ## 9. What the user sees (walk-through)
 
-1. **Install:** Plugins > Discover lists Claude MCP under "Unify3D". The user clicks Install and the dialog shows the
+1. **Install:** Plugins > Discover lists Claude MCP under "SolidWorks Agent". The user clicks Install and the dialog shows the
    change to `C:\Users\...\AppData\Roaming\Claude\claude_desktop_config.json` and the program it runs. They click
    Install.
 2. **Before the restart:** Installed shows "Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open
    it again to load it."
-3. **In Claude Desktop:** After the restart, the `unify3d` connector lists 7 tools. The user writes: "Ask Unify3D to
+3. **In Claude Desktop:** After the restart, the `solidworks-agent` connector lists 7 tools. The user writes: "Ask SolidWorks Agent to
    add a 2 mm fillet to the top edges of the open part."
 4. **In the panel:** A chat card reads "Message from Claude Desktop" with the request. The agent works and asks before
    its `execute_csharp`. The user approves and the agent replies.
-5. **Back in Claude Desktop:** The `ask_unify3d` result is that reply. If the user took longer than 50 s to approve,
-   Claude Desktop got a ticket and calls `get_unify3d_answer`.
-6. **With SolidWorks closed:** Any tool says "SolidWorks isn't running, or the Unify3D Agent add-in isn't loaded in
+5. **Back in Claude Desktop:** The `ask_solidworks_agent` result is that reply. If the user took longer than 50 s to approve,
+   Claude Desktop got a ticket and calls `get_solidworks_agent_answer`.
+6. **With SolidWorks closed:** Any tool says "SolidWorks isn't running, or the SolidWorks Agent add-in isn't loaded in
    it. ..."
 7. **Removing it:** Turning the plugin off removes the entry. The Installed row says so, and Claude Desktop drops the
    connector at its next start.
@@ -845,7 +845,7 @@ Contracts it provides:
 - `link-seen.json` (7.6);
 - the wake JSON fields `ticket` and `from`.
 
-Acceptance (all headless, collection "Plugins", test pipe names `Unify3D.Test.<guid>`, never the default name):
+Acceptance (all headless, collection "Plugins", test pipe names `SolidWorks Agent.Test.<guid>`, never the default name):
 - **A1 Round trip with a fake panel.** Start `LinkServer` with a `LinkHost` over a temp `PluginManager` (built-in root
   = a temp marketplace with `claude-mcp` installed and approved) and a fake UI runner. A raw `NamedPipeClientStream`
   sends `hello`, then `ask`.
@@ -910,17 +910,17 @@ Contracts it relies on:
 - `link-seen.json`.
 
 Acceptance:
-- **C1 MCP exe over stdio.** The test starts the built `bin\Debug\net48\local-mcp\Unify3D.LocalMcp.exe --client
-  claude-desktop` with `UNIFY3D_LINK_PIPE` set to a test pipe served by an in-test fake that speaks 5.3.
+- **C1 MCP exe over stdio.** The test starts the built `bin\Debug\net48\local-mcp\SolidWorksAgent.LocalMcp.exe --client
+  claude-desktop` with `SOLIDWORKS_AGENT_LINK_PIPE` set to a test pipe served by an in-test fake that speaks 5.3.
   - Legacy `initialize` for `2025-11-25` and `2025-06-18` (echoed), and an unknown legacy version (→ `2025-11-25`).
   - `tools/list`: exactly 7 tools, schemas as in 6.4, annotations.
   - Modern `server/discover` and `tools/call` with `_meta` 2026-07-28, with `resultType: "complete"`.
   - `_meta` version `1900-01-01` → `-32022` with `supported`.
-  - `ask_unify3d` → the fake returns `done` → the text. `working` → the text with the ticket, then
-    `get_unify3d_answer`.
+  - `ask_solidworks_agent` → the fake returns `done` → the text. `working` → the text with the ticket, then
+    `get_solidworks_agent_answer`.
   - Each 5.3 error code → `isError` with the add-in's message.
   - With no pipe → the "isn't running" text within 3 s.
-  - `unify3d_status` answers while an `ask` waits (concurrency).
+  - `solidworks_status` answers while an `ask` waits (concurrency).
   - `notifications/cancelled` → no response for that id.
   - Invalid JSON → `-32700`.
   - stdout lines all parse as JSON-RPC; logs only on stderr.
@@ -928,10 +928,10 @@ Acceptance:
   - `--client foo` → exit code 2.
 - **C2 Claude config on temp copies.** Fixtures: a realistic file with a large `preferences` object, ISO date strings,
   decimals, unicode, a `mcpServers` with another server with `env`; an empty file; no file; invalid JSON; a BOM; CRLF.
-  - Add → only `mcpServers.unify3d` added, everything else `DeepEquals`, key order kept, date strings unchanged.
+  - Add → only `mcpServers.solidworks-agent` added, everything else `DeepEquals`, key order kept, date strings unchanged.
   - Add again → no write (mtime and bytes unchanged).
   - Remove → the original, semantically. A file without `mcpServers` round-trips to the same bytes.
-  - A foreign `unify3d` → conflict, file untouched.
+  - A foreign `solidworks-agent` → conflict, file untouched.
   - Invalid JSON → refused, untouched.
   - BOM and CRLF kept.
   - A concurrent change between read and replace (injected) → retried and merged.
@@ -942,12 +942,12 @@ Acceptance:
 - **C3 Codex config on temp copies.** Fixture: an anonymised copy of the shape in 3.2 with every construct (inline
   comments, literal and basic strings, a multi-line string, an array across lines, `[mcp_servers.node_repl]` with
   `.env`, quoted-key tables, the agent-bridge managed block last); plus empty, missing, CRLF and BOM files.
-  - Add → appended block; Tomlyn parse of after == before + `mcp_servers.unify3d`; all original lines byte-identical.
+  - Add → appended block; Tomlyn parse of after == before + `mcp_servers.solidworks-agent`; all original lines byte-identical.
   - Remove → original bytes exactly.
   - Idempotent.
   - A table inserted by "Codex" between our markers survives removal.
-  - Conflicts detected: a foreign `[mcp_servers.unify3d]`, `[mcp_servers."unify3d"]`, a dotted `mcp_servers.unify3d.command`,
-    an inline `unify3d = { ... }` under `[mcp_servers]`.
+  - Conflicts detected: a foreign `[mcp_servers.solidworks-agent]`, `[mcp_servers."solidworks-agent"]`, a dotted `mcp_servers.solidworks-agent.command`,
+    an inline `solidworks-agent = { ... }` under `[mcp_servers]`.
   - Unclosed string → refused, untouched.
   - `CODEX_HOME` override honoured; missing home → "isn't installed"; home without `config.toml` → file created with
     the block.
@@ -963,10 +963,10 @@ Acceptance:
   - a third-party marketplace with `registerMcpIn` → an ordinary install plus a finding, no config written;
   - `PluginJson.link` notes for missing / restart / connected, driven by `link-seen.json` and `link-written.json`.
 - **C5 Display name.**
-  - `MarketplacesJson` gives `{ name: "unify3d", displayName: "Unify3D" }`, with the fallback when the field is
+  - `MarketplacesJson` gives `{ name: "solidworks-agent", displayName: "SolidWorks Agent" }`, with the fallback when the field is
     missing; local gives "Your plugins".
   - `PluginsJson` carries `marketplaceDisplayName`.
-  - An `installed.json` holding `agent-bridge@unify3d` still loads and finds it.
+  - An `installed.json` holding `agent-bridge@solidworks-agent` still loads and finds it.
   - `ParseId` is unchanged.
 - **C6 Guard.** With `SWAGENT_DATA_DIR` set, `ClientLocator.Default` paths are all under the test root. No test in the
   suite reads `%APPDATA%\Claude` or `~\.codex` (a grep test over the test sources for those literals, except this
@@ -982,7 +982,7 @@ Acceptance:
 
 - **I1 End to end without SolidWorks.** The real exe ↔ the real `LinkServer` + `LinkHost`: a fake UI runner, a temp
   `PluginManager` with `claude-mcp` approved, and a simulated panel that takes wakes and calls `localLink.answer`.
-  `ask_unify3d` over stdio gets the panel's answer; `unify3d_model_context` gets the fake runner's text.
+  `ask_solidworks_agent` over stdio gets the panel's answer; `solidworks_model_context` gets the fake runner's text.
 - **I2** The full `dotnet test tests/SwAgent.Tests` (expect the previous count plus the new tests, 0 failed) and every
   panel check.
 - **I3** HANDOFF.md: a new section for the link, pointing here, and the hand checks below.
@@ -990,16 +990,16 @@ Acceptance:
 ### 10.4 Hand checks (need SolidWorks, Claude Desktop and Codex; none possible headless)
 
 - H1. Install Claude MCP. The dialog shows this PC's `%APPDATA%\Claude\claude_desktop_config.json`. After the
-  install, the file has `mcpServers.unify3d` and `preferences` intact. Restart Claude Desktop: the `unify3d` connector
+  install, the file has `mcpServers.solidworks-agent` and `preferences` intact. Restart Claude Desktop: the `solidworks-agent` connector
   shows 7 tools.
-- H2. From Claude Desktop (MSIX, full trust), `unify3d_status` reaches the pipe. Repeat from Codex. Also check that
+- H2. From Claude Desktop (MSIX, full trust), `solidworks_status` reaches the pipe. Repeat from Codex. Also check that
   Codex starts MCP servers outside its Windows sandbox; if it doesn't, the pipe refuses it (5.2) and the design needs a
   decision.
 - H3. Whether a Team/Enterprise policy that blocks desktop extensions also blocks config-file servers (affects only
   managed PCs).
 - H4. Claude Desktop's real tool-call timeout. If it is over 60 s, `wait_seconds` can default higher.
 - H5. A message that needs a change: the approval card shows in the panel and the answer returns to Claude Desktop.
-  An approval taking longer than 50 s → ticket → `get_unify3d_answer`.
+  An approval taking longer than 50 s → ticket → `get_solidworks_agent_answer`.
 - H6. Claude Desktop running while installing: does it overwrite the file and drop the entry? If so, the status shows
   "missing" and Repair after quitting Claude fixes it. Make the install dialog say "Quit Claude Desktop first" if this
   happens every time.
@@ -1007,14 +1007,14 @@ Acceptance:
   it → the second takes over.
 - H8. Update the add-in while Claude Desktop runs the exe: the update succeeds and the per-user copy is refreshed at
   the next add-in start.
-- H9. Codex: install → block appended; Codex starts it (`codex mcp list` shows `unify3d`); turn off → removed with the
+- H9. Codex: install → block appended; Codex starts it (`codex mcp list` shows `solidworks-agent`); turn off → removed with the
   rest of the file byte-identical (compare with the backup).
 - H10. The narrow panel (280 px): Plugins rows with link notes and the Repair button.
 
 ## 11. Open items and later
 
-- An uninstaller step that removes the two entries when Unify3D itself is uninstalled. Today the entry stays, and the
-  exe left in `%LOCALAPPDATA%` answers "Unify3D Agent isn't loaded". A later `--remove-config-entries` mode of the exe
+- An uninstaller step that removes the two entries when SolidWorks Agent itself is uninstalled. Today the entry stays, and the
+  exe left in `%LOCALAPPDATA%` answers "SolidWorks Agent isn't loaded". A later `--remove-config-entries` mode of the exe
   would need the writers inside the exe; not in v1.
 - Images (`capture_views`) as a read tool: bigger privacy and size questions; not in v1.
 - An `.mcpb` Desktop Extension for Claude Desktop as a fallback where config-file servers are blocked (H3).

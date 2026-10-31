@@ -23,7 +23,7 @@ namespace SwAgent.Tests.Plugins
             {
                 ["command"] = "node",
                 ["args"] = new JArray("${CLAUDE_PLUGIN_ROOT}/mcp-echo.mjs"),
-                ["env"] = new JObject { ["EXTRA"] = "pid ${UNIFY3D_PID}" },
+                ["env"] = new JObject { ["EXTRA"] = "pid ${SOLIDWORKS_AGENT_PID}" },
             },
         });
 
@@ -71,7 +71,7 @@ namespace SwAgent.Tests.Plugins
         }
 
         [NodeFact]
-        public async Task The_server_is_a_direct_child_named_unify3d_and_answered_properly()
+        public async Task The_server_is_a_direct_child_named_solidworks_and_answered_properly()
         {
             using (var host = await Started(EchoPlugin()))
             {
@@ -79,11 +79,11 @@ namespace SwAgent.Tests.Plugins
                 // agent-bridge's mcp.mjs reports process.ppid as agent_pid, and hook.mjs binds through it: it must be
                 // SolidWorks (here the test process), not a cmd.exe wrapper.
                 Assert.Equal(Process.GetCurrentProcess().Id, (int)who["ppid"]);
-                Assert.Equal("unify3d-agent", (string)who["clientName"]);
+                Assert.Equal("solidworks-agent", (string)who["clientName"]);
                 Assert.True((bool)who["initialized"]);
                 Assert.Equal(Session.ProjectDir.TrimEnd('\\'), ((string)who["cwd"]).TrimEnd('\\'), StringComparer.OrdinalIgnoreCase);
                 Assert.Equal(host.Session.Id, (string)who["env"]["CLAUDE_CODE_SESSION_ID"]);
-                Assert.Equal("1", (string)who["env"]["UNIFY3D"]);
+                Assert.Equal("1", (string)who["env"]["SOLIDWORKS_AGENT"]);
                 Assert.Equal("pid " + Process.GetCurrentProcess().Id, (string)who["env"]["EXTRA"]);
                 Assert.Equal(FixtureDir, (string)who["env"]["CLAUDE_PLUGIN_ROOT"]);
                 // The server's own requests got answers: ping a result, roots/list "method not found".

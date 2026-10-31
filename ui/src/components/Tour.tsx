@@ -41,7 +41,7 @@ export function Tour() {
     {
       id: "welcome",
       icon: <BrandMark size={30} />,
-      title: "Welcome to Unify3D Agent",
+      title: "Welcome to SolidWorks Agent",
       body: (
         <>
           <p>An AI engineer that works inside SolidWorks. It reads and changes your models through the SolidWorks API, builds one-click tools for your shop, and tells you what it did.</p>
@@ -115,7 +115,7 @@ export function Tour() {
       title: "Tools and workflows",
       body: (
         <>
-          <p>Ask the agent to build a tool and it becomes a button on the Unify3D ribbon tab - run it on a selection or give it a hotkey.</p>
+          <p>Ask the agent to build a tool and it becomes a button on the SolidWorks Agent ribbon tab - run it on a selection or give it a hotkey.</p>
           <p className="mt-1.5">
             Built in: <b>Smart Rebuild</b> for deep design changes, and <b>Watch me</b>, which records what you do and turns it into a tool.
           </p>
@@ -166,7 +166,7 @@ export function Tour() {
   if (!current) return null;
 
   return (
-    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal aria-label="Unify3D Agent tour">
+    <div className="fixed inset-0 z-[60]" role="dialog" aria-modal aria-label="SolidWorks Agent tour">
       {/* The dimmed panel, with the step's control cut out of it (an even-odd path: robust where huge box-shadows aren't). */}
       <svg className="absolute inset-0 h-full w-full" aria-hidden>
         <path

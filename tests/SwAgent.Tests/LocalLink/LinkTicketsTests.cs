@@ -34,7 +34,7 @@ namespace SwAgent.Tests.LocalLink
             var b = tickets.Create("u3d_b", "claude-desktop", LinkTickets.Working);
             tickets.SetState(new[] { "u3d_b" }, LinkTickets.Approval);
             Assert.Equal(LinkTickets.Approval, b.State);
-            Assert.StartsWith("Unify3D is waiting for the user to approve", (string)tickets.Result(b)["note"]);
+            Assert.StartsWith("SolidWorks Agent is waiting for the user to approve", (string)tickets.Result(b)["note"]);
             tickets.SetState(new[] { "u3d_b" }, LinkTickets.Working);
             Assert.Equal(LinkTickets.Working, b.State);
             Assert.False(tickets.Finish(new[] { "u3d_a" }, "working", null, null)); // not a final state
@@ -43,10 +43,10 @@ namespace SwAgent.Tests.LocalLink
         [Fact]
         public void States_have_plain_notes()
         {
-            Assert.Equal("Unify3D is still working on it. Call get_unify3d_answer with ticket \"u3d_1\" to get the answer.", LinkTickets.Note("u3d_1", "working", null, null));
-            Assert.Equal("The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket \"u3d_1\" later.", LinkTickets.Note("u3d_1", "queued", null, null));
-            Assert.Equal("Unify3D has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_unify3d_answer with ticket \"u3d_1\" later.", LinkTickets.Note("u3d_1", "paused", null, null));
-            Assert.Equal("Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. Tell the user, then call get_unify3d_answer with ticket \"u3d_1\".",
+            Assert.Equal("SolidWorks Agent is still working on it. Call get_solidworks_agent_answer with ticket \"u3d_1\" to get the answer.", LinkTickets.Note("u3d_1", "working", null, null));
+            Assert.Equal("The SolidWorks Agent chat is busy (or the panel is still loading). Your message goes next. Call get_solidworks_agent_answer with ticket \"u3d_1\" later.", LinkTickets.Note("u3d_1", "queued", null, null));
+            Assert.Equal("SolidWorks Agent has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_solidworks_agent_answer with ticket \"u3d_1\" later.", LinkTickets.Note("u3d_1", "paused", null, null));
+            Assert.Equal("SolidWorks Agent is waiting for the user to approve a change (or answer a question) in the SolidWorks Agent panel in SolidWorks. Tell the user, then call get_solidworks_agent_answer with ticket \"u3d_1\".",
                 LinkTickets.Note("u3d_1", "approval", null, null));
             Assert.Equal("The user stopped the agent before it finished.", LinkTickets.Note("u3d_1", "stopped", "", null));
             Assert.Equal("The agent's turn failed: Overloaded.", LinkTickets.Note("u3d_1", "failed", null, "Overloaded."));

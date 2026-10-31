@@ -58,8 +58,8 @@ namespace SwAgent.Tests.Plugins
                 ["AGENT_BRIDGE_HOME"] = home,
                 ["AGENT_BRIDGE_URL"] = "http://127.0.0.1:9", // a closed local port: never the real hub
                 ["AGENT_BRIDGE_TOKEN"] = null,
-                ["AGENT_BRIDGE_NAME"] = "Unify3D SolidWorks - ${UNIFY3D_DEVICE}",
-                ["AGENT_BRIDGE_OWNER_PID"] = "${UNIFY3D_PID}",
+                ["AGENT_BRIDGE_NAME"] = "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}",
+                ["AGENT_BRIDGE_OWNER_PID"] = "${SOLIDWORKS_AGENT_PID}",
             });
             plugin.Root = dir;
             var finished = new ConcurrentQueue<(string ev, string template, int code, string stdout, string stderr)>();
@@ -88,7 +88,7 @@ namespace SwAgent.Tests.Plugins
                 await host.SyncAsync();
                 var info = host.Info();
                 // Every event the plugin declares that the runtime knows (newer agent-bridge builds add PreToolUse,
-                // matched to Claude Code's AskUserQuestion/ExitPlanMode, which never fires for Unify3D tools).
+                // matched to Claude Code's AskUserQuestion/ExitPlanMode, which never fires for SolidWorks Agent tools).
                 Assert.Equal(hooks.Properties().Select(p => p.Name).Where(HookEvents.All.Contains).OrderBy(x => x),
                     ((JObject)info["hookEvents"]).Properties().Select(p => p.Name).Where(n => n != "PermissionRequest").OrderBy(x => x));
                 Assert.Subset(new HashSet<string>(((JObject)info["hookEvents"]).Properties().Select(p => p.Name)),

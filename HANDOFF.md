@@ -1,4 +1,4 @@
-# Handoff: Unify3D Agent, and the "Design compression mold" tool
+# Handoff: SolidWorks Agent, and the "Design compression mold" tool
 
 This document is for a coding agent picking up this project with no previous context. Read it all before changing anything. You have access to the same project folder the previous agent worked in, described below.
 
@@ -6,9 +6,11 @@ Written 2026-10-20 at the end of a long session. Its last step, a multi-angle re
 
 ---
 
+**Renamed 2026-10-30 from Unify3D Agent to SolidWorks Agent** (repo `msmith297/solidworks-agent`; the old URL redirects). What deliberately kept the old name: the custom properties `Unify3D.MoldRecord` / `Unify3D.MoldId` and the `unify3d.mold*` schema ids (they are stored in the user's part files and mold records), this working folder's path, and the `SwAgent` code namespace and data folder (never carried the old name). `PluginManager.MigrateRename` moves an old installed.json to the new ids; plugin.json and marketplace files with an old `unify3d` block still load. Brand images come from `tools/dev/brand/make_brand.py`.
+
 ## 1. The project in one paragraph
 
-**Unify3D Agent** is a SolidWorks add-in with an AI agent that reads and changes the user's CAD models through the SolidWorks API.
+**SolidWorks Agent** is a SolidWorks add-in with an AI agent that reads and changes the user's CAD models through the SolidWorks API.
 - **Add-in:** C# net48, using xCAD and Roslyn scripting. It runs inside SOLIDWORKS 2026.
 - **Panel:** a chat panel built with React, TypeScript, zustand and Vite, hosted in WebView2. It calls the model provider's API directly (Claude or OpenAI): the loop in `ui/src/agent/runAgent.ts`, the adapters in `ui/src/agent/providers/` (section 13).
 - **Tools:** the agent's tools are C# `[AgentTool]` classes (`src/SwAgent/Tools/*.cs`) plus `execute_csharp` cells.
@@ -16,7 +18,7 @@ Written 2026-10-20 at the end of a long session. Its last step, a multi-angle re
 - **Built-in tools:** the add-in ships these in the same folder format.
 
 The owner (GitHub `msmith297`) runs a PU / resin compression-molding shop. They test everything themselves in SolidWorks on their PC, and they are building this as a product.
-- Repo: `msmith297/unify3d-agent`. Releases and nightlies are published on GitHub (section 6).
+- Repo: `msmith297/solidworks-agent`. Releases and nightlies are published on GitHub (section 6).
 
 ## 2. Where things are: read this first
 
@@ -25,7 +27,7 @@ The owner (GitHub `msmith297`) runs a PU / resin compression-molding shop. They 
 | **Your working folder** (a normal git checkout) | `C:\Users\msmit\Desktop\Software Projects\Unify3D Agent` |
 | Its branch | `claude/awesome-blackburn-350fc3`. **Not pushed:** 84 commits ahead of `origin` on 2026-10-21 (mold tool, plugins). origin is at `d6fc975`. |
 | `main` | A local branch in the same repo, at `d51979b` (switch with `git switch main`). Main has everything up to `d6fc975` (PR #1, merged). It has **neither** the built-in-tools refactor (`f299941`) nor the mold tool. |
-| **What SolidWorks actually loads** | `<working folder>\src\SwAgent\bin\Release\net48\SwAgent.dll`. The COM code base is registered there. **Installed 2026-10-26 22:51: commit `dc8431d`** (everything on the branch: Claude MCP / Codex MCP plugins and the "Unify3D" marketplace name, messages from the user's agents trusted by default, several named markups per message (M1, M2...), SolidWorks message boxes answered during tool calls, window housekeeping with close_documents; built in the project folder. Gotcha: the side-copy installs before it left newer-dated builtin-plugins/builtin-tools files that MSBuild's PreserveNewest then kept, so after this build the two folders were refreshed from plugins/ and tools/builtin/ with robocopy /IS /IT and diffed identical - after any side-copy install, check `diff -rq plugins bin/Release/net48/builtin-plugins`). Before that, 17:11: `c80b4be` plus the listener fix `2f45ad9` (built in a separate worktree while the local MCP work was being finished, so the Claude MCP / Codex MCP plugins and "Unify3D" marketplace name are NOT in it yet; on top: Update button only when an update exists, `read_bridge_file`, plugin settings grouped by plugin, agent-bridge's listener restarted after a plugin update). Before that, 15:20: `a332038` (agent-bridge reads as messages in the chat: readable MCP titles, bridge calls folded into the summary line, wake summaries, a quiet Stop reminder; one persistent agent-bridge connection per PC that talks to the open chat, listening always, section 7 item 3; agent-bridge wakes from the user's own console follow the approval setting, Options > Plugins > "Trust my agent-bridge console"; on top of model providers: Claude + OpenAI, section 13; agent efficiency, plugin creator v2, standing instructions and fork_tool, tool profiles, question timeout); not yet confirmed in SolidWorks (hand checks: sections 9-13; OpenAI needs the user's key). Backups in `C:\Users\msmit\Documents\Unify3D Agent backups\`: `Release-net48-2026-10-26-c80b4be-listener` (the previous install), `Release-net48-2026-10-26-c80b4be`, `Release-net48-2026-10-26-a332038`, `Release-net48-2026-10-26-3dc8aa7`, `Release-net48-2026-10-26-17730c2`, `Release-net48-2026-10-23-a96f71d`, `Release-net48-2026-10-22-7a2bf2d` (the previous install, 2026-10-22 23:02, same code as `7a2bf2d`), `Release-net48-2026-10-22-d6479fd` and `Release-net48-2026-10-17-f299941`: to roll back, close SolidWorks and copy one over `bin\Release\net48`. The dev tool `tools/dev/page-test` is copied to `%APPDATA%\SwAgent\tools\page-test` for the page checks; remove it after. |
+| **What SolidWorks actually loads** | `<working folder>\src\SwAgent\bin\Release\net48\SwAgent.dll`. The COM code base is registered there. **Installed 2026-10-26 22:51: commit `dc8431d`** (everything on the branch: Claude MCP / Codex MCP plugins and the "SolidWorks Agent" marketplace name, messages from the user's agents trusted by default, several named markups per message (M1, M2...), SolidWorks message boxes answered during tool calls, window housekeeping with close_documents; built in the project folder. Gotcha: the side-copy installs before it left newer-dated builtin-plugins/builtin-tools files that MSBuild's PreserveNewest then kept, so after this build the two folders were refreshed from plugins/ and tools/builtin/ with robocopy /IS /IT and diffed identical - after any side-copy install, check `diff -rq plugins bin/Release/net48/builtin-plugins`). Before that, 17:11: `c80b4be` plus the listener fix `2f45ad9` (built in a separate worktree while the local MCP work was being finished, so the Claude MCP / Codex MCP plugins and "SolidWorks Agent" marketplace name are NOT in it yet; on top: Update button only when an update exists, `read_bridge_file`, plugin settings grouped by plugin, agent-bridge's listener restarted after a plugin update). Before that, 15:20: `a332038` (agent-bridge reads as messages in the chat: readable MCP titles, bridge calls folded into the summary line, wake summaries, a quiet Stop reminder; one persistent agent-bridge connection per PC that talks to the open chat, listening always, section 7 item 3; agent-bridge wakes from the user's own console follow the approval setting, Options > Plugins > "Trust my agent-bridge console"; on top of model providers: Claude + OpenAI, section 13; agent efficiency, plugin creator v2, standing instructions and fork_tool, tool profiles, question timeout); not yet confirmed in SolidWorks (hand checks: sections 9-13; OpenAI needs the user's key). Backups in `C:\Users\msmit\Documents\Unify3D Agent backups\`: `Release-net48-2026-10-26-c80b4be-listener` (the previous install), `Release-net48-2026-10-26-c80b4be`, `Release-net48-2026-10-26-a332038`, `Release-net48-2026-10-26-3dc8aa7`, `Release-net48-2026-10-26-17730c2`, `Release-net48-2026-10-23-a96f71d`, `Release-net48-2026-10-22-7a2bf2d` (the previous install, 2026-10-22 23:02, same code as `7a2bf2d`), `Release-net48-2026-10-22-d6479fd` and `Release-net48-2026-10-17-f299941`: to roll back, close SolidWorks and copy one over `bin\Release\net48`. The dev tool `tools/dev/page-test` is copied to `%APPDATA%\SwAgent\tools\page-test` for the page checks; remove it after. |
 | Old location (stale) | Until 2026-10-20 the project lived in `C:\Users\msmit\Documents\Claude Code\SolidWorks Agent Plugin`, with the work in the worktree `.claude\worktrees\awesome-blackburn-350fc3`. It was copied here whole (git history, build outputs, `ui\node_modules`, the gitignored `MECAGENT_TEARDOWN.md`). The old folder is a stale copy: don't work there. The user may delete it. The six merged parallel-build branches (`worktree-wf_71b3d5bb-873-N`) were deleted here. |
 | User data, per PC; never commit it | `%APPDATA%\SwAgent\` holds: <ul><li>settings.json</li><li>apikey.bin (the encrypted Anthropic API key) and apikey-openai.bin (OpenAI's)</li><li>tools\ (the user's own tools: flash-grooves, parametric-block, pu-compression-mold)</li><li>builtin-settings.json</li><li>last-inputs\</li><li>builtin-data\</li></ul> `%LOCALAPPDATA%\SwAgent\` holds: <ul><li>chats\ (workspace chats)</li><li>logs\</li><li>crash-guard.json</li><li>snapshots\ (Smart Rebuild journals and checkpoints)</li><li>speech\ (Whisper models)</li></ul> |
 | Persistent memory of earlier sessions | `C:\Users\msmit\.claude\projects\C--Users-msmit-Desktop-Software-Projects-Unify3D-Agent\memory\` (MEMORY.md + files, copied from the old project's memory folder) |
@@ -108,7 +110,7 @@ All commands run from the working folder.
 | Agent tools | `src/SwAgent/Tools/MoldTools.cs`, registered in `AgentAddIn.BuildTools`: <ul><li>`mold_calc`;</li><li>`mold_part`: draft, undercuts, projection and outline, parting-line candidates, air traps, fragile features;</li><li>`mold_bodies`: report, clearance, STEP export;</li><li>`mold_record`: the design record `<mold>.mold\mold.json`, setup and machining sheets, `record_status:` lines.</li></ul> |
 | SolidWorks helpers | `src/SwAgent/Mold/Geometry/**`. `MoldApi` is exposed to code cells as `Mold.*`: <ul><li>InsertPart (with import validation), Orient;</li><li>a `MOLD CS` coordinate system and ScaleForShrink about it;</li><li>CopyBody, Plate, Subtract, SplitByPlane, Folder, SetBodyMaterial;</li><li>FlashGrooves (port of the user's macro), holes.</li></ul> Also: RebuildTools checkpoints keyed by mold id, overlay `face` items, `.slddrw` → PDF attachments with a 20 MB cap. |
 | Page extensions | `Tools/Units.cs`, `Tools/ToolData.cs`, and big changes to `UI/ToolPage.cs`, `Tools/ToolSpec.cs`, `Scripting/ToolInputs.cs`, `Tools/ToolRunner.cs`. Features: <ul><li>units for pressure, temperature, mass, force, tonnage, viscosity and time, with per-field `UnitChoices`;</li><li>data-driven dropdowns: `ChoicesFrom`, `DependsOn`, `RowFilter`, `ValueMap`, `Fills` with an optional `|unit`;</li><li>`Optional`/`Enabled`, a `size` type, an `info` type, `ShowWhen`, `Remember`, `GroupExpanded`.</li></ul> A dev test tool is in `tools/dev/page-test/`. |
-| Panel and registry | `UserTools.cs`: categories, `long_run`, `max_steps`, `requires`, `ribbon_title`. `UnifyRibbon.cs`: one box per category. `ToolsPalette.tsx`: sections per category. `runAgent.ts`: maxSteps and a 1-hour cache TTL for long runs. `store.ts`: sticky long-run settings with limits. Plus the `ask_selection` UI tool with SelectionCard, and systemPrompt additions. |
+| Panel and registry | `UserTools.cs`: categories, `long_run`, `max_steps`, `requires`, `ribbon_title`. `AgentRibbon.cs`: one box per category. `ToolsPalette.tsx`: sections per category. `runAgent.ts`: maxSteps and a 1-hour cache TTL for long runs. `store.ts`: sticky long-run settings with limits. Plus the `ask_selection` UI tool with SelectionCard, and systemPrompt additions. |
 | Registry safety | `ToolRegistry.SchemaFor` handles JToken and dictionaries and has a depth limit. A test builds the schema of every `[AgentTool]` input, because a JObject input once meant a stack overflow at add-in load. |
 
 ### 5.3 What is NOT done: do these next, in order
@@ -180,17 +182,17 @@ To read a future SolidWorks crash dump: unzip the newest `%LOCALAPPDATA%\SolidWo
 | Agent loop and API usage | `ui/src/agent/runAgent.ts` (the provider-neutral loop) and `ui/src/agent/providers/` (Claude and OpenAI adapters: requests, streaming, caching, context clearing, history translation); section 13 |
 | Panel state | `ui/src/store.ts` |
 | Tool registry and pages | `src/SwAgent/Tools/{UserTools,ToolSpec,ToolRunner,ToolRegistry}.cs`, `src/SwAgent/UI/ToolPage.cs` |
-| Ribbon | `src/SwAgent/UI/UnifyRibbon.cs`. Tools reach the ribbon only after a SolidWorks restart, through the "Save and restart" offer. |
+| Ribbon | `src/SwAgent/UI/AgentRibbon.cs`. Tools reach the ribbon only after a SolidWorks restart, through the "Save and restart" offer. |
 | Crash protection | `Infrastructure/CrashGuard.cs`, `Safe.cs`, `SwBusy.cs`. Undo of agent changes: `Tools/UndoLedger.cs`. |
 | Smart Rebuild | `tools/builtin/smart-rebuild/TOOL.md`, `Tools/RebuildTools.cs`, `Tools/DesignSnapshot.cs` |
-| Release and installer | `.github/workflows/release.yml`, `installer/Unify3DAgent.iss`, `NIGHTLY_NOTES.md`, `RELEASE_NOTES.md` |
+| Release and installer | `.github/workflows/release.yml`, `installer/SolidWorksAgent.iss`, `NIGHTLY_NOTES.md`, `RELEASE_NOTES.md` |
 
 ## 7. Plugins (built 2026-10-21; review fixes applied the same day)
 
-**What it is.** Claude Code compatible plugins for the add-in, plus Unify3D tools inside plugins: a plugin store, `/`
+**What it is.** Claude Code compatible plugins for the add-in, plus SolidWorks Agent tools inside plugins: a plugin store, `/`
 commands and `@` tags in the composer, skills, sub-agents (`run_agent`), hooks (Claude Code protocol), MCP servers
 (stdio), and tool inputs as a form in the chat panel instead of the PropertyManager page. The first plugin is Agent
-Bridge (the real agent-bridge plugin, installed by reference, plus the `agent-bridge-unify3d` overlay). Read
+Bridge (the real agent-bridge plugin, installed by reference, plus the `agent-bridge-solidworks` overlay). Read
 `docs/plugins/design.md` (the design, with review notes) and `docs/plugins/authoring.md` (what a plugin author sees,
 including the known limitations in sections 6, 8 and 10).
 
@@ -206,7 +208,7 @@ installed: the Release build SolidWorks loads is in section 2.
 | MCP client and host (stdio; `mcp__<server>__<tool>` in `tools.list`/`tools.run`; user servers in `%APPDATA%\SwAgent\mcp.json`) | `src/SwAgent/Mcp/McpClient.cs`, `McpHost.cs` |
 | Tool forms in the panel | `src/SwAgent/Tools/ToolFormBridge.cs` (`ToolFormSession`), the `ToolRunner` branch; `ui/src/components/ToolFormCard.tsx`, `ui/src/lib/toolForm.ts`, `toolFormLogic.ts`, `toolFormMock.ts`; setting "Tool inputs: Panel / PropertyManager page" |
 | Panel | `ui/src/components/PluginsScreen.tsx`, `SlashMenu.tsx`, `Composer.tsx` (slash/@ popups, narrow row), `ui/src/store.ts` (plugin state, hooks around turns, wakes, `run_agent`), `ui/src/agent/runAgent.ts`, `ui/src/lib/hooks.ts`, `commands.ts`, `mockHost.ts` |
-| Content | `plugins/.claude-plugin/marketplace.json` (the built-in marketplace: id "unify3d", shown as "Unify3D"; copied to `builtin-plugins\`), `plugins/agent-bridge-unify3d/`, `tools/builtin/create-plugin/` |
+| Content | `plugins/.claude-plugin/marketplace.json` (the built-in marketplace: id "solidworks-agent", shown as "SolidWorks Agent"; copied to `builtin-plugins\`), `plugins/agent-bridge-solidworks/`, `tools/builtin/create-plugin/` |
 | User data (per PC; tests redirect it with `SWAGENT_DATA_DIR`) | `%APPDATA%\SwAgent\plugins\` (`installed.json`, `marketplaces\`, `cache\`, `local\`, `data\`, `secrets\`, `session.json`), `%APPDATA%\SwAgent\mcp.json`, `%LOCALAPPDATA%\SwAgent\plugins\transcripts` |
 
 **How to test.**
@@ -252,27 +254,27 @@ installed: the Release build SolidWorks loads is in section 2.
    closing the document while a form is open); MCP tools through `tools.run`; hooks (SessionStart at boot, Stop
    `--listen`, wakes into the chat); the narrow composer at 280 px.
 2. **The live agent-bridge acceptance, design section 6**, with the real hub: the agent shows in `list_peers` as
-   "Unify3D SolidWorks - <device>"; a console message arrives (UserPromptSubmit context, or a wake when idle); it
+   "SolidWorks Agent - <device>"; a console message arrives (UserPromptSubmit context, or a wake when idle); it
    replies with `send_message`; "listen always" survives a SolidWorks restart - **this last one fails until item 3**.
 3. **Done 2026-10-26: one persistent agent-bridge connection per PC.** agent-bridge main `70feb8b` (made by Bridge
    Manager@Windows Desktop) registers non-Claude/Codex hosts with `AGENT_BRIDGE_SESSION_ID`; the hub already takes over
-   a known session's row (name, renames, listening, project, DM thread). Unify3D's built-in entry sets
+   a known session's row (name, renames, listening, project, DM thread). SolidWorks Agent's built-in entry sets
    `AGENT_BRIDGE_SESSION_ID=${CLAUDE_CODE_SESSION_ID}` (the PC id from `plugins\session.json`) and
    `AGENT_BRIDGE_LISTEN=always`; built-in entry env now applies to an existing install at once
    (`PluginManager.EntryEnv`). Wakes go to the chat open in the panel (store `wakeThread`), or start the new-chat page's
-   chat. Live check (restart SolidWorks twice: one "Unify3D SolidWorks - <device>" chat, listening) still to do.
+   chat. Live check (restart SolidWorks twice: one "SolidWorks Agent - <device>" chat, listening) still to do.
    The original note, kept for history: **agent-bridge needs a change** (not made: it is another repository, and changing it means a push): its
    `client/mcp.mjs` trusts `CLAUDE_CODE_SESSION_ID` only for clients named "claude". Proposed: in `register()`,
-   `SESSION_ID = kind === 'claude' || process.env.UNIFY3D === '1' ? CLAUDE_SESSION_ID : null;` (or the hub's
+   `SESSION_ID = kind === 'claude' || process.env.SOLIDWORKS_AGENT === '1' ? CLAUDE_SESSION_ID : null;` (or the hub's
    `requirePeer` re-links a stale row for any kind but Claude, as it does for Codex). Until then, after a SolidWorks or
    server restart the hooks can stay bound to the old offline row: no mail injection, no wakes, name and listening lost.
-   Renaming Unify3D's MCP client to something with "claude" is not the fix (it would join the user's Claude app on the
-   hub: account, Bridge Manager, revive requests). Also decide whether Unify3D should listen "always" by default
-   (`"AGENT_BRIDGE_LISTEN": "always"` in the marketplace entry's `unify3d.env`); it is off now.
+   Renaming SolidWorks Agent's MCP client to something with "claude" is not the fix (it would join the user's Claude app on the
+   hub: account, Bridge Manager, revive requests). Also decide whether SolidWorks Agent should listen "always" by default
+   (`"AGENT_BRIDGE_LISTEN": "always"` in the marketplace entry's `solidworksAgent.env`); it is off now.
    **Decided by the user (2026-10-21):** `github.com/msmith297/agent-bridge` stays **private**. Installing it from the
    built-in marketplace therefore works only where git already has the user's GitHub credentials (the git-subdir
    source; the zip fallback 404s). First-party approved plugins will get **a separate public repository** (a public
-   marketplace of approved plugins; not created yet). When it exists, the built-in "unify3d" marketplace and the store
+   marketplace of approved plugins; not created yet). When it exists, the built-in "solidworks-agent" marketplace and the store
    should list it, and first-party entries should point there.
 4. **Known limitation:** with agent-bridge on a local hub, the broker `mcp.mjs` starts lands in the add-in's job objects
    and dies with that MCP server or SolidWorks (documented in authoring.md section 10).
@@ -497,13 +499,12 @@ longer Claude's by default for a new provider.
 
 ## 14. Claude MCP and Codex MCP (local link) (built 2026-10-26; ADDIN and CLIENT tracks, integration, then a review pass)
 
-**What it is.** Two plugins in the built-in marketplace (which now shows as "Unify3D"; the id stays `unify3d`, so
-`agent-bridge@unify3d` is unchanged). Installing **Claude MCP** or **Codex MCP** adds one local stdio MCP server named
-`unify3d` to Claude Desktop's or Codex's config, after the trust dialog names the file and the program. Turning the
+**What it is.** Two plugins in the built-in marketplace (id `solidworks-agent`, shown as "SolidWorks Agent"). Installing **Claude MCP** or **Codex MCP** adds one local stdio MCP server named
+`solidworks-agent` to Claude Desktop's or Codex's config, after the trust dialog names the file and the program. Turning the
 plugin off or uninstalling it removes exactly that entry. No hub, no network port, no Node: most users won't run
-agent-bridge, and this needs none of it. Tools: `ask_unify3d` (the message arrives in the open chat as "Message from
+agent-bridge, and this needs none of it. Tools: `ask_solidworks_agent` (the message arrives in the open chat as "Message from
 Claude Desktop", follows the wake rules - hourly limit, a busy chat holds it - and never auto-approves; the answer
-comes back when the turn ends, or a ticket for `get_unify3d_answer`), `unify3d_status`, and four read-only model tools
+comes back when the turn ends, or a ticket for `get_solidworks_agent_answer`), `solidworks_status`, and four read-only model tools
 (model summary, feature tree, selection, open documents). When SolidWorks isn't running the tools say so. Design and
 contract: `docs/plugins/local-mcp.md` (section 1 is the one-page summary; section 10 the build split and tests).
 
@@ -511,53 +512,53 @@ contract: `docs/plugins/local-mcp.md` (section 1 is the one-page summary; sectio
 
 | What | Where |
 |---|---|
-| The pipe | `\\.\pipe\Unify3D.Agent.Link.<user SID>.<session id>` (`LinkProtocol.DefaultPipeName`), current user only, NETWORK denied, owner = the user. Served by one SolidWorks at a time (mutex `Local\Unify3D.Agent.Link.<SID>`), only while a link plugin is on and approved. |
-| The MCP program | `Unify3D.LocalMcp.exe` (net48), built into `bin\<config>\net48\local-mcp\`, copied on install to `%LOCALAPPDATA%\SwAgent\local-mcp\` (the path the configs name). Log: its stderr, which the client keeps (Claude Desktop: `%APPDATA%\Claude\logs\mcp-server-unify3d.log`). |
-| Claude Desktop's config | `%APPDATA%\Claude\claude_desktop_config.json`, or the MSIX copy `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\` when that one is newer (`ClientLocator`). Entry: `mcpServers.unify3d = { command: <exe>, args: ["--client", "claude-desktop"] }`. |
-| Codex's config | `%CODEX_HOME%\config.toml`, else `%USERPROFILE%\.codex\config.toml`. Entry: a marked block `# >>> unify3d ... >>>` / `[mcp_servers.unify3d]` / `# <<< unify3d <<<`. |
-| Unify3D's own records | `%APPDATA%\SwAgent\plugins\data\claude-mcp\` (or `codex-mcp\`): `backups\` (the client's file before each change, newest 5; may hold other servers' keys, never logged), `link-written.json` (when Unify3D last wrote it; `createdMcpServers` when Unify3D added Claude Desktop's `mcpServers` object), `link-seen.json` (the client's last hello: "Connected"). |
+| The pipe | `\\.\pipe\SolidWorksAgent.Link.<user SID>.<session id>` (`LinkProtocol.DefaultPipeName`), current user only, NETWORK denied, owner = the user. Served by one SolidWorks at a time (mutex `Local\SolidWorksAgent.Link.<SID>`), only while a link plugin is on and approved. |
+| The MCP program | `SolidWorksAgent.LocalMcp.exe` (net48), built into `bin\<config>\net48\local-mcp\`, copied on install to `%LOCALAPPDATA%\SwAgent\local-mcp\` (the path the configs name). Log: its stderr, which the client keeps (Claude Desktop: `%APPDATA%\Claude\logs\mcp-server-solidworksAgent.log`). |
+| Claude Desktop's config | `%APPDATA%\Claude\claude_desktop_config.json`, or the MSIX copy `%LOCALAPPDATA%\Packages\Claude_*\LocalCache\Roaming\Claude\` when that one is newer (`ClientLocator`). Entry: `mcpServers.solidworks-agent = { command: <exe>, args: ["--client", "claude-desktop"] }`. |
+| Codex's config | `%CODEX_HOME%\config.toml`, else `%USERPROFILE%\.codex\config.toml`. Entry: a marked block `# >>> solidworks-agent ... >>>` / `[mcp_servers.solidworks-agent]` / `# <<< solidworks-agent <<<`. |
+| SolidWorks Agent's own records | `%APPDATA%\SwAgent\plugins\data\claude-mcp\` (or `codex-mcp\`): `backups\` (the client's file before each change, newest 5; may hold other servers' keys, never logged), `link-written.json` (when SolidWorks Agent last wrote it; `createdMcpServers` when SolidWorks Agent added Claude Desktop's `mcpServers` object), `link-seen.json` (the client's last hello: "Connected"). |
 | Shared pipe contract (both sides compile it) | `src/Shared/LocalLinkProtocol.cs` |
 | Add-in: pipe server, tickets, the request handler (policy, wakes, status and read tools on the UI thread, `localLink.*` RPCs) | `src/SwAgent/Plugins/LocalLink/{LinkServer,LinkTickets,LinkHost}.cs`; wiring in `AgentController.cs` (`AttachBridge`, the `RunToolAsync` overload), `RuntimeHost.QueueLinkWake`, `Session` (wake `ticket` and `from`) |
 | The MCP program's source (both MCP protocol eras, 7 tools, all model-facing text) | `src/SwAgent.LocalMcp/` (`ToolCatalog.cs` has every description and message) |
 | Config writers, locator, deployer, status notes | `src/SwAgent/Plugins/ClientLinks/*.cs`; the install/enable/uninstall hooks, the trust link hash and `RepairLink` in `PluginManager.cs`; `plugins.repairLink` in `PluginsBridge.cs` |
-| Content | `plugins/claude-mcp/`, `plugins/codex-mcp/`, their entries (`unify3d.registerMcpIn`) and `unify3d.displayName` in `plugins/.claude-plugin/marketplace.json` |
+| Content | `plugins/claude-mcp/`, `plugins/codex-mcp/`, their entries (`solidworksAgent.registerMcpIn`) and `solidworksAgent.displayName` in `plugins/.claude-plugin/marketplace.json` |
 | Panel | `ui/src/lib/localLink.ts`, `store.ts` (ticketed wakes, the answer report, the `approval` state while a card is open), `ChatView.tsx` ("Message from Claude Desktop"), `PluginsScreen.tsx` (link notes, Repair, "Changes to another app" in the trust dialog, the restart notice after install and uninstall), `mockHost.ts` (`?link=missing|restart|connected`, `__mockWake({ from, ticket, text })`) |
 
 **Automated tests.** `tests/SwAgent.Tests/LocalLink/` (pipe server incl. the squatting refusal, host, tickets, the exe
 over stdio against a fake server, and `LocalLinkIntegrationTests`: the real exe started from the written config entry,
 the real pipe server, a fake panel's answer) and
 `tests/SwAgent.Tests/Plugins/{ClaudeDesktopConfig,CodexConfig,ClientLinkPlugin,LocalMcpDeployer,MarketplaceDisplayName}Tests.cs`.
-The exe tests need the Debug build first (they run `bin\Debug\net48\local-mcp\Unify3D.LocalMcp.exe`). Tests use test
+The exe tests need the Debug build first (they run `bin\Debug\net48\local-mcp\SolidWorksAgent.LocalMcp.exe`). Tests use test
 pipe and mutex names and fake client folders; `ClientLocator.Default` uses `<test root>\Clients` under
 `SWAGENT_DATA_DIR`, and a guard test fails if a test names the real Claude Desktop folder. **Never write the real
 `%APPDATA%\Claude` or `~\.codex` files from a test.** Panel: `lib.check.mjs` and `integration.check.mjs`.
 
 **How to test by hand** (needs a Release install, so only when the user asks for one; SolidWorks closed for the build):
-1. Claude Desktop: in SolidWorks, Unify3D > Plugins > Discover > Unify3D > Claude MCP > Install. The trust dialog names
+1. Claude Desktop: in SolidWorks, SolidWorks Agent > Plugins > Discover > SolidWorks Agent > Claude MCP > Install. The trust dialog names
    the config file and the exe. After install the notice says to quit Claude Desktop from the tray and open it again.
-   Check the file has `mcpServers.unify3d` and nothing else changed (compare with the newest file in `backups\`).
-2. Restart Claude Desktop; Settings > Developer should list `unify3d` as running. Ask it "Ask the SolidWorks agent to
-   make a 100 mm cube". The message shows in the Unify3D panel as "Message from Claude Desktop"; the agent's change
+   Check the file has `mcpServers.solidworks-agent` and nothing else changed (compare with the newest file in `backups\`).
+2. Restart Claude Desktop; Settings > Developer should list `solidworks-agent` as running. Ask it "Ask the SolidWorks agent to
+   make a 100 mm cube". The message shows in the SolidWorks Agent panel as "Message from Claude Desktop"; the agent's change
    asks for approval in the panel (Claude Desktop is told "waiting for the user to approve"); approve; Claude Desktop
-   gets the answer. Try `unify3d_status` and "what's in my feature tree" with a part open, then with
+   gets the answer. Try `solidworks_status` and "what's in my feature tree" with a part open, then with
    "Let Claude Desktop read the open model" off (Plugins > Claude MCP > Settings): no document or chat title.
 3. Close SolidWorks and ask again: "SolidWorks isn't running..." quickly. Open two SolidWorks windows: one serves
    (log: "Another SolidWorks window serves the Claude/Codex link"), the other takes over when the first closes.
 4. Codex: the same with Codex MCP; Codex's `config.toml` gains the marked block at the end; restart Codex (or a new
-   CLI session); `codex mcp list` shows `unify3d`. Then turn the plugin off: the block goes and the file is byte for
+   CLI session); `codex mcp list` shows `solidworks-agent`. Then turn the plugin off: the block goes and the file is byte for
    byte what it was (diff against `backups\`).
-5. Uninstall each: the entry goes, the notice says to restart the app to drop its Unify3D tools.
+5. Uninstall each: the entry goes, the notice says to restart the app to drop its SolidWorks Agent tools.
 
 **Review fixes (2026-10-26).** The exe survives any JSON-RPC line (a non-string `method` got -32600 instead of
 killing it); bad arguments to a known tool are `isError` results; the exe refuses a pipe not owned by the current user,
 and the add-in creates its first instance with `FILE_FLAG_FIRST_PIPE_INSTANCE` (pipe-name squatting); Codex: an inline
 `mcp_servers = { ... }` is refused with a plain message instead of being broken, and a file without a final newline
 round-trips byte for byte; Claude Desktop: an `mcpServers` the user had is kept on uninstall, and the trust dialog no
-longer claims the file stays byte-identical (it may be re-indented); `unify3d_status` hides the document and chat title
+longer claims the file stays byte-identical (it may be re-indented); `solidworks_status` hides the document and chat title
 when model reading is off, and says "SolidWorks is busy" rather than "No document is open"; tool texts steer CAD work
-(including new parts with nothing open) to `ask_unify3d`; tickets have an `approval` state while a card waits in the
+(including new parts with nothing open) to `ask_solidworks_agent`; tickets have an `approval` state while a card waits in the
 panel; the panel shows turn-off warnings, the restart step after install and uninstall, "Claude Desktop sent a
-message" when turns are paused, and no doubled "Unify3D · Unify3D" subtitle.
+message" when turns are paused, and no doubled "SolidWorks Agent · SolidWorks Agent" subtitle.
 
 **What is open:**
 1. **Nothing has run in SolidWorks, Claude Desktop or Codex**, and nothing touched the real Claude Desktop or Codex
@@ -573,5 +574,5 @@ message" when turns are paused, and no doubled "Unify3D · Unify3D" subtitle.
 5. Claude Desktop's file is still re-serialized (2-space indent, numbers as read): values are kept, formatting may not
    be. A text splice like Codex's would make it byte-exact.
 6. "Connected" appears only after the client's first tool call (the exe connects lazily); the note says so.
-7. Later (design section 11): removing the entries when Unify3D itself is uninstalled, an `.mcpb` fallback, Claude Code
+7. Later (design section 11): removing the entries when SolidWorks Agent itself is uninstalled, an `.mcpb` fallback, Claude Code
    as a third client.

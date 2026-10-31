@@ -606,7 +606,7 @@ namespace SwAgent.Tools
 
             if (spec.Preview != null && spec.Paused.Contains("preview"))
             {
-                open.Session.PreviewMessage = "The live preview is paused: SolidWorks closed while drawing it last time. Ask Unify3D to fix this tool.";
+                open.Session.PreviewMessage = "The live preview is paused: SolidWorks closed while drawing it last time. Ask SolidWorks Agent to fix this tool.";
             }
             else if (spec.Preview != null)
             {

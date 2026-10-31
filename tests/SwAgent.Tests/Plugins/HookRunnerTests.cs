@@ -53,7 +53,7 @@ namespace SwAgent.Tests.Plugins
             try
             {
                 var plugin = Plugin("envy", Hooks(HookEvents.Stop, Group(null, Cmd(Hook("env")))),
-                    env: new Dictionary<string, string> { ["AGENT_BRIDGE_NAME"] = "Unify3D SolidWorks - ${UNIFY3D_DEVICE}" });
+                    env: new Dictionary<string, string> { ["AGENT_BRIDGE_NAME"] = "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}" });
                 using (var host = Runtime(out _, plugin))
                 {
                     var r = await Fire(host, HookEvents.Stop);
@@ -62,9 +62,9 @@ namespace SwAgent.Tests.Plugins
                     Assert.Equal(FixtureDir, (string)env["CLAUDE_PLUGIN_ROOT"]);
                     Assert.Equal(plugin.DataDir, (string)env["CLAUDE_PLUGIN_DATA"]);
                     Assert.Equal(Session.ProjectDir, (string)env["CLAUDE_PROJECT_DIR"]);
-                    Assert.Equal("1", (string)env["UNIFY3D"]);
-                    Assert.Equal(Process.GetCurrentProcess().Id.ToString(), (string)env["UNIFY3D_PID"]);
-                    Assert.Equal("Unify3D SolidWorks - " + Environment.MachineName, (string)env["AGENT_BRIDGE_NAME"]);
+                    Assert.Equal("1", (string)env["SOLIDWORKS_AGENT"]);
+                    Assert.Equal(Process.GetCurrentProcess().Id.ToString(), (string)env["SOLIDWORKS_AGENT_PID"]);
+                    Assert.Equal("SolidWorks Agent - " + Environment.MachineName, (string)env["AGENT_BRIDGE_NAME"]);
                     Assert.Equal(JTokenType.Null, env["ANTHROPIC_TEST_SECRET_B"].Type);
                     Assert.Equal(JTokenType.Null, env["OPENAI_TEST_SECRET_B"].Type);
                 }

@@ -133,7 +133,7 @@ tool, about 15 minutes). In short:
 
 ### The panel and the ribbon
 
-- The Unify3D tab shows a box per category (Compression Mold in "Molding & Toolmaking", then the user's categorised tools), the
+- The SolidWorks Agent tab shows a box per category (Compression Mold in "Molding & Toolmaking", then the user's categorised tools), the
   uncategorised built-ins, then the user's tools and New Tool; button hints start with "[Molding & Toolmaking]".
 - A long run (Design compression mold): the banner chip shows the run's model, effort, auto-approval and 600 steps; follow-ups in the
   same chat keep them while the mold document is active; `mold_record` writes end with `record_status: <status>`, and the run ends

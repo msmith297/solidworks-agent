@@ -295,7 +295,7 @@ namespace SwAgent.Plugins
             var unknown = names.Where(n => !p.Manifest.McpServers.ContainsKey(n)).ToList();
             if (unknown.Count > 0) return ToolResult.Error($"'{p.Name}' has no MCP server '{unknown[0]}'. Its servers: {string.Join(", ", p.Manifest.McpServers.Keys)}.");
 
-            var data = Path.Combine(Path.GetTempPath(), "unify3d-try-" + Guid.NewGuid().ToString("N").Substring(0, 12));
+            var data = Path.Combine(Path.GetTempPath(), "solidworks-agent-try-" + Guid.NewGuid().ToString("N").Substring(0, 12));
             var options = pm.Options(p);
             // Values the user entered stay out of what the agent reads, even when a server prints them.
             var secrets = options.Values.Where(o => o.Sensitive && o.Value != null && o.Value.Length >= 4).Select(o => o.Value).ToList();

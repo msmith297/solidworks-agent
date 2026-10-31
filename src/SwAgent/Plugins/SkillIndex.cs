@@ -31,7 +31,7 @@ namespace SwAgent.Plugins
     /// <summary>The skills of enabled plugins (design 4.3): the system prompt's skills index and use_skill.</summary>
     internal static class SkillIndex
     {
-        /// <summary>The skills of one plugin (enabled or not), without the hidden ones (the marketplace entry's unify3d.hideSkills).</summary>
+        /// <summary>The skills of one plugin (enabled or not), without the hidden ones (the marketplace entry's solidworksAgent.hideSkills).</summary>
         public static List<PluginSkill> For(PluginManifest m, ICollection<string> hidden = null)
         {
             var list = new List<PluginSkill>();

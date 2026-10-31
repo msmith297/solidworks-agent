@@ -15,7 +15,7 @@ using SwAgent.Tools;
 namespace SwAgent.UI
 {
     /// <summary>
-    /// The "Unify3D" ribbon tab (and Unify3D menu/toolbar): the panel commands, then the user's Tools - small, fast
+    /// The "SolidWorks Agent" ribbon tab (and SolidWorks Agent menu/toolbar): the panel commands, then the user's Tools - small, fast
     /// commands with their own icons - and "New Tool". Workflows live in the chat panel, not here.
     ///
     /// Built once, at start-up, with the plain SolidWorks command API. SolidWorks doesn't apply command-group changes
@@ -23,20 +23,20 @@ namespace SwAgent.UI
     /// command), so tools saved during a session reach the ribbon after a restart; IsStale tells the panel to offer
     /// one. Every command keeps the same user ID for as long as it exists, so keyboard shortcuts assigned in
     /// Tools > Customize > Keyboard stay on the right command.
-    /// Buttons call back into the add-in object by name: OnUnifyCommand("chat") / OnUnifyEnable("t104").
+    /// Buttons call back into the add-in object by name: OnAgentCommand("chat") / OnAgentEnable("t104").
     /// </summary>
-    internal sealed class UnifyRibbon : IDisposable
+    internal sealed class AgentRibbon : IDisposable
     {
         public const int GroupId = 7700;
-        public const string TabName = "Unify3D";
-        private static readonly string[] StaleTabs = { "Agent", "Unify3D Tools", "Unify3D" };
+        public const string TabName = "SolidWorks Agent";
+        private static readonly string[] StaleTabs = { "Agent", "Unify3D Tools", "Unify3D", TabName };
         private static readonly int[] Sizes = { 20, 32, 40, 64, 96, 128 };
         private static readonly int[] DocTypes = { (int)swDocumentTypes_e.swDocPART, (int)swDocumentTypes_e.swDocASSEMBLY, (int)swDocumentTypes_e.swDocDRAWING };
 
         /// <summary>Fixed commands: callback argument, user ID, title, hint, icon. Tools get IDs from 100 up.</summary>
         private static readonly (string Arg, int Id, string Title, string Hint, Func<byte[]> Icon)[] Fixed =
         {
-            ("chat", 1, "Unify3D Agent", "Open the Unify3D Agent chat", () => Icons.Agent),
+            ("chat", 1, "SolidWorks Agent", "Open the SolidWorks Agent chat", () => Icons.Agent),
             ("newchat", 2, "New Chat", "Start a new conversation", () => Icons.NewChat),
             ("ask", 3, "Ask About Selection", "Ask the agent about the selected faces, edges or features", () => Icons.Selection),
             ("view", 4, "Attach View", "Attach a screenshot of the current view to your message", () => Icons.Camera),
@@ -45,7 +45,7 @@ namespace SwAgent.UI
         private static readonly (string Arg, int Id, string Title, string Hint, Func<byte[]> Icon)[] Trailing =
         {
             ("newtool", 5, "New Tool", "Create a new tool with the agent", () => Icons.NewTool),
-            ("options", 6, "Options", "Unify3D Agent options", () => Icons.Settings),
+            ("options", 6, "Options", "SolidWorks Agent options", () => Icons.Settings),
         };
 
         private readonly ICommandManager _cmdMgr;
@@ -67,7 +67,7 @@ namespace SwAgent.UI
             return $"{t["name"]}:{t["title"]}:{(File.Exists(png) ? File.GetLastWriteTimeUtc(png).Ticks : 0)}:{t["category"]}:{t["ribbonTitle"]}";
         }));
 
-        public UnifyRibbon(ICommandManager cmdMgr)
+        public AgentRibbon(ICommandManager cmdMgr)
         {
             _cmdMgr = cmdMgr;
             _debounce.Tick += (s, e) =>
@@ -118,7 +118,7 @@ namespace SwAgent.UI
                 var unchanged = _cmdMgr.GetGroupDataFromRegistry(GroupId, out var saved) && saved is int[] previous && previous.SequenceEqual(userIds);
 
                 var errors = 0;
-                var group = _cmdMgr.CreateCommandGroup2(GroupId, TabName, "Unify3D Agent", "Unify3D Agent", -1, !unchanged, ref errors);
+                var group = _cmdMgr.CreateCommandGroup2(GroupId, TabName, "SolidWorks Agent", "SolidWorks Agent", -1, !unchanged, ref errors);
                 group.IconList = strips;
                 group.MainIconList = main;
                 var options = (int)(swCommandItemType_e.swMenuItem | swCommandItemType_e.swToolbarItem);
@@ -126,15 +126,15 @@ namespace SwAgent.UI
                 for (var i = 0; i < commands.Count; i++)
                 {
                     var c = commands[i];
-                    indexes[c.Id] = group.AddCommandItem2(c.Title, -1, c.Hint, c.Title, i, $"OnUnifyCommand({c.Arg})", $"OnUnifyEnable({c.Arg})", c.Id, options);
+                    indexes[c.Id] = group.AddCommandItem2(c.Title, -1, c.Hint, c.Title, i, $"OnAgentCommand({c.Arg})", $"OnAgentEnable({c.Arg})", c.Id, options);
                 }
                 group.HasToolbar = true;
                 group.HasMenu = true;
-                if (!group.Activate()) Log.Warn("Unify3D command group did not activate");
+                if (!group.Activate()) Log.Warn("SolidWorks Agent command group did not activate");
                 _toolById = tools.ToDictionary(t => ids[(string)t["name"]], t => (string)t["name"]);
                 _created = true;
 
-                // One tab: Unify3D Agent commands + Options | a box per category and the uncategorised tools (RibbonLayout)
+                // One tab: SolidWorks Agent commands + Options | a box per category and the uncategorised tools (RibbonLayout)
                 // | the user's uncategorised tools + New Tool. Command ids stay keyed by tool name, so moving a tool to
                 // another box keeps its hotkey.
                 int Cmd(int id) => group.get_CommandID(indexes[id]);
@@ -156,11 +156,11 @@ namespace SwAgent.UI
                         tab.AddCommandTabBox().AddCommands(box, styles);
                     }
                 }
-                Log.Info($"Unify3D ribbon: {tools.Count} tool(s)");
+                Log.Info($"SolidWorks Agent ribbon: {tools.Count} tool(s)");
             }
             catch (Exception ex)
             {
-                Log.Error("Building the Unify3D ribbon failed", ex);
+                Log.Error("Building the SolidWorks Agent ribbon failed", ex);
             }
         }
 
@@ -182,7 +182,7 @@ namespace SwAgent.UI
             }
             catch (Exception ex)
             {
-                Log.Warn("Removing the Unify3D ribbon failed: " + ex.Message);
+                Log.Warn("Removing the SolidWorks Agent ribbon failed: " + ex.Message);
             }
         }
 
@@ -285,7 +285,7 @@ namespace SwAgent.UI
     }
 
     /// <summary>
-    /// How tools are laid out on the Unify3D tab (no SolidWorks types, so it is tested headless). Tab boxes have no
+    /// How tools are laid out on the SolidWorks Agent tab (no SolidWorks types, so it is tested headless). Tab boxes have no
     /// captions, so a category shows as its own box and in each button's hint.
     /// </summary>
     internal static class RibbonLayout

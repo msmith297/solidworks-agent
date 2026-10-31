@@ -40,7 +40,7 @@ namespace SwAgent.Tests.Mold
                     }
             }
             var doc = d.Raw("materials.json");
-            Assert.Equal("unify3d.part-materials/1", (string)doc["schema"]);
+            Assert.Equal("solidworksAgent.part-materials/1", (string)doc["schema"]);
             foreach (var src in d.PartMaterials.SelectMany(r => r["sources"].Select(s => (string)s)).Distinct())
                 Assert.NotNull(doc["sources"][src]);
         }

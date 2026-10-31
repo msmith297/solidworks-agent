@@ -69,7 +69,7 @@ export function PluginsScreen() {
 
 const label = (p: PluginInfo) => p.displayName || p.name;
 
-/** The marketplace's name to show ("Unify3D", "Your plugins"); the id stays the value the RPCs take. */
+/** The marketplace's name to show ("SolidWorks Agent", "Your plugins"); the id stays the value the RPCs take. */
 const marketLabel = (p: PluginInfo) => (p.marketplace === "local" ? "Your plugins" : p.marketplaceDisplayName || p.marketplace);
 
 /** Plugins that come along with another one (its marketplace entry's installWith) are shown under it in Discover. */
@@ -106,7 +106,7 @@ async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Pro
       <div className="flex flex-col gap-2">
         {linkOnly ? (
           <p>
-            <b className="text-text">{label(p)}</b> lets {app} on this PC send messages to the Unify3D agent and read your open model. Changes it asks for still need your OK in the Unify3D panel.
+            <b className="text-text">{label(p)}</b> lets {app} on this PC send messages to the SolidWorks Agent and read your open model. Changes it asks for still need your OK in the SolidWorks Agent panel.
             Messages and answers go to {provider}.
           </p>
         ) : (
@@ -116,7 +116,7 @@ async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Pro
         )}
         {list(
           "Changes to another app",
-          `Unify3D edits this file now and removes the entry when you turn the plugin off or uninstall it. ${
+          `SolidWorks Agent edits this file now and removes the entry when you turn the plugin off or uninstall it. ${
             p.link?.client === "codex" ? "Nothing else in the file changes." : "Other settings in it keep their values, though the file may be re-indented."
           }`,
           links,
@@ -125,7 +125,7 @@ async function approveTrust(p: PluginInfo, req: TrustRequest, verb: string): Pro
         {list("MCP servers", "Programs that run outside SolidWorks while the plugin is on and give the agent extra tools.", req.mcp)}
         {list("Tools with code", "C# that runs inside SolidWorks, with full access to your models, when the tool runs or shows a preview.", req.tools ?? [])}
         <p className="text-[11px] text-text-3">
-          {linkOnly ? "If the settings file or the program changes, Unify3D asks again." : "If an update changes these, Unify3D asks again before they run."}
+          {linkOnly ? "If the settings file or the program changes, SolidWorks Agent asks again." : "If an update changes these, SolidWorks Agent asks again before they run."}
         </p>
       </div>
     ),
@@ -219,7 +219,7 @@ function Notes({ p }: { p: PluginInfo }) {
   );
 }
 
-/** Claude MCP / Codex MCP: the state of the "unify3d" entry in the other app's config, one line. */
+/** Claude MCP / Codex MCP: the state of the "solidworks-agent" entry in the other app's config, one line. */
 function LinkNote({ p }: { p: PluginInfo }) {
   const l = p.link;
   if (!l?.note) return null;
@@ -454,7 +454,7 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
           <IconWarning size={12} />
           <span className="min-w-0 flex-1">
             {p.link
-              ? `The ${p.link.label} settings file or the program it runs changed since you approved it. Approve it again before Unify3D changes that file.`
+              ? `The ${p.link.label} settings file or the program it runs changed since you approved it. Approve it again before SolidWorks Agent changes that file.`
               : "Its hooks or MCP servers changed since you approved them: they don't run until you approve them again."}
           </span>
           <button type="button" className="sw-btn !h-5 !px-1.5 text-[11px]" onClick={() => run(p.id, () => pluginAction(p, "enable"))}>
@@ -488,7 +488,7 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
           </button>
         )}
         {p.link && p.enabled && p.link.found && p.link.entry === "missing" && (
-          <button type="button" className="sw-btn sw-btn-primary !h-[22px]" title={`Add the "unify3d" entry to ${p.link.label}'s settings again`} disabled={busy[p.id]} onClick={() => run(p.id, () => rpc("plugins.repairLink", { id: p.id }))}>
+          <button type="button" className="sw-btn sw-btn-primary !h-[22px]" title={`Add the "solidworks-agent" entry to ${p.link.label}'s settings again`} disabled={busy[p.id]} onClick={() => run(p.id, () => rpc("plugins.repairLink", { id: p.id }))}>
             Repair
           </button>
         )}
@@ -510,7 +510,7 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
                 `Uninstall ${label(p)}?`,
                 <p>
                   Its files are removed{companionsOf(p).length ? `, with ${companionsOf(p).map(label).join(", ")}` : ""}; its settings and data on this PC are kept for a reinstall.
-                  {p.link ? ` It also removes the "unify3d" entry from ${p.link.label}'s settings. Restart ${p.link.label} to drop its Unify3D tools.` : ""}
+                  {p.link ? ` It also removes the "solidworks-agent" entry from ${p.link.label}'s settings. Restart ${p.link.label} to drop its SolidWorks Agent tools.` : ""}
                 </p>,
                 "Uninstall",
                 true,
@@ -522,7 +522,7 @@ function InstalledRow({ p, servers, onOpen, update }: { p: PluginInfo; servers: 
                       const res = await rpc<{ note?: string | null } | null>("plugins.uninstall", { id: p.id });
                       for (const c of companions) await rpc("plugins.uninstall", { id: c.id });
                       if (res?.note) useStore.setState({ notice: res.note });
-                      else if (p.link) useStore.setState({ notice: `${label(p)} uninstalled. Restart ${p.link.label} to drop its Unify3D tools.` });
+                      else if (p.link) useStore.setState({ notice: `${label(p)} uninstalled. Restart ${p.link.label} to drop its SolidWorks Agent tools.` });
                     });
                 },
               )

@@ -239,9 +239,9 @@ export interface PluginInfo {
   /** "name@marketplace" */
   id: string;
   name: string;
-  /** The marketplace id ("unify3d"): the value the add-in's RPCs take. */
+  /** The marketplace id ("solidworks-agent"): the value the add-in's RPCs take. */
   marketplace: string;
-  /** What to show for the marketplace ("Unify3D", "Your plugins"). */
+  /** What to show for the marketplace ("SolidWorks Agent", "Your plugins"). */
   marketplaceDisplayName?: string | null;
   displayName?: string | null;
   description?: string | null;
@@ -257,7 +257,7 @@ export interface PluginInfo {
   enabled: boolean;
   /** The plugin's current hooks and MCP servers are the ones the user approved (or it has none). */
   trusted: boolean;
-  /** A plugin in the "local" marketplace (made in Unify3D): editable, can be packaged. */
+  /** A plugin in the "local" marketplace (made in SolidWorks Agent): editable, can be packaged. */
   local?: boolean;
   /** A newer version (or source commit) is listed by its marketplace. */
   updateAvailable?: string | null;
@@ -265,7 +265,7 @@ export interface PluginInfo {
   userConfig?: Record<string, PluginConfigField>;
   /** Current userConfig values; sensitive keys come as { set: boolean }. */
   config?: Record<string, string | number | boolean | { set: boolean } | null>;
-  /** Plugins installed together with this one (marketplace entry `unify3d.installWith`). */
+  /** Plugins installed together with this one (marketplace entry `solidworksAgent.installWith`). */
   installWith?: string[];
   /** Install requirements and caveats to show (e.g. "Needs Node.js 18 or newer"). */
   notes?: string[];
@@ -273,7 +273,7 @@ export interface PluginInfo {
   updatedAt?: string | null;
   /** Why it can't be installed or loaded, if so. */
   error?: string | null;
-  /** Claude MCP / Codex MCP: the "unify3d" entry in the other app's config (docs/plugins/local-mcp.md 7.6). */
+  /** Claude MCP / Codex MCP: the "solidworks-agent" entry in the other app's config (docs/plugins/local-mcp.md 7.6). */
   link?: PluginLink | null;
 }
 
@@ -286,20 +286,20 @@ export interface PluginLink {
   configPath?: string | null;
   entry?: "present" | "missing" | "conflict" | "unreadable";
   running?: boolean;
-  /** ISO times: the client last connected / Unify3D last wrote the entry. */
+  /** ISO times: the client last connected / SolidWorks Agent last wrote the entry. */
   lastSeen?: string | null;
   writtenAt?: string | null;
   note?: string | null;
 }
 
 export interface MarketplaceInfo {
-  /** The id ("unify3d", "local", ...): the value plugins.* RPCs take. */
+  /** The id ("solidworks-agent", "local", ...): the value plugins.* RPCs take. */
   name: string;
-  /** What to show ("Unify3D", "Your plugins"). */
+  /** What to show ("SolidWorks Agent", "Your plugins"). */
   displayName?: string | null;
   /** What the user added: "owner/repo", a git or https URL, a folder. */
   source: string;
-  /** "unify3d" (ships with the add-in) and "local" (the user's own plugins) can't be removed. */
+  /** "solidworks-agent" (ships with the add-in) and "local" (the user's own plugins) can't be removed. */
   builtIn?: boolean;
   pluginCount: number;
   updatedAt?: string | null;
@@ -314,7 +314,7 @@ export interface TrustRequest {
   mcp: string[];
   /** Tools whose C# runs inside SolidWorks: "plugin:tool (macro.cs, preview.cs)". */
   tools?: string[];
-  /** Another app's config the plugin changes: "Claude Desktop: adds the MCP server "unify3d" to <file>, which runs <exe> ...". */
+  /** Another app's config the plugin changes: "Claude Desktop: adds the MCP server "solidworks-agent" to <file>, which runs <exe> ...". */
   links?: string[];
 }
 
@@ -589,7 +589,7 @@ export interface ToolRunPayload {
   maxSteps?: number;
   /** A long, phased tool (front matter long_run): 1-hour prompt cache, settings kept for follow-ups. */
   longRun?: boolean;
-  /** A built-in Unify3D tool: read-only, so the agent is never told to fix its macro with edit_user_tool. */
+  /** A built-in SolidWorks Agent tool: read-only, so the agent is never told to fix its macro with edit_user_tool. */
   builtIn?: boolean;
   /** The tool's standing instructions (the user's notes on it; a copy has the original's), already worded for the agent. */
   notes?: string | null;
@@ -599,7 +599,7 @@ export interface ToolRunPayload {
 
 export interface UserToolInfo {
   name: string;
-  /** A built-in Unify3D tool (ships with the add-in, read-only). */
+  /** A built-in SolidWorks Agent tool (ships with the add-in, read-only). */
   builtIn?: boolean;
   /** The plugin it comes from (its name is "plugin:tool"), or null for the user's own and built-in tools. */
   plugin?: string | null;

@@ -1,7 +1,7 @@
-# Agent Bridge for Unify3D
+# Agent Bridge for SolidWorks Agent
 
-Connects the Unify3D agent in SolidWorks to [agent-bridge](https://github.com/msmith297/agent-bridge): it can message
-other AI agents (Claude Code and Codex sessions, other Unify3D seats) and the operator's web console, stay listening for
+Connects the agent in SolidWorks to [agent-bridge](https://github.com/msmith297/agent-bridge): it can message
+other AI agents (Claude Code and Codex sessions, other SolidWorks Agent seats) and the operator's web console, stay listening for
 work, and share projects (docs, a task board, key-value data, files).
 
 Agent Bridge comes as two plugins that the store shows and installs together:
@@ -9,12 +9,12 @@ Agent Bridge comes as two plugins that the store shows and installs together:
 | Plugin | What it brings |
 |---|---|
 | `agent-bridge` | The real agent-bridge plugin, unchanged, fetched from its repository: the MCP server (`list_peers`, `send_message`, `check_inbox`, `listen`, `project`, ...), the hooks that deliver messages and wake the agent, and the `connect` and `join` skills. |
-| `agent-bridge-unify3d` (this one) | The `unify3d-bridge` skill: how the agent handles bridge messages inside SolidWorks. The `/bridge` command. |
+| `agent-bridge-solidworks` (this one) | The `solidworks-bridge` skill: how the agent handles bridge messages inside SolidWorks. The `/bridge` command. |
 
 ## Before you install
 
 - **Node.js 18 or newer** must be installed (nodejs.org). The store checks this when you install.
-- **Connect this PC once.** If Claude Code on this PC is already connected to agent-bridge, Unify3D uses the same
+- **Connect this PC once.** If Claude Code on this PC is already connected to agent-bridge, SolidWorks Agent uses the same
   connection (`%USERPROFILE%\.agent-bridge\config.json`). Otherwise ask the agent "connect agent-bridge": it gives you
   a code to approve on the console's Devices page.
 - Installing shows the programs Agent Bridge runs on your PC (its MCP server and hooks, all `node` scripts in the
@@ -33,13 +33,13 @@ Agent Bridge comes as two plugins that the store shows and installs together:
 Or just ask the agent: "ask the CAM agent which end mill it wants for the pocket", "tell the planner the mold base is
 done".
 
-**One connection per PC.** SolidWorks connects to agent-bridge when it starts and shows up as one agent, "Unify3D
+**One connection per PC.** SolidWorks connects to agent-bridge when it starts and shows up as one agent, "SolidWorks Agent
 SolidWorks - <PC name>", with one chat in the console, kept across SolidWorks restarts with its name (if you renamed
 it), listening mode and project. It talks to whichever chat is open in the panel: a message for it lands in the chat
 you have open, with or without history; if the new-chat page is open, it starts that chat.
 
 **Listening** is on (always) by default. A message that arrives after the agent's turn starts a new turn in the open
-chat (shown with an "agent-bridge:" chip), even when you are away from the PC. Unify3D limits these automatic turns per
+chat (shown with an "agent-bridge:" chip), even when you are away from the PC. SolidWorks Agent limits these automatic turns per
 hour (Options > Plugins > Automatic turns per hour). `/bridge listen off` stops it until the next SolidWorks start.
 
 ## What the agent does with messages
@@ -52,14 +52,14 @@ Messages come from other agents, not from you. The agent:
   note in the chat;
 - reports every change it made, to the sender and in the chat.
 
-Unify3D's approval cards for model changes still appear as usual.
+SolidWorks Agent's approval cards for model changes still appear as usual.
 
-## Limits in Unify3D
+## Limits in SolidWorks Agent
 
-- **No remote approvals.** agent-bridge's console can approve Claude Code's permission prompts remotely; Unify3D's
+- **No remote approvals.** agent-bridge's console can approve Claude Code's permission prompts remotely; SolidWorks Agent's
   approvals only happen in the panel.
 - agent-bridge's `revive-session`, `agent-bridge-plugin-update` and `server-setup` skills are for Claude Code and are
-  hidden in Unify3D. Agent Bridge updates through the Plugins screen.
+  hidden in SolidWorks Agent. Agent Bridge updates through the Plugins screen.
 - The agent has no shell: it cannot run commands that other agents suggest.
 
 ## Troubleshooting

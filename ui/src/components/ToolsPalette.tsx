@@ -26,7 +26,7 @@ async function chooseCategory(t: UserToolInfo, existing: string[]) {
     title: `Category of "${t.title}"`,
     message: (
       <div className="flex flex-col gap-1.5">
-        <p>Tools in the same category share a section in this menu{t.kind === "tool" ? " and a box on the Unify3D ribbon tab (after a restart)" : ""}. Leave it empty for none.</p>
+        <p>Tools in the same category share a section in this menu{t.kind === "tool" ? " and a box on the SolidWorks Agent ribbon tab (after a restart)" : ""}. Leave it empty for none.</p>
         <input
           // The dialog focuses its Save button when it opens: take the focus after that, and let Enter save.
           ref={(el) => {
@@ -66,7 +66,7 @@ async function chooseCategory(t: UserToolInfo, existing: string[]) {
 
 /**
  * The Workflows menu: the user's larger saved procedures, run here with the current selection and whatever is
- * typed in the composer as inputs. The quick Tools live on the Unify3D ribbon tab; they're listed below the
+ * typed in the composer as inputs. The quick Tools live on the SolidWorks Agent ribbon tab; they're listed below the
  * workflows only to edit or delete them.
  */
 export function ToolsPalette({ disabled, labelClassName = "" }: { disabled?: boolean; labelClassName?: string }) {
@@ -203,7 +203,7 @@ export function ToolsPalette({ disabled, labelClassName = "" }: { disabled?: boo
           <div className="max-h-[50vh] overflow-y-auto">
             {categories.map((c, i) => (
               <Fragment key={c.title.toLowerCase()}>
-                <div className={`sw-rollout-head !min-h-[20px] text-[11px] ${i > 0 ? "border-t border-line" : ""}`} title="A category: its tools also share a box on the Unify3D ribbon tab">
+                <div className={`sw-rollout-head !min-h-[20px] text-[11px] ${i > 0 ? "border-t border-line" : ""}`} title="A category: its tools also share a box on the SolidWorks Agent ribbon tab">
                   <span className="flex-1 truncate">{c.title}</span>
                 </div>
                 {c.rows.map((r) => row(r.tool, r.run))}
@@ -225,7 +225,7 @@ export function ToolsPalette({ disabled, labelClassName = "" }: { disabled?: boo
             {builtIn.length > 0 && (
               <>
                 <div className="sw-rollout-head !min-h-[20px] border-t border-line text-[11px]">
-                  <span className="flex-1">Built in - Unify3D tools</span>
+                  <span className="flex-1">Built in - SolidWorks Agent tools</span>
                 </div>
                 {builtIn.map((t) => row(t, true))}
               </>
@@ -234,7 +234,7 @@ export function ToolsPalette({ disabled, labelClassName = "" }: { disabled?: boo
             {tools.length > 0 && (
               <>
                 <div className="sw-rollout-head !min-h-[20px] border-t border-line text-[11px]">
-                  <span className="flex-1">Tools - on the Unify3D ribbon tab</span>
+                  <span className="flex-1">Tools - on the SolidWorks Agent ribbon tab</span>
                 </div>
                 {tools.map((t) => row(t, false))}
               </>
@@ -275,7 +275,7 @@ export function ToolsPalette({ disabled, labelClassName = "" }: { disabled?: boo
                 <IconPart size={13} /> From this model
               </button>
             )}
-            <button className="sw-btn" title="A quick command on the Unify3D ribbon tab that you can put on a hotkey" onClick={() => { setOpen(false); useStore.setState({ panel: "newTool" }); }}>
+            <button className="sw-btn" title="A quick command on the SolidWorks Agent ribbon tab that you can put on a hotkey" onClick={() => { setOpen(false); useStore.setState({ panel: "newTool" }); }}>
               <IconNewChat size={13} /> New tool…
             </button>
           </div>

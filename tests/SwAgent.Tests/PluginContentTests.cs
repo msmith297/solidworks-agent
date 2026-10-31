@@ -11,8 +11,8 @@ using Xunit;
 namespace SwAgent.Tests
 {
     /// <summary>
-    /// The plugin content that ships with the add-in: the built-in "unify3d" marketplace (plugins/ in the repository), the
-    /// agent-bridge-unify3d overlay and the create-plugin workflow. Schema-level checks on the files themselves, so they
+    /// The plugin content that ships with the add-in: the built-in "solidworks-agent" marketplace (plugins/ in the repository), the
+    /// agent-bridge-solidworks overlay and the create-plugin workflow. Schema-level checks on the files themselves, so they
     /// hold whatever the manifest parser (track A) accepts beyond them.
     /// </summary>
     public class PluginContentTests
@@ -24,7 +24,7 @@ namespace SwAgent.Tests
 
         /// <summary>The variables the runtime expands (authoring.md section 4), besides ${user_config.*} and environment variables.</summary>
         // CLAUDE_CODE_SESSION_ID: set and expanded by Session.EnvFor (AgentBridgeSessionTests).
-        private static readonly string[] Variables = { "CLAUDE_PLUGIN_ROOT", "UNIFY3D_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA", "UNIFY3D_DEVICE", "UNIFY3D_PID", "CLAUDE_CODE_SESSION_ID" };
+        private static readonly string[] Variables = { "CLAUDE_PLUGIN_ROOT", "SOLIDWORKS_AGENT_PLUGIN_ROOT", "CLAUDE_PLUGIN_DATA", "SOLIDWORKS_AGENT_DEVICE", "SOLIDWORKS_AGENT_PID", "CLAUDE_CODE_SESSION_ID" };
 
         private static string RepoRoot()
         {
@@ -59,12 +59,12 @@ namespace SwAgent.Tests
         public void The_built_in_marketplace_lists_agent_bridge_first_and_its_overlay()
         {
             var m = Marketplace();
-            Assert.Equal("unify3d", (string)m["name"]); // the id in installed ids such as agent-bridge@unify3d
-            Assert.Equal("Unify3D", (string)m["unify3d"]["displayName"]); // what the Plugins screen shows
+            Assert.Equal("solidworks-agent", (string)m["name"]); // the id in installed ids such as agent-bridge@solidworks-agent
+            Assert.Equal("SolidWorks Agent", (string)m["solidworksAgent"]["displayName"]); // what the Plugins screen shows
             Assert.False(string.IsNullOrWhiteSpace((string)m["owner"]?["name"]));
             var plugins = m["plugins"].OfType<JObject>().ToList();
             Assert.Equal(m["plugins"].Count(), plugins.Count);
-            Assert.Equal(new[] { "agent-bridge", "agent-bridge-unify3d", "claude-mcp", "codex-mcp" }, plugins.Select(p => (string)p["name"]));
+            Assert.Equal(new[] { "agent-bridge", "agent-bridge-solidworks", "claude-mcp", "codex-mcp" }, plugins.Select(p => (string)p["name"]));
 
             foreach (var p in plugins)
             {
@@ -110,7 +110,7 @@ namespace SwAgent.Tests
         }
 
         [Fact]
-        public void Agent_bridge_is_the_real_plugin_by_reference_with_the_unify3d_env()
+        public void Agent_bridge_is_the_real_plugin_by_reference_with_the_solidworks_env()
         {
             var e = Entry("agent-bridge");
             Assert.True(JToken.DeepEquals(
@@ -118,10 +118,10 @@ namespace SwAgent.Tests
                 e["source"]), "agent-bridge comes from its own repository, nothing vendored");
             Assert.False(Directory.Exists(Path.Combine(PluginsDir, "agent-bridge")), "no plugins/agent-bridge folder: only the marketplace entry");
 
-            var u = (JObject)e["unify3d"];
+            var u = (JObject)e["solidworksAgent"];
             var env = (JObject)u["env"];
-            Assert.Equal("Unify3D SolidWorks - ${UNIFY3D_DEVICE}", (string)env["AGENT_BRIDGE_NAME"]);
-            Assert.Equal("${UNIFY3D_PID}", (string)env["AGENT_BRIDGE_OWNER_PID"]);
+            Assert.Equal("SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}", (string)env["AGENT_BRIDGE_NAME"]);
+            Assert.Equal("${SOLIDWORKS_AGENT_PID}", (string)env["AGENT_BRIDGE_OWNER_PID"]);
             // One connection per SolidWorks: the PC's session id (agent-bridge keeps one peer and chat for it), always listening.
             Assert.Equal("${CLAUDE_CODE_SESSION_ID}", (string)env["AGENT_BRIDGE_SESSION_ID"]);
             Assert.Equal("always", (string)env["AGENT_BRIDGE_LISTEN"]);
@@ -135,7 +135,7 @@ namespace SwAgent.Tests
 
             // The overlay is installed with it, and is in the same marketplace.
             var names = new HashSet<string>(Marketplace()["plugins"].Select(p => (string)p["name"]));
-            Assert.Equal(new[] { "agent-bridge-unify3d" }, u["installWith"].Values<string>());
+            Assert.Equal(new[] { "agent-bridge-solidworks" }, u["installWith"].Values<string>());
             Assert.All(u["installWith"].Values<string>(), n => Assert.Contains(n, names));
 
             // Its Claude Code-only skills are hidden (critique 24).
@@ -155,18 +155,18 @@ namespace SwAgent.Tests
         [Fact]
         public void The_overlay_plugin_parses_and_matches_its_marketplace_entry()
         {
-            var entry = Entry("agent-bridge-unify3d");
+            var entry = Entry("agent-bridge-solidworks");
             var dir = Path.GetFullPath(Path.Combine(PluginsDir, ((string)entry["source"]).Substring(2)));
             var manifest = ReadJson(Path.Combine(dir, ".claude-plugin", "plugin.json"));
 
-            Assert.Equal("agent-bridge-unify3d", (string)manifest["name"]);
+            Assert.Equal("agent-bridge-solidworks", (string)manifest["name"]);
             Assert.Matches(Semver, (string)manifest["version"]);
             Assert.Equal((string)entry["version"], (string)manifest["version"]);
             Assert.False(string.IsNullOrWhiteSpace((string)manifest["displayName"]));
             Assert.False(string.IsNullOrWhiteSpace((string)manifest["description"]));
             Assert.False(string.IsNullOrWhiteSpace((string)manifest["author"]?["name"]));
 
-            var u = (JObject)manifest["unify3d"];
+            var u = (JObject)manifest["solidworksAgent"];
             Assert.Equal((string)entry["category"], (string)u["category"]);
             var icon = (string)u["icon"];
             Assert.StartsWith("./", icon);
@@ -189,20 +189,20 @@ namespace SwAgent.Tests
             var entry = Entry(name);
             Assert.Equal("./" + name, (string)entry["source"]);
             Assert.Equal("Connections", (string)entry["category"]);
-            Assert.True(JToken.DeepEquals(new JObject { ["registerMcpIn"] = client }, entry["unify3d"]), "only registerMcpIn: the command is always Unify3D's own exe");
-            Assert.Contains("\"unify3d\"", (string)entry["description"]);
+            Assert.True(JToken.DeepEquals(new JObject { ["registerMcpIn"] = client }, entry["solidworksAgent"]), "only registerMcpIn: the command is always SolidWorks Agent's own exe");
+            Assert.Contains("\"solidworks-agent\"", (string)entry["description"]);
 
             var dir = Path.Combine(PluginsDir, name);
             var manifest = ReadJson(Path.Combine(dir, ".claude-plugin", "plugin.json"));
             Assert.Equal(name, (string)manifest["name"]);
             Assert.Equal(displayName, (string)manifest["displayName"]);
             Assert.Equal((string)entry["version"], (string)manifest["version"]);
-            Assert.Equal("Unify3D", (string)manifest["author"]["name"]);
+            Assert.Equal("SolidWorks Agent", (string)manifest["author"]["name"]);
             var option = manifest["userConfig"]["allowModelRead"];
             Assert.Equal("boolean", (string)option["type"]);
             Assert.True((bool)option["default"]);
             Assert.Equal($"Let {app} read the open model", (string)option["title"]);
-            Assert.Equal("Connections", (string)manifest["unify3d"]["category"]);
+            Assert.Equal("Connections", (string)manifest["solidworksAgent"]["category"]);
             AssertPng(Path.Combine(dir, "icon.png"));
             Assert.True(File.Exists(Path.Combine(dir, "icon.svg")));
             Assert.True(File.Exists(Path.Combine(dir, "README.md")));
@@ -215,12 +215,12 @@ namespace SwAgent.Tests
         }
 
         [Fact]
-        public void The_overlay_has_the_unify3d_bridge_skill_and_the_bridge_command()
+        public void The_overlay_has_the_solidworks_bridge_skill_and_the_bridge_command()
         {
-            var dir = Path.Combine(PluginsDir, "agent-bridge-unify3d");
+            var dir = Path.Combine(PluginsDir, "agent-bridge-solidworks");
 
             var skills = Directory.GetDirectories(Path.Combine(dir, "skills"));
-            Assert.Equal(new[] { "unify3d-bridge" }, skills.Select(Path.GetFileName));
+            Assert.Equal(new[] { "solidworks-bridge" }, skills.Select(Path.GetFileName));
             foreach (var s in skills)
             {
                 var fm = FrontMatterOf(Path.Combine(s, "SKILL.md"));
@@ -238,15 +238,15 @@ namespace SwAgent.Tests
                 Assert.True(fm.ContainsKey("argument-hint"));
                 var body = File.ReadAllText(c);
                 Assert.Contains("$ARGUMENTS", body);
-                Assert.DoesNotContain("!`", body); // shell lines are not run in Unify3D
+                Assert.DoesNotContain("!`", body); // shell lines are not run in SolidWorks Agent
             }
         }
 
         [Fact]
         public void The_bridge_texts_name_tools_that_exist()
         {
-            var dir = Path.Combine(PluginsDir, "agent-bridge-unify3d");
-            var text = File.ReadAllText(Path.Combine(dir, "skills", "unify3d-bridge", "SKILL.md")) + File.ReadAllText(Path.Combine(dir, "commands", "bridge.md"));
+            var dir = Path.Combine(PluginsDir, "agent-bridge-solidworks");
+            var text = File.ReadAllText(Path.Combine(dir, "skills", "solidworks-bridge", "SKILL.md")) + File.ReadAllText(Path.Combine(dir, "commands", "bridge.md"));
 
             // agent-bridge's MCP tools (client/mcp.mjs), under Claude Code's plugin-server name.
             Assert.Contains("mcp__plugin_agent-bridge_agent-bridge__", text);

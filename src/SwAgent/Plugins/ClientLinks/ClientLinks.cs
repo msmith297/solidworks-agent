@@ -8,19 +8,19 @@ using System.Text;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using SwAgent.Infrastructure;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.Plugins
 {
     /// <summary>
-    /// The Claude MCP and Codex MCP plugins' link to another app (docs/plugins/local-mcp.md 7): an MCP server named "unify3d" in
-    /// Claude Desktop's or Codex's config that runs Unify3D's own exe. PluginManager calls Register / Unregister only on the
+    /// The Claude MCP and Codex MCP plugins' link to another app (docs/plugins/local-mcp.md 7): an MCP server named "solidworks-agent" in
+    /// Claude Desktop's or Codex's config that runs SolidWorks Agent's own exe. PluginManager calls Register / Unregister only on the
     /// user's clicks (install, turn on, turn off, uninstall, Repair, update) - never at start-up and never from the agent - and
     /// Status for the Plugins screen. Files only: no SolidWorks.
     /// </summary>
     internal sealed class ClientLinks
     {
-        public const string ServerName = "unify3d";
+        public const string ServerName = "solidworks-agent";
 
         public readonly ClientLocator Locator;
         public readonly LocalMcpDeployer Deployer;
@@ -34,28 +34,28 @@ namespace SwAgent.Plugins
             _dataRoot = dataRoot;
         }
 
-        /// <summary>The program the client runs: always Unify3D's own; nothing in a marketplace can change it.</summary>
+        /// <summary>The program the client runs: always SolidWorks Agent's own; nothing in a marketplace can change it.</summary>
         public string Exe => Deployer.Exe;
 
         public static string[] Args(string client) => new[] { "--client", client };
 
         /// <summary>
-        /// The client a plugin registers in: its marketplace entry's unify3d.registerMcpIn, honoured only in the built-in marketplace
+        /// The client a plugin registers in: its marketplace entry's solidworksAgent.registerMcpIn, honoured only in the built-in marketplace
         /// and only for a known client; else null.
         /// </summary>
-        public static string ClientOf(string marketplace, JObject unify3d)
+        public static string ClientOf(string marketplace, JObject ext)
         {
-            var v = unify3d?["registerMcpIn"]?.Type == JTokenType.String ? (string)unify3d["registerMcpIn"] : null;
+            var v = ext?["registerMcpIn"]?.Type == JTokenType.String ? (string)ext["registerMcpIn"] : null;
             if (v == null || marketplace != PluginManager.BuiltInMarketplace) return null;
             return LinkProtocol.Clients.Contains(v) ? v : null;
         }
 
         /// <summary>The entry sets registerMcpIn (honoured or not).</summary>
-        public static bool Declares(JObject unify3d) => unify3d?["registerMcpIn"] != null;
+        public static bool Declares(JObject ext) => ext?["registerMcpIn"] != null;
 
-        public const string NotHonoured = "registerMcpIn is only used by the built-in Unify3D marketplace.";
+        public const string NotHonoured = "registerMcpIn is only used by the built-in SolidWorks Agent marketplace.";
 
-        /// <summary>An entry named "unify3d" is Unify3D's when it runs Unify3D.LocalMcp.exe with --client &lt;client&gt;.</summary>
+        /// <summary>An entry named "solidworks-agent" is SolidWorks Agent's when it runs SolidWorksAgent.LocalMcp.exe with --client &lt;client&gt;.</summary>
         public static bool IsOwned(string command, IEnumerable<string> args, string client)
         {
             if (string.IsNullOrWhiteSpace(command) || args == null) return false;
@@ -120,7 +120,7 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// Before install or turning on: the client must be there and its "unify3d" free (or already Unify3D's). Throws the plain
+        /// Before install or turning on: the client must be there and its "solidworks-agent" free (or already SolidWorks Agent's). Throws the plain
         /// text otherwise; writes nothing.
         /// </summary>
         public ClientLocation Preflight(string client)
@@ -153,7 +153,7 @@ namespace SwAgent.Plugins
             try
             {
                 ClaudeDesktopConfig.Parse(ClientConfigFile.ReadText(path, ClaudeDesktopConfig.Label));
-                return $"Unify3D couldn't read {path}.";
+                return $"SolidWorks Agent couldn't read {path}.";
             }
             catch (ClientConfigException ex)
             {
@@ -162,7 +162,7 @@ namespace SwAgent.Plugins
         }
 
         /// <summary>
-        /// Add (or refresh) the "unify3d" entry. addIfMissing false (an update) only refreshes an entry Unify3D owns. Copies the
+        /// Add (or refresh) the "solidworks-agent" entry. addIfMissing false (an update) only refreshes an entry SolidWorks Agent owns. Copies the
         /// exe into place first. Throws ClientConfigException with the plain text when the client is missing, the name is taken,
         /// or the file can't be changed safely.
         /// </summary>
@@ -172,7 +172,7 @@ namespace SwAgent.Plugins
             if (!loc.Found) throw new ClientConfigException(loc.Note);
             Deployer.Ensure();
             var exe = Exe;
-            bool? createdServers = null; // Claude Desktop: Unify3D added mcpServers itself (so removing the entry removes it too)
+            bool? createdServers = null; // Claude Desktop: SolidWorks Agent added mcpServers itself (so removing the entry removes it too)
             var written = ClientConfigFile.Edit(loc.ConfigPath,
                 text =>
                 {
@@ -193,7 +193,7 @@ namespace SwAgent.Plugins
             return written;
         }
 
-        /// <summary>Remove Unify3D's entry and nothing else. Returns a warning for the user when that didn't happen, else null.</summary>
+        /// <summary>Remove SolidWorks Agent's entry and nothing else. Returns a warning for the user when that didn't happen, else null.</summary>
         public string Unregister(string client, string plugin)
         {
             var loc = Locate(client);
@@ -223,10 +223,10 @@ namespace SwAgent.Plugins
                 Log.Warn($"{plugin}: removing \"{ServerName}\" from {loc.ConfigPath} failed: {ex.Message}");
                 return $"Couldn't change {loc.ConfigPath}. Remove \"{ServerName}\" from it by hand.";
             }
-            return conflict ? $"{label}'s MCP server \"{ServerName}\" in {loc.ConfigPath} wasn't added by Unify3D, so it was left as it is." : null;
+            return conflict ? $"{label}'s MCP server \"{ServerName}\" in {loc.ConfigPath} wasn't added by SolidWorks Agent, so it was left as it is." : null;
         }
 
-        /// <summary>link-written.json's flag: Unify3D added Claude Desktop's mcpServers object along with its entry.</summary>
+        /// <summary>link-written.json's flag: SolidWorks Agent added Claude Desktop's mcpServers object along with its entry.</summary>
         internal const string CreatedServersKey = "createdMcpServers";
 
         private bool ReadFlag(string plugin, string key)
@@ -311,7 +311,7 @@ namespace SwAgent.Plugins
             else if (entry == LinkEntryState.Unreadable) note = UnreadableText(client, loc.ConfigPath);
             else if (!enabled && entry == LinkEntryState.Present)
                 note = $"Off, but the \"{ServerName}\" entry is still in {where} ({loc.ConfigPath}). Remove it there by hand, or turn the plugin on and off again.";
-            else if (!enabled) note = $"Off: {label} can't reach Unify3D. Turn it on to add the \"{ServerName}\" entry to {where}.";
+            else if (!enabled) note = $"Off: {label} can't reach SolidWorks Agent. Turn it on to add the \"{ServerName}\" entry to {where}.";
             else if (entry == LinkEntryState.Missing)
                 note = $"The \"{ServerName}\" entry isn't in {where} any more (it was removed or the file was replaced). Press Repair to add it again.";
             else if (seen == null || written != null && seen < written)

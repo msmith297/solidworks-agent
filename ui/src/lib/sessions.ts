@@ -3,7 +3,7 @@
  * earlier sessions end: "Last session", "3 sessions ago", or a date when SolidWorks stayed open for days. Kept in the
  * WebView's local storage (it survives restarts); a missing log just means fewer sessions are counted.
  */
-const KEY = "unify3d.sessions";
+const KEY = "solidworksAgent.sessions";
 const MAX = 500;
 const DAY = 24 * 60 * 60 * 1000;
 

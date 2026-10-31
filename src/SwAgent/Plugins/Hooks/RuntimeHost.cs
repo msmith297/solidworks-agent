@@ -321,7 +321,7 @@ namespace SwAgent.Plugins.Hooks
 
         /// <summary>
         /// hooks.fire({ event, threadId, docKey, prompt?, tool_name?, tool_input?, tool_response?, stop_hook_active?,
-        /// unify3d_document? }) -> { block, reason, additionalContext[], systemMessages[], continue, stopReason,
+        /// solidworks_document? }) -> { block, reason, additionalContext[], systemMessages[], continue, stopReason,
         /// permissionDecision?, permissionDecisionReason? }.
         /// </summary>
         public async Task<JObject> FireAsync(JObject p)
@@ -346,7 +346,7 @@ namespace SwAgent.Plugins.Hooks
                     input["stop_hook_active"] = (bool?)p["stop_hook_active"] == true;
                     break;
             }
-            if (p["unify3d_document"] != null) input["unify3d_document"] = p["unify3d_document"].DeepClone();
+            if (p["solidworks_document"] != null) input["solidworks_document"] = p["solidworks_document"].DeepClone();
 
             var specs = Hooks.Select(HookPlugins, ev, matchValue);
             var outcome = new HookOutcome();

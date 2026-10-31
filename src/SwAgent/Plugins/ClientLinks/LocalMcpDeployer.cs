@@ -14,7 +14,7 @@ namespace SwAgent.Plugins
     /// </summary>
     internal sealed class LocalMcpDeployer
     {
-        public const string ExeName = "Unify3D.LocalMcp.exe";
+        public const string ExeName = "SolidWorksAgent.LocalMcp.exe";
 
         private static readonly object Gate = new object();
 

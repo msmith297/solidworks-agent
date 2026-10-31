@@ -151,7 +151,7 @@ namespace SwAgent.Tools
         /// <summary>The tool's folder (the user's, or the built-in one): data files named by ChoicesFrom live here.</summary>
         public string Dir;
 
-        /// <summary>"category:": a box on the Unify3D tab and a section in the Workflows menu; null when not set.</summary>
+        /// <summary>"category:": a box on the SolidWorks Agent tab and a section in the Workflows menu; null when not set.</summary>
         public string Category;
 
         /// <summary>"ribbon_title:": a shorter button caption than the title; null when not set.</summary>

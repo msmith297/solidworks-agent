@@ -141,7 +141,7 @@ function Card({ form }: { form: ToolFormState }) {
           </Group>
         ))}
         {form.agent && (
-          <Group id="__agent" title="Unify3D Agent" expanded>
+          <Group id="__agent" title="SolidWorks Agent" expanded>
             <label className="flex items-center gap-2 text-[11.5px] text-text-2" title="How much intelligence the agent uses for this tool: Fast (quickest), Balanced, High (careful), or Max (hardest problems).">
               <span className="shrink-0">Intelligence</span>
               <select value={form.agent.tier} onChange={(e) => void change({ tier: e.target.value })} className="sw-input h-[22px] min-w-0 flex-1 px-1 text-[12px]">

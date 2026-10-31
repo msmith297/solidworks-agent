@@ -138,7 +138,7 @@ namespace SwAgent.Plugins
             });
             // as Claude Code does: arguments the body never mentions still reach the agent
             if (!referenced && args.Trim().Length > 0) text = text.TrimEnd() + "\n\nARGUMENTS: " + args.Trim();
-            if (Shell.IsMatch(text)) notes.Add("Shell lines (!`...`) in this command were not run: Unify3D doesn't run shell commands from plugins.");
+            if (Shell.IsMatch(text)) notes.Add("Shell lines (!`...`) in this command were not run: SolidWorks Agent doesn't run shell commands from plugins.");
             text = FileRef.Replace(text, m =>
             {
                 var rel = m.Groups[1].Value;

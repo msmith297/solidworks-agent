@@ -64,7 +64,7 @@ Options for all controls: `Visible | Enabled` (205). IDs: `_nextId` starts at 10
 ### 2.1 Groups (Build, 157-189)
 Group caption = `input.Group`, else "Selections" (selection), "Context" (text, files) or "Parameters" (165). Groups are created in order
 of first appearance with `swGroupBoxOptions_Visible | swGroupBoxOptions_Expanded`. Group IDs come from a **separate counter starting at
-1** (`groupId`, 160), while control IDs start at 10. For agent tools an extra collapsed group "Unify3D Agent" with an "Intelligence"
+1** (`groupId`, 160), while control IDs start at 10. For agent tools an extra collapsed group "SolidWorks Agent" with an "Intelligence"
 combobox is appended (177-188; `_tierBoxId`, items `TierNames`, initial from `spec.Intelligence`).
 
 **Latent bug for a big page:** with 9 or more distinct groups (+ the agent group) the group ID counter reaches 10 and collides with the

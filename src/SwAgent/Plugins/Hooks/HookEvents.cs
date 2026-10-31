@@ -6,7 +6,7 @@ using Newtonsoft.Json.Linq;
 
 namespace SwAgent.Plugins.Hooks
 {
-    /// <summary>The Claude Code hook events Unify3D fires, and how a hook's matcher selects them.</summary>
+    /// <summary>The Claude Code hook events SolidWorks Agent fires, and how a hook's matcher selects them.</summary>
     internal static class HookEvents
     {
         public const string SessionStart = "SessionStart";

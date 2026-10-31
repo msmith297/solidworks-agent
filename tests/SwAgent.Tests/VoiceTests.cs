@@ -99,7 +99,7 @@ namespace SwAgent.Tests
             var model = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SwAgent", "speech", "ggml-base.en.bin");
             if (!File.Exists(model)) return; // nothing to test against on this machine
 
-            var wav = Path.Combine(Path.GetTempPath(), "unify3d-voice-test.wav");
+            var wav = Path.Combine(Path.GetTempPath(), "solidworks-agent-voice-test.wav");
             // SAPI wants an STA thread (on the test runner's pool threads it can take the test host down).
             var speak = new System.Threading.Thread(() =>
             {
@@ -179,7 +179,7 @@ namespace SwAgent.Tests
             while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, "src", "SwAgent"))) dir = dir.Parent;
             Assert.NotNull(dir);
             var candidates = new[] { "Debug", "Release" }
-                .Select(c => Path.Combine(dir.FullName, "src", "SwAgent", "bin", c, "net48", "speech", "Unify3D.Speech.exe"))
+                .Select(c => Path.Combine(dir.FullName, "src", "SwAgent", "bin", c, "net48", "speech", "SolidWorksAgent.Speech.exe"))
                 .Where(File.Exists)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
                 .ToList();

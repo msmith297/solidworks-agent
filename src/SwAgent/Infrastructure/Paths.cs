@@ -75,15 +75,15 @@ namespace SwAgent.Infrastructure
         public static string PluginTranscriptDir => Ensure(Path.Combine(LocalDir, "plugins", "transcripts"));
 
         /// <summary>
-        /// %LOCALAPPDATA%\SwAgent\local-mcp: the copy of Unify3D.LocalMcp.exe that Claude Desktop and Codex run (Claude MCP /
+        /// %LOCALAPPDATA%\SwAgent\local-mcp: the copy of SolidWorksAgent.LocalMcp.exe that Claude Desktop and Codex run (Claude MCP /
         /// Codex MCP plugins). Outside the install folder, so a running copy never blocks an add-in update; the path never
         /// changes, so the client configs never need rewriting. Filled by LocalMcpDeployer.
         /// </summary>
         public static string LocalMcpDir => Path.Combine(LocalDir, "local-mcp");
 
-        /// <summary>Where plugin_package writes: Documents\Unify3D Plugins (a shareable marketplace folder).</summary>
+        /// <summary>Where plugin_package writes: Documents\SolidWorks Agent Plugins (a shareable marketplace folder).</summary>
         public static string PackagesDir => Ensure(TestRoot != null ? Path.Combine(TestRoot, "Packages") : Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Unify3D Plugins"));
+            Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "SolidWorks Agent Plugins"));
 
         private static string Ensure(string dir)
         {

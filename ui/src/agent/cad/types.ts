@@ -18,7 +18,7 @@ export interface CadProfile {
   terms: {
     /** The page a tool shows for its inputs: "PropertyManager page". */
     inputsPage: string;
-    /** Where tools appear: 'the "Unify3D" ribbon tab'. */
+    /** Where tools appear: 'the "SolidWorks Agent" ribbon tab'. */
     toolbar: string;
     /** How the user assigns hotkeys. */
     hotkeys: string;

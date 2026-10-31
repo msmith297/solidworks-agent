@@ -17,7 +17,7 @@ namespace SwAgent.Plugins
 
     /// <summary>
     /// One safe edit of another app's config file (docs/plugins/local-mcp.md 7.3): read the bytes, change the text, check that only
-    /// Unify3D's entry changed, back the original up into Unify3D's own data folder (newest 5), write a temp file next to it with
+    /// SolidWorks Agent's entry changed, back the original up into SolidWorks Agent's own data folder (newest 5), write a temp file next to it with
     /// the same BOM, and replace the file in one step - again from the start (up to 3 times) when the app wrote it meanwhile.
     /// Backups may hold other servers' keys: they are never logged and never go into a chat.
     /// </summary>
@@ -49,7 +49,7 @@ namespace SwAgent.Plugins
         /// (before, after) and throws <see cref="ClientConfigException"/> when the change isn't safe. Returns true when the file
         /// was written, false when the change left it as it was.
         /// </summary>
-        /// <param name="backupDir">Unify3D's own folder for backups (plugins\data\&lt;plugin&gt;\backups); never next to the client's file.</param>
+        /// <param name="backupDir">SolidWorks Agent's own folder for backups (plugins\data\&lt;plugin&gt;\backups); never next to the client's file.</param>
         /// <param name="label">"Claude Desktop" / "Codex", for the messages.</param>
         public static bool Edit(string path, Func<string, string> change, Action<string, string> check, string backupDir, string label)
         {
@@ -67,11 +67,11 @@ namespace SwAgent.Plugins
                 }
                 catch (ClientConfigException ex)
                 {
-                    Log.Warn($"Unify3D's change to {path} was refused: {ex.Message}");
-                    throw new ClientConfigException($"Unify3D couldn't change {path} safely; nothing was changed.");
+                    Log.Warn($"SolidWorks Agent's change to {path} was refused: {ex.Message}");
+                    throw new ClientConfigException($"SolidWorks Agent couldn't change {path} safely; nothing was changed.");
                 }
 
-                var tmp = path + ".unify3d-tmp";
+                var tmp = path + ".solidworks-agent-tmp";
                 try
                 {
                     var body = Utf8.GetBytes(after);
@@ -79,7 +79,7 @@ namespace SwAgent.Plugins
                     BeforeReplace?.Invoke(path);
                     if (Hash(File.Exists(path) ? ReadBytes(path, label) : null) != hash)
                     {
-                        Log.Info($"{path} changed while Unify3D was editing it; reading it again (attempt {attempt})");
+                        Log.Info($"{path} changed while SolidWorks Agent was editing it; reading it again (attempt {attempt})");
                         TryDelete(tmp);
                         continue;
                     }
@@ -135,7 +135,7 @@ namespace SwAgent.Plugins
             }
             catch (DecoderFallbackException)
             {
-                throw new ClientConfigException($"{label}'s settings file {path} isn't UTF-8 text. Unify3D won't change it.");
+                throw new ClientConfigException($"{label}'s settings file {path} isn't UTF-8 text. SolidWorks Agent won't change it.");
             }
         }
 

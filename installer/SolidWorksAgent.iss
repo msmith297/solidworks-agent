@@ -1,5 +1,5 @@
 ; Windows installer for the add-in (Inno Setup 6).
-;   iscc /DAppVersion=0.2.0 installer\Unify3DAgent.iss      -> dist\Unify3D-Agent-Setup-0.2.0.exe
+;   iscc /DAppVersion=0.2.0 installer\SolidWorksAgent.iss      -> dist\SolidWorks-Agent-Setup-0.2.0.exe
 ; Built by .github/workflows/release.yml for every v* tag; scripts/make-installer.ps1 builds it locally.
 ;
 ; Installs machine-wide (registering a SolidWorks add-in writes HKLM), registers the COM add-in with RegAsm,
@@ -7,10 +7,10 @@
 ; (see src/SwAgent/update.ps1), so it must work unattended: /VERYSILENT /SUPPRESSMSGBOXES.
 
 ; Product name in one place: change it here (and in the add-in's [Title]) to rebrand.
-#define AppName "Unify3D Agent"
+#define AppName "SolidWorks Agent"
 #define AppPublisher "msmith297"
-#define AppUrl "https://github.com/msmith297/unify3d-agent"
-#define OutputName "Unify3D-Agent-Setup"
+#define AppUrl "https://github.com/msmith297/solidworks-agent"
+#define OutputName "SolidWorks-Agent-Setup"
 #ifndef AppVersion
   #define AppVersion "0.0.0"
 #endif
@@ -33,6 +33,8 @@ AppSupportURL={#AppUrl}/issues
 AppUpdatesURL={#AppUrl}/releases
 VersionInfoVersion={#FileVersion}
 DefaultDirName={autopf}\{#AppName}
+; Updates from the old Unify3D Agent folder move here (see [InstallDelete]).
+UsePreviousAppDir=no
 DisableProgramGroupPage=yes
 DisableDirPage=auto
 PrivilegesRequired=admin
@@ -48,16 +50,18 @@ WizardStyle=modern
 CloseApplications=yes
 RestartApplications=no
 UninstallDisplayName={#AppName}
-SetupIconFile=..\assets\brand\unify3d.ico
-UninstallDisplayIcon={app}\unify3d.ico
+SetupIconFile=..\assets\brand\solidworks-agent.ico
+UninstallDisplayIcon={app}\solidworks-agent.ico
 
 [Files]
-Source: "..\assets\brand\unify3d.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\assets\brand\solidworks-agent.ico"; DestDir: "{app}"; Flags: ignoreversion
 Source: "{#SourceDir}\*"; DestDir: "{app}"; Excludes: "*.pdb,*.old,*.xml"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; Evergreen bootstrapper (downloaded by the release workflow); only used when WebView2 is missing.
 Source: "redist\MicrosoftEdgeWebview2Setup.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall skipifsourcedoesntexist; Check: NeedsWebView2
 
 [InstallDelete]
+; The folder of versions from before the rename to SolidWorks Agent.
+Type: filesandordirs; Name: "{autopf}\Unify3D Agent"
 ; Old UI bundles (file names change every build).
 Type: filesandordirs; Name: "{app}\wwwroot"
 ; Built-in tools are replaced as a whole (a tool removed from the add-in must not linger).

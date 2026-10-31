@@ -109,7 +109,7 @@ namespace SwAgent.Mcp
                     ["protocolVersion"] = ProtocolVersion,
                     ["capabilities"] = new JObject(),
                     // Never "claude": agent-bridge would then join the user's Claude Code app on the hub.
-                    ["clientInfo"] = new JObject { ["name"] = "unify3d-agent", ["version"] = typeof(McpClient).Assembly.GetName().Version.ToString(3) },
+                    ["clientInfo"] = new JObject { ["name"] = "solidworks-agent", ["version"] = typeof(McpClient).Assembly.GetName().Version.ToString(3) },
                 }, InitializeTimeoutFor(command), CancellationToken.None).ConfigureAwait(false);
                 Instructions = (string)init["instructions"];
                 ServerInfo = init["serverInfo"] as JObject;

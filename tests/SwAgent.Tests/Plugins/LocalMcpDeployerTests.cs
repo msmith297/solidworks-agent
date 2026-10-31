@@ -7,7 +7,7 @@ using Xunit;
 
 namespace SwAgent.Tests.Plugins
 {
-    /// <summary>docs/plugins/local-mcp.md C7: the per-user copy of Unify3D.LocalMcp.exe, also while a client runs it.</summary>
+    /// <summary>docs/plugins/local-mcp.md C7: the per-user copy of SolidWorksAgent.LocalMcp.exe, also while a client runs it.</summary>
     [Collection("Plugins")]
     public class LocalMcpDeployerTests
     {
@@ -41,7 +41,7 @@ namespace SwAgent.Tests.Plugins
                 {
                     UseShellExecute = false, RedirectStandardInput = true, RedirectStandardOutput = true, RedirectStandardError = true, CreateNoWindow = true,
                 };
-                psi.EnvironmentVariables["UNIFY3D_LINK_PIPE"] = "Unify3D.Test." + Guid.NewGuid().ToString("N");
+                psi.EnvironmentVariables["SOLIDWORKS_AGENT_LINK_PIPE"] = "SolidWorks Agent.Test." + Guid.NewGuid().ToString("N");
                 var running = Process.Start(psi);
                 try
                 {

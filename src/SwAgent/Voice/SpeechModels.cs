@@ -103,7 +103,7 @@ namespace SwAgent.Voice
         {
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             var client = new HttpClient { Timeout = TimeSpan.FromMinutes(30) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Unify3D-Agent");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("SolidWorks-Agent");
             return client;
         }
     }

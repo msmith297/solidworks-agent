@@ -6,7 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
-using Unify3D.LocalLink;
+using SolidWorksAgent.LocalLink;
 
 namespace SwAgent.LocalMcp
 {
@@ -151,7 +151,7 @@ namespace SwAgent.LocalMcp
             return new JObject { ["jsonrpc"] = "2.0", ["id"] = id, ["error"] = e };
         }
 
-        private JObject ServerInfo() => new JObject { ["name"] = "unify3d", ["title"] = "Unify3D Agent", ["version"] = _version };
+        private JObject ServerInfo() => new JObject { ["name"] = "solidworks-agent", ["title"] = "SolidWorks Agent", ["version"] = _version };
 
         private async Task<JObject> DispatchAsync(string method, JObject p, CancellationToken cancel)
         {

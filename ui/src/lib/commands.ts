@@ -13,7 +13,7 @@ export interface BuiltinCommand {
   hint?: string;
 }
 
-/** Unify3D's own commands, listed first in the popup. */
+/** SolidWorks Agent's own commands, listed first in the popup. */
 export const BUILTIN_COMMANDS: BuiltinCommand[] = [
   { name: "help", description: "List the commands" },
   { name: "clear", description: "Start a new chat" },
@@ -50,7 +50,7 @@ export interface SlashRow {
   /** What is inserted after "/": the short name when it is unique, else the plugin-qualified one. */
   name: string;
   description: string;
-  /** Where it comes from: "Unify3D", a plugin name, "Your tools". */
+  /** Where it comes from: "SolidWorks Agent", a plugin name, "Your tools". */
   source: string;
   hint?: string;
 }
@@ -75,7 +75,7 @@ export function allSlashRows(src: CommandSources): SlashRow[] {
       kind: "builtin",
       name: b.name,
       description: b.description,
-      source: "Unify3D",
+      source: "SolidWorks Agent",
       hint: b.name === "model" && src.models?.length ? modelHint(src.models) : b.hint,
     })),
     ...src.commands.map((c): SlashRow => ({

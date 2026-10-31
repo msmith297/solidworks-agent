@@ -123,12 +123,12 @@ namespace SwAgent.Tools
             var missing = MissingRequirements(spec, _tools.Names);
             if (missing.Count > 0)
             {
-                _status($"Unify3D ▸ {spec.Title}: needs a newer add-in (missing {string.Join(", ", missing)})");
+                _status($"SolidWorks Agent ▸ {spec.Title}: needs a newer add-in (missing {string.Join(", ", missing)})");
                 return;
             }
             if (!(_app.Documents.Active is ISwDocument doc) || doc.Model == null)
             {
-                _status($"Unify3D ▸ {spec.Title}: open a document first");
+                _status($"SolidWorks Agent ▸ {spec.Title}: open a document first");
                 return;
             }
             _busy = true;
@@ -182,7 +182,7 @@ namespace SwAgent.Tools
                     }
                     if (inputs == null)
                     {
-                        _status($"Unify3D ▸ {spec.Title}: cancelled");
+                        _status($"SolidWorks Agent ▸ {spec.Title}: cancelled");
                         return;
                     }
                 }
@@ -209,7 +209,7 @@ namespace SwAgent.Tools
                 }
                 else if (spec.Macro != null)
                 {
-                    _status($"Unify3D ▸ {spec.Title}...");
+                    _status($"SolidWorks Agent ▸ {spec.Title}...");
                     var watch = Stopwatch.StartNew();
                     ToolResult result;
                     using (CrashGuard.Enter("macro", spec.Name, spec.Title, spec.Macro))
@@ -218,13 +218,13 @@ namespace SwAgent.Tools
                     var userError = Regex.Match(text, @"MacroInputException: (.+)");
                     if (userError.Success)
                     {
-                        _status($"Unify3D ▸ {spec.Title}: {userError.Groups[1].Value.Trim()}");
+                        _status($"SolidWorks Agent ▸ {spec.Title}: {userError.Groups[1].Value.Trim()}");
                         return;
                     }
                     if (!result.IsError && (!spec.Agent || spec.AgentFallback))
                     {
                         var value = Regex.Match(text, @"--- return value ---\s*\n(.+)");
-                        _status($"Unify3D ▸ {spec.Title}: {(value.Success ? value.Groups[1].Value.Trim().Trim('"') : "done")}  ({watch.Elapsed.TotalSeconds:0.0} s, Ctrl+Z to undo)");
+                        _status($"SolidWorks Agent ▸ {spec.Title}: {(value.Success ? value.Groups[1].Value.Trim().Trim('"') : "done")}  ({watch.Elapsed.TotalSeconds:0.0} s, Ctrl+Z to undo)");
                         Log.Info($"Tool '{name}' ran its macro in {watch.ElapsedMilliseconds} ms");
                         return;
                     }
@@ -246,7 +246,7 @@ namespace SwAgent.Tools
                 }
 
                 // 2b + 4. The agent: view and selection as they are now, then hand everything over.
-                _status($"Unify3D ▸ {spec.Title}: working...");
+                _status($"SolidWorks Agent ▸ {spec.Title}: working...");
                 await CaptureViewAsync(spec, ctx, context);
                 if (macroOutput != null) context["macroOutput"] = macroOutput;
                 var payload = await BuildPayloadAsync(spec, inputs, context);
@@ -256,7 +256,7 @@ namespace SwAgent.Tools
             catch (Exception ex)
             {
                 Log.Error($"Tool '{name}' failed", ex);
-                _status($"Unify3D ▸ {spec.Title}: {ex.Message}");
+                _status($"SolidWorks Agent ▸ {spec.Title}: {ex.Message}");
             }
             finally
             {
@@ -326,7 +326,7 @@ namespace SwAgent.Tools
                     var files = new JArray();
                     foreach (var path in inputs.Files(s.Id))
                     {
-                        if (ModelFileContext.IsModelFile(path)) _status($"Unify3D ▸ {spec.Title}: reading {Path.GetFileName(path)}...");
+                        if (ModelFileContext.IsModelFile(path)) _status($"SolidWorks Agent ▸ {spec.Title}: reading {Path.GetFileName(path)}...");
                         var f = await FileAttachments.EntryAsync(_app.Sw, path);
                         files.Add(f);
                         attached.Add(f);

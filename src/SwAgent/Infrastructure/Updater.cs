@@ -13,15 +13,15 @@ using Newtonsoft.Json.Linq;
 namespace SwAgent.Infrastructure
 {
     /// <summary>
-    /// Updates from GitHub Releases. A release carries the Windows installer (Unify3D-Agent-Setup-x.y.z.exe) and
-    /// its SHA-256 (Unify3D-Agent-Setup-x.y.z.exe.sha256). The installer can't replace the add-in while
+    /// Updates from GitHub Releases. A release carries the Windows installer (SolidWorks-Agent-Setup-x.y.z.exe) and
+    /// its SHA-256 (SolidWorks-Agent-Setup-x.y.z.exe.sha256). The installer can't replace the add-in while
     /// SolidWorks has it loaded, so installing always happens after SolidWorks exits: a small PowerShell helper
     /// waits for SLDWORKS.exe to close, runs the installer silently and, when asked, starts SolidWorks again.
     /// </summary>
     internal sealed class Updater
     {
         /// <summary>owner/repo on GitHub whose releases are the update feed.</summary>
-        public const string Repository = "msmith297/unify3d-agent";
+        public const string Repository = "msmith297/solidworks-agent";
 
         public enum State { Idle, Checking, UpToDate, Available, Downloading, Ready, Error }
 
@@ -252,7 +252,7 @@ namespace SwAgent.Infrastructure
             // .NET Framework defaults can exclude TLS 1.2, which GitHub requires.
             ServicePointManager.SecurityProtocol |= SecurityProtocolType.Tls12;
             var client = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
-            client.DefaultRequestHeaders.UserAgent.ParseAdd("Unify3D-Agent-Updater");
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("SolidWorks-Agent-Updater");
             client.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
             return client;
         }

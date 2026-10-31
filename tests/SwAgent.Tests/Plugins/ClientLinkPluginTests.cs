@@ -16,7 +16,7 @@ namespace SwAgent.Tests.Plugins
     [Collection("Plugins")]
     public class ClientLinkPluginTests
     {
-        private const string Claude = "claude-mcp@unify3d", Codex = "codex-mcp@unify3d";
+        private const string Claude = "claude-mcp@solidworks-agent", Codex = "codex-mcp@solidworks-agent";
 
         internal static string RepoRoot()
         {
@@ -82,7 +82,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.False(ask.Ok);
                 Assert.NotNull(ask.Hash);
                 var line = (string)ask.NeedsTrust["links"].Single();
-                Assert.Equal($"Claude Desktop: adds the MCP server \"unify3d\" to {env.Roots.ClaudeConfig}, which runs {env.Exe} --client claude-desktop", line);
+                Assert.Equal($"Claude Desktop: adds the MCP server \"solidworks-agent\" to {env.Roots.ClaudeConfig}, which runs {env.Exe} --client claude-desktop", line);
                 Assert.Empty(ask.NeedsTrust["hooks"]);
                 Assert.Empty(ask.NeedsTrust["mcp"]);
                 Assert.False(File.Exists(env.Roots.ClaudeConfig), "nothing written before the user agrees");
@@ -90,18 +90,18 @@ namespace SwAgent.Tests.Plugins
 
                 var done = env.Pm.Install(Claude, ask.Hash);
                 Assert.True(done.Ok);
-                var entry = env.ClaudeJson["mcpServers"]["unify3d"];
+                var entry = env.ClaudeJson["mcpServers"]["solidworks-agent"];
                 Assert.Equal(env.Exe, (string)entry["command"]);
                 Assert.Equal(new[] { "--client", "claude-desktop" }, entry["args"].Values<string>());
                 Assert.True(File.Exists(env.Exe), "the program was copied to the per-user folder");
                 var p = env.Pm.Find(Claude);
                 Assert.True(p.Enabled);
                 Assert.True(env.Pm.IsTrusted(p));
-                Assert.Equal("claude-desktop", (string)p.Record.Unify3d["registerMcpIn"]);
+                Assert.Equal("claude-desktop", (string)p.Record.SolidWorksAgent["registerMcpIn"]);
 
                 // The panel's view: the restart note until Claude Desktop connects.
                 var json = env.Pm.PluginJson(p);
-                Assert.Equal("Unify3D", (string)json["marketplaceDisplayName"]);
+                Assert.Equal("SolidWorks Agent", (string)json["marketplaceDisplayName"]);
                 Assert.Equal("present", (string)json["link"]["entry"]);
                 Assert.Equal(env.Roots.ClaudeConfig, (string)json["link"]["configPath"]);
                 Assert.Equal("Added to Claude Desktop. Quit Claude Desktop (from the tray icon) and open it again to load it. It shows Connected once Claude Desktop first uses it.", (string)json["link"]["note"]);
@@ -119,12 +119,12 @@ namespace SwAgent.Tests.Plugins
                 Assert.True(off.Ok);
                 Assert.Empty(off.Warnings);
                 Assert.Null(env.ClaudeJson["mcpServers"]);
-                Assert.StartsWith("Off: Claude Desktop can't reach Unify3D.", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["note"]);
+                Assert.StartsWith("Off: Claude Desktop can't reach SolidWorks Agent.", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["note"]);
 
                 var on = env.Pm.Enable(Claude, true);
                 Assert.True(on.Ok);
                 Assert.Null(on.NeedsTrust);
-                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]);
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["solidworks-agent"]);
 
                 // Claude Desktop now keeps its data in its MSIX package: another file, so the user is asked again.
                 env.Pm.Enable(Claude, false);
@@ -137,7 +137,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Contains(Path.Combine(b, "claude_desktop_config.json"), (string)again.NeedsTrust["links"][0]);
                 Assert.False(File.Exists(Path.Combine(b, "claude_desktop_config.json")));
                 Assert.True(env.Pm.Enable(Claude, true, again.Hash).Ok);
-                Assert.NotNull(JObject.Parse(File.ReadAllText(Path.Combine(b, "claude_desktop_config.json")))["mcpServers"]["unify3d"]);
+                Assert.NotNull(JObject.Parse(File.ReadAllText(Path.Combine(b, "claude_desktop_config.json")))["mcpServers"]["solidworks-agent"]);
             }
         }
 
@@ -162,7 +162,7 @@ namespace SwAgent.Tests.Plugins
                     Assert.Contains("by hand", w);
                 }
                 Assert.Null(env.Pm.Find(Claude));
-                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]); // left, as the warning says
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["solidworks-agent"]); // left, as the warning says
             }
         }
 
@@ -180,14 +180,14 @@ namespace SwAgent.Tests.Plugins
                 Assert.Empty(env.Pm.Uninstall(Claude));
                 Assert.Equal(mine, File.ReadAllText(env.Roots.ClaudeConfig));
 
-                // One Unify3D added goes with its entry, also after the entry was refreshed (a moved exe).
+                // One SolidWorks Agent added goes with its entry, also after the entry was refreshed (a moved exe).
                 ClientRoots.Write(env.Roots.ClaudeConfig, "{}");
                 env.Install(Claude);
                 var refreshed = env.ClaudeJson;
-                refreshed["mcpServers"]["unify3d"]["command"] = @"C:\old\Unify3D.LocalMcp.exe";
+                refreshed["mcpServers"]["solidworks-agent"]["command"] = @"C:\old\SolidWorksAgent.LocalMcp.exe";
                 ClientRoots.Write(env.Roots.ClaudeConfig, refreshed.ToString());
                 env.Pm.Links.Register("claude-desktop", "claude-mcp", addIfMissing: false);
-                Assert.Equal(env.Exe, (string)env.ClaudeJson["mcpServers"]["unify3d"]["command"]);
+                Assert.Equal(env.Exe, (string)env.ClaudeJson["mcpServers"]["solidworks-agent"]["command"]);
                 env.Pm.Enable(Claude, false);
                 Assert.Null(env.ClaudeJson["mcpServers"]);
 
@@ -196,8 +196,8 @@ namespace SwAgent.Tests.Plugins
                 PluginManager.Outcome off;
                 using (new FileStream(env.Roots.ClaudeConfig, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) off = env.Pm.Enable(Claude, false);
                 Assert.Contains("by hand", Assert.Single(off.Warnings));
-                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]);
-                Assert.StartsWith("Off, but the \"unify3d\" entry is still in Claude Desktop's settings", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["note"]);
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["solidworks-agent"]);
+                Assert.StartsWith("Off, but the \"solidworks-agent\" entry is still in Claude Desktop's settings", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["note"]);
             }
         }
 
@@ -221,7 +221,7 @@ namespace SwAgent.Tests.Plugins
             }
             using (var env = new Env())
             {
-                var foreign = "{\n  \"mcpServers\": {\n    \"unify3d\": {\n      \"command\": \"node\"\n    }\n  }\n}";
+                var foreign = "{\n  \"mcpServers\": {\n    \"solidworks-agent\": {\n      \"command\": \"node\"\n    }\n  }\n}";
                 ClientRoots.Write(env.Roots.ClaudeConfig, foreign);
                 var ex = Assert.Throws<ClientConfigException>(() => env.Pm.Install(Claude));
                 Assert.Equal(ClaudeDesktopConfig.ConflictText, ex.Message);
@@ -240,7 +240,7 @@ namespace SwAgent.Tests.Plugins
                 Assert.Equal("Claude MCP changes Claude Desktop's settings, so only the user can turn it on or off in Plugins.", ex.Message);
                 Assert.Throws<InvalidOperationException>(() => env.Pm.Enable(Claude, true, fromAgent: true));
                 Assert.True(env.Pm.Find(Claude).Enabled);
-                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]);
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["solidworks-agent"]);
             }
         }
 
@@ -249,7 +249,7 @@ namespace SwAgent.Tests.Plugins
         {
             using (var env = new Env())
             {
-                env.Plugins.AddPlugin("sneaky", entryExtra: new JObject { ["unify3d"] = new JObject { ["registerMcpIn"] = "claude-desktop" } });
+                env.Plugins.AddPlugin("sneaky", entryExtra: new JObject { ["solidworksAgent"] = new JObject { ["registerMcpIn"] = "claude-desktop" } });
                 env.Pm.AddMarketplace(env.Plugins.Market);
                 var r = env.Pm.Install("sneaky@test-market");
                 Assert.True(r.Ok);
@@ -286,10 +286,10 @@ namespace SwAgent.Tests.Plugins
 
                 // Claude Desktop replaced the file: the entry is gone; Repair puts it back.
                 ClientRoots.Write(env.Roots.ClaudeConfig, "{\n  \"preferences\": {}\n}");
-                Assert.Equal("The \"unify3d\" entry isn't in Claude Desktop's settings any more (it was removed or the file was replaced). Press Repair to add it again.", Note());
+                Assert.Equal("The \"solidworks-agent\" entry isn't in Claude Desktop's settings any more (it was removed or the file was replaced). Press Repair to add it again.", Note());
                 Assert.Equal("missing", (string)env.Pm.PluginJson(env.Pm.Find(Claude))["link"]["entry"]);
                 env.Pm.RepairLink(Claude);
-                Assert.NotNull(env.ClaudeJson["mcpServers"]["unify3d"]);
+                Assert.NotNull(env.ClaudeJson["mcpServers"]["solidworks-agent"]);
                 Assert.NotNull(env.ClaudeJson["preferences"]);
                 Assert.StartsWith("Added to Claude Desktop.", Note()); // written after it was last seen
 
@@ -309,7 +309,7 @@ namespace SwAgent.Tests.Plugins
             {
                 ClientRoots.Write(env.Roots.CodexConfig, CodexConfigTests.Realistic);
                 var ask = env.Pm.Install(Codex);
-                Assert.Contains($"Codex: adds the MCP server \"unify3d\" to {env.Roots.CodexConfig}, which runs {env.Exe} --client codex", ask.NeedsTrust["links"].Values<string>());
+                Assert.Contains($"Codex: adds the MCP server \"solidworks-agent\" to {env.Roots.CodexConfig}, which runs {env.Exe} --client codex", ask.NeedsTrust["links"].Values<string>());
                 Assert.True(env.Pm.Install(Codex, ask.Hash).Ok);
                 Assert.Equal(CodexConfigTests.Realistic + "\n" + CodexConfig.Block(env.Exe, "\n"), File.ReadAllText(env.Roots.CodexConfig));
                 Assert.Equal("Added to Codex. Restart Codex (or start a new CLI session) to load it. It shows Connected once Codex first uses it.", (string)env.Pm.PluginJson(env.Pm.Find(Codex))["link"]["note"]);

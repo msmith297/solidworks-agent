@@ -1,5 +1,5 @@
 {
- "schema": "unify3d.part-materials/1",
+ "schema": "solidworksAgent.part-materials/1",
  "generated": "2026-10-19",
  "generator": "tools/dev/mold-data/gen_materials.py",
  "definitions": {

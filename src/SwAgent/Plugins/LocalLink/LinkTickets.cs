@@ -166,14 +166,14 @@ namespace SwAgent.Plugins.LocalLink
             switch (state)
             {
                 case Working:
-                    return $"Unify3D is still working on it. Call get_unify3d_answer with ticket \"{ticket}\" to get the answer.";
+                    return $"SolidWorks Agent is still working on it. Call get_solidworks_agent_answer with ticket \"{ticket}\" to get the answer.";
                 case Approval:
-                    return "Unify3D is waiting for the user to approve a change (or answer a question) in the Unify3D panel in SolidWorks. " +
-                           $"Tell the user, then call get_unify3d_answer with ticket \"{ticket}\".";
+                    return "SolidWorks Agent is waiting for the user to approve a change (or answer a question) in the SolidWorks Agent panel in SolidWorks. " +
+                           $"Tell the user, then call get_solidworks_agent_answer with ticket \"{ticket}\".";
                 case Queued:
-                    return $"The Unify3D chat is busy (or the panel is still loading). Your message goes next. Call get_unify3d_answer with ticket \"{ticket}\" later.";
+                    return $"The SolidWorks Agent chat is busy (or the panel is still loading). Your message goes next. Call get_solidworks_agent_answer with ticket \"{ticket}\" later.";
                 case Paused:
-                    return $"Unify3D has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_unify3d_answer with ticket \"{ticket}\" later.";
+                    return $"SolidWorks Agent has paused automatic turns. Your message is in the chat and the agent answers it with the user's next message. Call get_solidworks_agent_answer with ticket \"{ticket}\" later.";
                 case Stopped:
                     return "The user stopped the agent before it finished." + (string.IsNullOrWhiteSpace(answer) ? "" : " Partial reply: " + answer);
                 default:

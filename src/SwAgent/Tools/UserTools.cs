@@ -26,7 +26,7 @@ namespace SwAgent.Tools
         private static readonly Regex PluginToolPattern = new Regex("^([a-z0-9][a-z0-9-]{1,47}):([a-z0-9][a-z0-9-]{1,47})$");
 
         private const string CategoryHelp =
-            "Optional category: tools that share one get their own box on the Unify3D ribbon tab and their own section in the Workflows menu, " +
+            "Optional category: tools that share one get their own box on the SolidWorks Agent ribbon tab and their own section in the Workflows menu, " +
             "e.g. \"Molding & Toolmaking\". Reuse an existing category name (see list_user_tools) rather than inventing a near-duplicate.";
 
         /// <summary>
@@ -112,7 +112,7 @@ namespace SwAgent.Tools
         public static string Root => Directory.CreateDirectory(Path.Combine(Paths.RoamingDir, "tools")).FullName;
 
         /// <summary>
-        /// Built-in Unify3D tools: the same folder layout as the user's (TOOL.md, inputs.json, macro.cs, icons), shipped with
+        /// Built-in SolidWorks Agent tools: the same folder layout as the user's (TOOL.md, inputs.json, macro.cs, icons), shipped with
         /// the add-in in builtin-tools next to SwAgent.dll (source: tools/builtin in the repository). Read-only: they are
         /// replaced by every install, so the agent never edits them and their names can't be used for the user's tools.
         /// Per-PC settings for them (e.g. the intelligence level) go in the user's tools folder (builtin-settings.json).
@@ -247,7 +247,7 @@ namespace SwAgent.Tools
             public string Title { get; set; }
 
             [ToolParam("\"workflow\" (default): a larger, multi-step procedure run from the Workflows menu in the chat, e.g. building a whole mold. " +
-                       "\"tool\": a small, fast command that extends manual modelling - a button on the Unify3D ribbon tab the user can put on a hotkey; " +
+                       "\"tool\": a small, fast command that extends manual modelling - a button on the SolidWorks Agent ribbon tab the user can put on a hotkey; " +
                        "give it a macro so it runs instantly.")]
             public string Kind { get; set; }
 
@@ -309,7 +309,7 @@ namespace SwAgent.Tools
 
             [ToolParam("An icon designed for this tool, as SVG markup: viewBox=\"0 0 16 16\", drawn to read clearly at 16-20 px next to SolidWorks' own " +
                        "commands - a simple pictogram of what the tool makes or does (e.g. a mold block with a cavity, a plate with holes), " +
-                       "in the Unify3D look (like its brushed-metal U logo): brushed steel fills as top-to-bottom gradients (#F4F5F6 to #9AA0A6), " +
+                       "in the SolidWorks Agent look: brushed steel fills as top-to-bottom gradients (#F4F5F6 to #9AA0A6), " +
                        "graphite for dark parts and details (#55595F to #1C1F22), 0.75-1 px graphite outlines (#26292D), a small white highlight " +
                        "at most - monochrome metal, no blue or other colour accents, no text, no thin details, transparent background. " +
                        "Shown on the tool's ribbon button and in the Tools menu.")]
@@ -383,7 +383,7 @@ namespace SwAgent.Tools
 
             [ToolParam("An icon designed for this tool, as SVG markup: viewBox=\"0 0 16 16\", drawn to read clearly at 16-20 px next to SolidWorks' own " +
                        "commands - a simple pictogram of what the tool makes or does (e.g. a mold block with a cavity, a plate with holes), " +
-                       "in the Unify3D look (like its brushed-metal U logo): brushed steel fills as top-to-bottom gradients (#F4F5F6 to #9AA0A6), " +
+                       "in the SolidWorks Agent look: brushed steel fills as top-to-bottom gradients (#F4F5F6 to #9AA0A6), " +
                        "graphite for dark parts and details (#55595F to #1C1F22), 0.75-1 px graphite outlines (#26292D), a small white highlight " +
                        "at most - monochrome metal, no blue or other colour accents, no text, no thin details, transparent background. " +
                        "Shown on the tool's ribbon button and in the Tools menu.")]
@@ -424,7 +424,7 @@ namespace SwAgent.Tools
                     text += $"\n\n(This is the user's copy of {source}, which changed since it was copied: compare_fork shows how. Offer it; don't merge unasked.)";
             }
             if (IsReadOnly(input.Name))
-                text += $"\n\n({(IsPluginTool(input.Name) ? "Tool of an installed plugin" : "Built-in Unify3D tool")}: read-only, but never a dead end. A behaviour rule " +
+                text += $"\n\n({(IsPluginTool(input.Name) ? "Tool of an installed plugin" : "Built-in SolidWorks Agent tool")}: read-only, but never a dead end. A behaviour rule " +
                         "for it goes in remember(tool:" + input.Name.Trim().ToLowerInvariant() + "); a real change (inputs, steps, data, code) goes in the user's own copy: fork_tool.)";
             return ToolResult.Ok(text);
         }
@@ -436,7 +436,7 @@ namespace SwAgent.Tools
         {
             var name = (input.Name ?? "").Trim().ToLowerInvariant();
             if (!NamePattern.IsMatch(name)) return ToolResult.Error("Name must be 2-48 characters: lowercase letters, digits and dashes.");
-            if (BuiltInExists(name)) return ToolResult.Error($"'{name}' is a built-in Unify3D tool. Make the user's own copy with fork_tool (it keeps the data, page and code), then change that.");
+            if (BuiltInExists(name)) return ToolResult.Error($"'{name}' is a built-in SolidWorks Agent tool. Make the user's own copy with fork_tool (it keeps the data, page and code), then change that.");
             if (ReservedNames.Contains(name)) return ToolResult.Error($"'{name}' is reserved for the tools' own settings folder. Choose another name.");
             var icon = Icons.Contains(input.Icon) ? input.Icon : "macro";
             var kind = string.Equals((input.Kind ?? "").Trim(), "tool", StringComparison.OrdinalIgnoreCase) ? "tool" : "workflow";
@@ -491,11 +491,11 @@ namespace SwAgent.Tools
             if (kind == "tool")
             {
                 var hasMacro = File.Exists(Path.Combine(dir, "macro.cs"));
-                return ToolResult.Ok($"Saved tool '{name}' ({input.Title}). It is a button on the 'Unify3D' ribbon tab{(hasIcon ? " with its icon" : " (default icon - pass icon_svg)")}; " +
-                                     "the user can assign it a hotkey (Tools > Customize > Keyboard, category Unify3D). " +
+                return ToolResult.Ok($"Saved tool '{name}' ({input.Title}). It is a button on the 'SolidWorks Agent' ribbon tab{(hasIcon ? " with its icon" : " (default icon - pass icon_svg)")}; " +
+                                     "the user can assign it a hotkey (Tools > Customize > Keyboard, category SolidWorks Agent). " +
                                      (hasMacro ? "Clicking it runs the macro directly on the current selection." : "It has no macro yet, so each click asks the agent - add a verified macro to make it instant."));
             }
-            return ToolResult.Ok($"Saved workflow '{name}' ({input.Title}). It is in the Workflows menu of the Unify3D chat panel{(hasIcon ? ", with its icon" : "")}.");
+            return ToolResult.Ok($"Saved workflow '{name}' ({input.Title}). It is in the Workflows menu of the SolidWorks Agent chat panel{(hasIcon ? ", with its icon" : "")}.");
         }
 
         [AgentTool("edit_user_tool",
@@ -795,7 +795,7 @@ namespace SwAgent.Tools
             if (IsBuiltIn(name))
             {
                 if (forWrite)
-                    throw new ToolException($"'{name}' is a built-in Unify3D tool and can't be changed in place. For a behaviour rule use remember(tool:{name}); " +
+                    throw new ToolException($"'{name}' is a built-in SolidWorks Agent tool and can't be changed in place. For a behaviour rule use remember(tool:{name}); " +
                                             "for a real change make the user's own copy with fork_tool, then change that.");
                 return DirOf(name);
             }

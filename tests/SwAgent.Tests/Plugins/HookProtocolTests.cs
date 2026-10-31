@@ -229,15 +229,15 @@ namespace SwAgent.Tests.Plugins
             {
                 var env = Session.ForTests("env").EnvFor(RuntimeTestKit.Plugin("p", env: new System.Collections.Generic.Dictionary<string, string>
                 {
-                    ["AGENT_BRIDGE_NAME"] = "Unify3D SolidWorks - ${UNIFY3D_DEVICE}",
-                    ["AGENT_BRIDGE_OWNER_PID"] = "${UNIFY3D_PID}",
+                    ["AGENT_BRIDGE_NAME"] = "SolidWorks Agent - ${SOLIDWORKS_AGENT_DEVICE}",
+                    ["AGENT_BRIDGE_OWNER_PID"] = "${SOLIDWORKS_AGENT_PID}",
                     ["CLAUDE_CODE_SESSION_ID"] = "a plugin can't override this",
                 }));
                 Assert.False(env.ContainsKey("ANTHROPIC_TEST_SECRET_B"));
                 Assert.False(env.ContainsKey("CLAUDE_CODE_TEST_MARKER_B"));
                 Assert.Equal("env", env["CLAUDE_CODE_SESSION_ID"]);
-                Assert.Equal("1", env["UNIFY3D"]);
-                Assert.Equal("Unify3D SolidWorks - " + Environment.MachineName, env["AGENT_BRIDGE_NAME"]);
+                Assert.Equal("1", env["SOLIDWORKS_AGENT"]);
+                Assert.Equal("SolidWorks Agent - " + Environment.MachineName, env["AGENT_BRIDGE_NAME"]);
                 Assert.Equal(System.Diagnostics.Process.GetCurrentProcess().Id.ToString(), env["AGENT_BRIDGE_OWNER_PID"]);
                 Assert.Equal(Session.ProjectDir, env["CLAUDE_PROJECT_DIR"]);
                 Assert.Equal(RuntimeTestKit.FixtureDir, env["CLAUDE_PLUGIN_ROOT"]);

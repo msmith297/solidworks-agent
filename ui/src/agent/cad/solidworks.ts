@@ -12,8 +12,8 @@ export const SOLIDWORKS: CadProfile = {
   contextTag: "sw_context",
   terms: {
     inputsPage: "PropertyManager page",
-    toolbar: `the "Unify3D" ribbon tab`,
-    hotkeys: "Tools > Customize > Keyboard, category Unify3D",
+    toolbar: `the "SolidWorks Agent" ribbon tab`,
+    hotkeys: "Tools > Customize > Keyboard, category SolidWorks Agent",
     featureTree: "FeatureManager design tree",
   },
   sections: {

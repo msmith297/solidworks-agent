@@ -12,7 +12,7 @@
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <RootNamespace>SwAgent.Speech</RootNamespace>
-    <AssemblyName>Unify3D.Speech</AssemblyName>
+    <AssemblyName>SolidWorksAgent.Speech</AssemblyName>
     <Version>0.2.0</Version>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <OutputPath>..\SwAgent\bin\$(Configuration)\net48\speech\</OutputPath>
