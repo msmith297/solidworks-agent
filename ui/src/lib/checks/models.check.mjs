@@ -60,7 +60,7 @@ t("every registry row is valid", () => {
     MODELS.filter((m) => m.provider === "anthropic").map((m) => [m.id, m.label, m.caps.fallbacks, m.caps.progressUpdates, m.caps.cacheTtlLong]),
     [
       ["claude-opus-5-5", "Opus 5.5", true, true, "1h"],
-      ["claude-fable-5-1", "Fable 5.1", true, true, "1h"],
+      ["claude-fable-5-2", "Fable 5.2", true, true, "1h"],
       ["claude-sonnet-5-5", "Sonnet 5.5", true, true, "1h"],
       ["claude-haiku-5-5", "Haiku 5.5", false, false, "1h"],
     ],
@@ -139,7 +139,7 @@ t("resolveModel: every cell of the table in design 7.4", () => {
   assert.equal(resolveModel("haiku", claude(both)), "claude-haiku-5-5");
   assert.equal(resolveModel("Sonnet", claude(both)), "claude-sonnet-5-5");
   assert.equal(resolveModel("opus", claude(both)), "claude-opus-5-5");
-  assert.equal(resolveModel("fable", claude(both)), "claude-fable-5-1");
+  assert.equal(resolveModel("fable", claude(both)), "claude-fable-5-2");
   assert.equal(resolveModel("haiku", openai(both)), "gpt-6-luna");
   assert.equal(resolveModel("sonnet", openai(both)), "gpt-6.1-sol");
   assert.equal(resolveModel("opus", openai(both)), "gpt-6-astra");
@@ -167,7 +167,7 @@ t("resolveModel: every cell of the table in design 7.4", () => {
   // A family name with a version, as before the provider layer: that Claude model on Claude, its tier elsewhere.
   assert.equal(resolveModel("opus-5", claude(both)), "claude-opus-5-5");
   assert.equal(resolveModel("Sonnet-5", claude(has("anthropic"))), "claude-sonnet-5-5");
-  assert.equal(resolveModel("fable-5", claude(both)), "claude-fable-5-1");
+  assert.equal(resolveModel("fable-5", claude(both)), "claude-fable-5-2");
   assert.equal(modelFromAlias("opus-5"), "claude-opus-5-5");
   assert.equal(resolveModel("opus-5", openai(both)), "gpt-6-astra");
   assert.equal(resolveModel("haiku-5", openai(has("openai"))), "gpt-6-luna");

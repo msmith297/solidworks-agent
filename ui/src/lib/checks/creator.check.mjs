@@ -16,12 +16,14 @@ const t = (name, fn) => {
   console.log("ok -", name);
 };
 
-t("web research: off means no server tools; Opus and Sonnet get the dynamic versions, others the basic ones", () => {
+t("web research: off means no server tools; Opus, Sonnet and Fable get the dynamic versions, others the basic ones", () => {
   assert.deepEqual(webTools("claude-opus-5-5", false), []);
   assert.deepEqual(webBetas("claude-haiku-5-5", false), []);
   assert.deepEqual(webTools("claude-opus-5-5", true).map((x) => x.type), ["web_search_20260209", "web_fetch_20260209"]);
   assert.deepEqual(webTools("claude-sonnet-5-5", true).map((x) => x.name), ["web_search", "web_fetch"]);
   assert.deepEqual(webBetas("claude-sonnet-5-5", true), []);
+  assert.deepEqual(webTools("claude-fable-5-2", true).map((x) => x.type), ["web_search_20260209", "web_fetch_20260209"]);
+  assert.deepEqual(webBetas("claude-fable-5-2", true), []);
   assert.deepEqual(webTools("claude-haiku-5-5", true).map((x) => x.type), ["web_search_20250305", "web_fetch_20250910"]);
   assert.deepEqual(webBetas("claude-haiku-5-5", true), ["web-fetch-2025-09-10"]);
 });

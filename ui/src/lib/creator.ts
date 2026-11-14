@@ -19,11 +19,13 @@ export interface SecretAsk {
 
 /**
  * Anthropic's web search and web fetch, run on Anthropic's side (the panel's CSP doesn't change): the dynamic-filtering
- * versions on Opus and Sonnet, the basic ones on the other models. Off: none.
+ * versions on Opus, Sonnet and Fable, the basic ones on the other models. Off: none.
  */
+const DYNAMIC_WEB = /^claude-(opus|sonnet|fable|mythos)-/;
+
 export function webTools(model: string, enabled: boolean): { type: string; name: string; max_uses?: number }[] {
   if (!enabled) return [];
-  const dynamic = /^claude-(opus|sonnet)-/.test(model);
+  const dynamic = DYNAMIC_WEB.test(model);
   return [
     { type: dynamic ? "web_search_20260209" : "web_search_20250305", name: "web_search", max_uses: 8 },
     { type: dynamic ? "web_fetch_20260209" : "web_fetch_20250910", name: "web_fetch", max_uses: 10 },
@@ -32,7 +34,7 @@ export function webTools(model: string, enabled: boolean): { type: string; name:
 
 /** The beta header the basic web fetch needs (the 2026 versions need none). */
 export function webBetas(model: string, enabled: boolean): string[] {
-  return enabled && !/^claude-(opus|sonnet)-/.test(model) ? ["web-fetch-2025-09-10"] : [];
+  return enabled && !DYNAMIC_WEB.test(model) ? ["web-fetch-2025-09-10"] : [];
 }
 
 /**

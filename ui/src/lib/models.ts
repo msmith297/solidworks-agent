@@ -77,7 +77,7 @@ const gptCaps = (cacheReadRatio: number, serviceTiers: ("fast" | "ultrafast")[])
 /** Every model the app offers. The order is the picker order: Claude first, then OpenAI. */
 export const MODELS: ModelInfo[] = [
   { id: "claude-opus-5-5", provider: "anthropic", label: "Opus 5.5", note: "Default · best balance for CAD work", family: "claude", tier: "high", caps: claudeCaps(true, true) },
-  { id: "claude-fable-5-1", provider: "anthropic", label: "Fable 5.1", note: "Most capable · about 2.5× the cost", family: "claude", tier: "max", caps: claudeCaps(true, true) },
+  { id: "claude-fable-5-2", provider: "anthropic", label: "Fable 5.2", note: "Most capable · about 2× the cost", family: "claude", tier: "max", caps: claudeCaps(true, true) },
   { id: "claude-sonnet-5-5", provider: "anthropic", label: "Sonnet 5.5", note: "Faster · half the cost", family: "claude", tier: "balanced", caps: claudeCaps(true, true) },
   { id: "claude-haiku-5-5", provider: "anthropic", label: "Haiku 5.5", note: "Fastest · for quick questions", family: "claude", tier: "fast", caps: claudeCaps(false, false) },
   {
