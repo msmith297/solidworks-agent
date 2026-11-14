@@ -676,3 +676,17 @@ export function IconEffort(p: P) {
     </Svg>
   );
 }
+
+/** f(x): the virtual parameters (the ribbon's Parameters button). */
+export function IconFx(p: P) {
+  return (
+    <Svg {...p}>
+      <text x="0.6" y="12.6" fontFamily="Cambria, 'Times New Roman', serif" fontStyle="italic" fontWeight="700" fontSize="13" fill={C.bLine}>
+        f
+      </text>
+      <text x="6" y="12" fontFamily="Cambria, 'Times New Roman', serif" fontStyle="italic" fontSize="8.6" fill="currentColor">
+        (x)
+      </text>
+    </Svg>
+  );
+}

@@ -116,6 +116,7 @@ export const DEFAULT_SETTINGS: Settings = {
   verbosity: "medium",
   shareView: true,
   muteErrorSounds: true,
+  autoSave: true,
   zoom: 1,
   voiceEnabled: false,
   voiceKey: "vk:192",

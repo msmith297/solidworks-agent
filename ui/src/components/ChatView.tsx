@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ArrowDown, X } from "lucide-react";
-import { IconCancel, IconCopy, IconDocs, IconEdit, IconError, IconEye, IconMic, IconModelFile, IconOk, IconPlugin, IconQuestion, IconResend, IconShield, IconWatch, ToolIcon } from "./SwIcons";
+import { IconCancel, IconCopy, IconDocs, IconEdit, IconError, IconFx, IconEye, IconMic, IconModelFile, IconOk, IconPlugin, IconQuestion, IconResend, IconShield, IconWatch, ToolIcon } from "./SwIcons";
 import { Code, Markdown } from "./Markdown";
 import { BrandLogo } from "./Brand";
 import { FormCard } from "./FormCard";
@@ -19,7 +19,7 @@ import { Caret } from "./SwIcons";
 import { ToolCard, statusFor, toolTitle, type ToolCall } from "./ToolCard";
 import { assistantItems } from "./chatItems";
 import { breakdown, highlights as pickHighlights } from "../agent/workSummary";
-import { EVENT_TAG, HOOK_TAG, MODEL_TAG, VOICE_TAG, WATCH_TAG, cellIdsAfter, currentThread, isPrompt, promptText, useStore, writesAfter, type RunState } from "../store";
+import { EVENT_TAG, HOOK_TAG, MODEL_TAG, OVERLAY_TAG, VPARAM_TAG, VOICE_TAG, WATCH_TAG, cellIdsAfter, currentThread, isPrompt, promptText, useStore, writesAfter, type RunState } from "../store";
 import { parseTagged } from "../lib/hooks";
 import { bridgeMessages, reminderSenders } from "../lib/mcpView";
 import { labelNumber } from "../lib/markups";
@@ -35,7 +35,7 @@ import type { LiveBlock, SubAgentProgress } from "../agent/runAgent";
  * added for the agent ("hook"), or a turn a plugin started ("event": a wake, a Stop-hook continuation).
  */
 interface Extra {
-  kind: "model" | "watch" | "pdf" | "voice" | "hook" | "event";
+  kind: "model" | "watch" | "pdf" | "voice" | "hook" | "event" | "overlay" | "vparams";
   title: string;
   body: string;
   images: string[];
@@ -450,9 +450,11 @@ function promptItem(m: MessageParam, index: number): Item {
         afterContext = true;
       } else if (labelNumber(b.text) !== null) {
         label = `M${labelNumber(b.text)}`;
-      } else if (b.text.startsWith(MODEL_TAG) || b.text.startsWith(WATCH_TAG) || b.text.startsWith(VOICE_TAG) || b.text.startsWith(HOOK_TAG) || b.text.startsWith(EVENT_TAG)) {
+      } else if (b.text.startsWith(MODEL_TAG) || b.text.startsWith(WATCH_TAG) || b.text.startsWith(VOICE_TAG) || b.text.startsWith(HOOK_TAG) || b.text.startsWith(EVENT_TAG) || b.text.startsWith(OVERLAY_TAG) || b.text.startsWith(VPARAM_TAG)) {
         extra = parseExtra(b.text);
         extras.push(extra);
+        // Hooks add text only: images after their block are the ones the user attached (the hook goes in before them).
+        if (extra.kind === "hook") extra = null;
       } else texts.push(b.text);
     } else if (b.type === "image") {
       const src = (b as ImageBlockParam).source;
@@ -505,6 +507,16 @@ function parseExtra(raw: string): Extra {
     const parts = [attr("duration"), views > 0 && `${views} view${views === 1 ? "" : "s"}`, markups > 0 && `${markups} markup${markups === 1 ? "" : "s"}`].filter(Boolean);
     // The timeline without the explanation for the agent.
     return { kind: "voice", title: `Voice message · ${parts.join(" · ")}`, body: body.split("\n").filter((l) => /^\d+:\d\d/.test(l)).join("\n"), images: [] };
+  }
+  if (raw.startsWith(VPARAM_TAG)) {
+    // The changes, without the explanation for the agent.
+    const rows = raw.split("\n").filter((l) => /^\d+\. /.test(l));
+    return { kind: "vparams", title: `Parameter changes · ${rows.length}`, body: rows.join("\n"), images: [] };
+  }
+  if (raw.startsWith(OVERLAY_TAG)) {
+    // The edits, without the explanation for the agent.
+    const rows = raw.split("\n").filter((l) => /^\d+\. /.test(l));
+    return { kind: "overlay", title: `Overlay edits · ${rows.length}`, body: rows.join("\n"), images: [] };
   }
   const watch = raw.startsWith(WATCH_TAG);
   const head = /^<\w+([^>]*)>/.exec(raw);
@@ -620,7 +632,7 @@ function ExtraCard({ extra, onImage }: { extra: Extra; onImage: (s: string) => v
         ))}
         <button type="button" onClick={() => setOpen((o) => !o)} className="flex min-w-0 flex-col items-start justify-center py-1 pr-2 text-left" title={open ? "Hide details" : "Show what the agent received"}>
           <span className="flex items-center gap-1 text-[11.5px] font-semibold text-text">
-            {extra.kind === "model" ? <IconModelFile size={13} /> : extra.kind === "voice" ? <IconMic size={13} /> : <IconWatch size={13} />}
+            {extra.kind === "model" ? <IconModelFile size={13} /> : extra.kind === "voice" ? <IconMic size={13} /> : extra.kind === "overlay" ? <IconEdit size={13} /> : extra.kind === "vparams" ? <IconFx size={13} /> : <IconWatch size={13} />}
             <span className="truncate">{extra.title}</span>
             <Caret open={open} className="text-text-3" />
           </span>
@@ -990,6 +1002,9 @@ function TurnFooter({ turn, isLast, running }: { turn: TurnMeta; isLast: boolean
         </div>
       )}
       {turn.stop === "aborted" && !turn.error && <div className="pl-1 text-[11px] text-text-3">Stopped.</div>}
+      {!!turn.notSaved?.length && (
+        <div className="pl-1 text-[11px] text-text-2">Not saved: {turn.notSaved.map((n) => `${n.title} (${n.reason})`).join(", ")}</div>
+      )}
       <div className="flex items-center gap-1.5 pl-1 text-[10.5px] text-text-3">
         <span>{modelOption(turn.model).label}</span>
         <span>·</span>
@@ -1004,6 +1019,12 @@ function TurnFooter({ turn, isLast, running }: { turn: TurnMeta; isLast: boolean
           <>
             <span>·</span>
             <span>{formatDuration(turn.durationMs)}</span>
+          </>
+        )}
+        {!!turn.saved?.length && (
+          <>
+            <span>·</span>
+            <span title={`Saved: ${turn.saved.join(", ")}`}>{turn.saved.length === 1 ? `saved ${turn.saved[0]}` : `saved ${turn.saved.length} files`}</span>
           </>
         )}
         {tokens > 0 && (

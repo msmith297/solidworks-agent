@@ -124,6 +124,33 @@ namespace SwAgent
             }
         });
 
+        /// <summary>f(x): the virtual parameters.</summary>
+        public static byte[] Parameters => Draw(nameof(Parameters), g =>
+        {
+            var family = System.Linq.Enumerable.Any(FontFamily.Families, f => f.Name == "Cambria") ? new FontFamily("Cambria") : new FontFamily("Times New Roman");
+            using (family)
+            using (var f = new GraphicsPath())
+            using (var x = new GraphicsPath())
+            {
+                var fmt = StringFormat.GenericTypographic;
+                f.AddString("f", family, (int)FontStyle.Italic, 116, new PointF(0, 0), fmt);
+                x.AddString("(x)", family, (int)FontStyle.Italic, 62, new PointF(42, 46), fmt);
+                // Fit both inside the icon with a margin: the italic f leans out of its own box.
+                var bounds = RectangleF.Union(f.GetBounds(), x.GetBounds());
+                var scale = Math.Min(116 / bounds.Width, 116 / bounds.Height);
+                using (var fit = new Matrix())
+                {
+                    fit.Translate(64, 64);
+                    fit.Scale(scale, scale);
+                    fit.Translate(-(bounds.X + bounds.Width / 2), -(bounds.Y + bounds.Height / 2));
+                    f.Transform(fit);
+                    x.Transform(fit);
+                }
+                Metal(g, f, graphite: true, edge: 4);
+                Metal(g, x, graphite: false, edge: 3);
+            }
+        });
+
         /// <summary>Toolbox: tools that have no icon of their own yet.</summary>
         public static byte[] ToolDefault => Draw(nameof(ToolDefault), g => Toolbox(g));
 

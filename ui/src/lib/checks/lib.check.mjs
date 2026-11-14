@@ -22,6 +22,9 @@ import { slashQuery, slashRows, parseSlash, resolveSlash, splitArgs, substituteA
 import { matcherMatches, hasHook, hookToolResponse, HOOK_RESPONSE_CAP, hookContextText, systemEventText, parseTagged, autoTurnAllowed, AUTO_WINDOW_MS, wakesMayFollow, wakeApproval, isConsoleWake, wakeTrusted } from "../hooks.ts";
 import { mcpParts, isBridgeTool, mcpTitle, bridgeMessages, reminderSenders } from "../mcpView.ts";
 import { markupName, markupNumber, markupLabel, labelNumber, nextMarkupNumber, mentionMarkup } from "../markups.ts";
+import { VPARAM_TAG, mergeVParamEdit, vparamEditsName, vparamEditsText, visibleRows } from "../vparams.ts";
+import { preferenceChip, preferencesSection } from "../preferences.ts";
+import { OVERLAY_TAG, mergeOverlayEdit, overlayEditLine, overlayEditsName, overlayEditsText } from "../overlayEdits.ts";
 import { linkAnswerText, linkState, parseLinkMessage, LINK_ANSWER_CAP, NO_WRITTEN_REPLY } from "../localLink.ts";
 import "./resolve.mjs"; // workSummary imports its siblings without extensions
 const { highlights: summaryHighlights, breakdown: summaryBreakdown } = await import("../../agent/workSummary.ts");
@@ -900,6 +903,53 @@ t("the mock form saves, marks, updates and opens with the default profile", () =
   act({ action: "delete", name: "Shop A" });
   assert.equal(form.profile.name, null);
   mockToolForm("toolForm.cancel", { formId: form.formId }, emit);
+});
+
+t("overlay edits: one per tag, undone by going back, and sent as the user's values", () => {
+  const dim = { id: 2, type: "dimension", original: "5.04", value: "5.43", note: null, points: [[0, 0, 0], [0, 5.04, 0]] };
+  const label = { id: 1, type: "label", original: "neck", value: null, note: "same on all rails", points: [[1, 2, 3]] };
+  let edits = mergeOverlayEdit(mergeOverlayEdit([], dim), label);
+  assert.deepEqual(edits.map((e) => e.id), [1, 2]);
+  edits = mergeOverlayEdit(edits, { ...dim, value: "5.5" });
+  assert.equal(edits.length, 2);
+  assert.equal(edits[1].value, "5.5");
+  assert.equal(overlayEditsName(edits), "2 overlay edits");
+  assert.equal(overlayEditLine(edits[1]), 'dimension "5.04", changed to "5.5"');
+  assert.equal(overlayEditLine(label), 'label "neck", note: "same on all rails"');
+  const text = overlayEditsText(edits);
+  assert.ok(text.startsWith(OVERLAY_TAG));
+  assert.match(text, /2\. dimension "5\.04", changed to "5\.5" \(at \[0, 0, 0\] to \[0, 5\.04, 0\] mm\)/);
+  assert.equal(mergeOverlayEdit(edits, { ...label, note: null }).length, 1);
+  assert.equal(overlayEditsName(mergeOverlayEdit([], dim)), "1 overlay edit");
+});
+
+t("v param edits: one per parameter, back to the old value drops it, and sent as the user's values", () => {
+  const e = { document: "Cup.SLDPRT", name: "Wall thickness", from: "3", to: "2.5", unit: "mm" };
+  let edits = mergeVParamEdit([], e);
+  edits = mergeVParamEdit(edits, { ...e, to: "2" });
+  assert.equal(edits.length, 1);
+  assert.equal(edits[0].to, "2");
+  edits = mergeVParamEdit(edits, { document: "Cup.SLDPRT", name: "Top diameter", from: "80", to: "85", unit: "mm" });
+  assert.equal(vparamEditsName(edits), "2 parameter changes");
+  const text = vparamEditsText(edits);
+  assert.ok(text.startsWith(VPARAM_TAG));
+  assert.match(text, /1\. Cup\.SLDPRT · Wall thickness: 3 mm → 2 mm/);
+  assert.match(text, /vparams set/);
+  assert.equal(mergeVParamEdit(edits, { ...e, to: "3" }).length, 1);
+  const g = { scope: "part", title: "Cup", document: "Cup", components: [], selected: true, params: [{ name: "a", match: true }, { name: "b", match: false }] };
+  assert.deepEqual(visibleRows(g, true).map((r) => r.name), ["a"]);
+  assert.equal(visibleRows(g, false).length, 2);
+});
+
+t("preferred parameters: the prompt lists them with ids, and save_preference's result becomes an undoable chip", () => {
+  const none = preferencesSection(null);
+  assert.match(none, /# Preferred parameters/);
+  assert.match(none, /None saved yet/);
+  const text = preferencesSection({ topics: [{ topic: "3D printing (FDM)", items: [{ id: "p1a2b3c", topic: "3D printing (FDM)", date: "2026-11-03", text: "M5 self-tapping pilot holes: Ø4.6 mm" }] }], used: 60, cap: 6000, file: "x" });
+  assert.ok(text.includes("## 3D printing (FDM)\n- [p1a2b3c] M5 self-tapping pilot holes: Ø4.6 mm"));
+  assert.deepEqual(preferenceChip("Saved under Fasteners: M5 pilot Ø4.6 mm (id pabc123). Mention it in one line."), { where: "Preferred parameters · Fasteners", text: "M5 pilot Ø4.6 mm", id: "pabc123" });
+  assert.equal(preferenceChip("Already saved under Fasteners: x (id pabc123)."), null);
+  assert.equal(preferenceChip("Saved under Fasteners: x (id pabc123).", true), null);
 });
 
 console.log(`${n} checks passed`);

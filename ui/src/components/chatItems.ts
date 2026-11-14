@@ -2,6 +2,7 @@ import type { ToolCall } from "./ToolCard";
 import type { ContentBlockParam, StoredMessage, ToolResultBlockParam } from "../lib/types";
 import { webResultSummary } from "../lib/creator";
 import { rememberedChip, type RememberedChip } from "../lib/memory";
+import { preferenceChip } from "../lib/preferences";
 import { displayParts } from "../agent/providers";
 
 /** What one assistant message shows in the chat (ChatView folds them into turns). */
@@ -51,7 +52,10 @@ export function assistantItems(m: StoredMessage, i: number, results: Map<string,
       if (call.name === "offer_restart") return; // shown as the button under the reply
       items.push(QUESTION_TOOLS.has(call.name) ? { kind: "question", key, call } : { kind: "tool", key, call });
       // a saved standing instruction: a chip with Undo after the call
-      const chip = call.name === "remember" ? rememberedChip(resultText(call.result), !!call.result?.is_error) : null;
+      const chip =
+        call.name === "remember" ? rememberedChip(resultText(call.result), !!call.result?.is_error)
+        : call.name === "save_preference" ? preferenceChip(resultText(call.result), !!call.result?.is_error)
+        : null;
       if (chip) items.push({ kind: "memory", key: `${key}mem`, chip });
     } else if (b.type === "server_tool_use") {
       // Web research on Claude runs on Anthropic's side: its result is in this same message.

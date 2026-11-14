@@ -1,5 +1,6 @@
 import { buildAgentPrompt, buildSystemPrompt, type IndexedSkill, type IndexedTool, type Verbosity } from "./systemPrompt";
 import { MEMORY_WRITE_TOOLS, memoryRefusal, type MemoryIndex } from "../lib/memory";
+import type { PreferenceIndex } from "../lib/preferences";
 import { modelOption, resolveModel } from "../lib/models";
 import { hookContextText, hookToolResponse } from "../lib/hooks";
 import type {
@@ -260,6 +261,8 @@ export interface AgentRunOptions {
   tools: ToolDef[];
   approval: ApprovalMode;
   realisticAppearance: boolean;
+  /** The documents it changes are saved when the reply ends (the setting). Default true. */
+  autoSave?: boolean;
   verbosity: Verbosity;
   userTools: IndexedTool[];
   /** API round trips before the turn stops (a tool's max_steps; default 200, cap 1000). */
@@ -283,6 +286,8 @@ export interface AgentRunOptions {
   stallMs?: number;
   /** Standing instructions (memory.index), for the system prompt. */
   memory?: MemoryIndex | null;
+  /** The user's preferred parameters (prefs.index). */
+  preferences?: PreferenceIndex | null;
   /** A turn a plugin or another agent started: remember, forget and fork_tool are refused (lib/memory.ts). */
   fromWake?: boolean;
   /** A turn a plugin's Stop hook continued: the same refusals as a wake. */
@@ -340,6 +345,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
     opts.system ??
     buildSystemPrompt({
       realisticAppearance: opts.realisticAppearance,
+      autoSave: opts.autoSave,
       verbosity: opts.verbosity,
       userTools: opts.userTools,
       skills: opts.skills,
@@ -350,6 +356,7 @@ export async function runAgent(opts: AgentRunOptions): Promise<AgentRunResult> {
       webResearch: web,
       webTools: m.caps.web ?? undefined,
       memory: opts.memory,
+      preferences: opts.preferences,
       provider: m.provider,
     });
   let malformedRetries = 0;

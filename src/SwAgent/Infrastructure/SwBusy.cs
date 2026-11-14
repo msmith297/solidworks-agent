@@ -30,7 +30,7 @@ namespace SwAgent.Infrastructure
             // the plugin creator's checks (plugin_try_mcp is a plugin_ tool)
             "check_prerequisites",
             // standing instructions and the user's copies of read-only tools (docs/agent-memory.md)
-            "remember", "list_memory", "forget", "fork_tool", "compare_fork",
+            "remember", "list_memory", "forget", "save_preference", "forget_preference", "fork_tool", "compare_fork",
             // tool profiles (run_tool opens a tool's inputs, so it isn't here)
             "list_tool_profiles", "save_tool_profile",
         };

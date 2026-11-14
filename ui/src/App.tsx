@@ -15,6 +15,7 @@ import { CrashNotice } from "./components/Recovery";
 import { DialogHost } from "./components/Dialog";
 import { NewToolWizard } from "./components/NewToolWizard";
 import { PluginsScreen } from "./components/PluginsScreen";
+import { ParamsView } from "./components/ParamsView";
 import { useStore } from "./store";
 
 export default function App() {
@@ -128,6 +129,8 @@ export default function App() {
         <NewToolWizard />
       ) : panel === "plugins" ? (
         <PluginsScreen />
+      ) : panel === "params" ? (
+        <ParamsView />
       ) : (
         <>
           <ChatView />

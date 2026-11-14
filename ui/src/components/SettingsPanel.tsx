@@ -3,6 +3,7 @@ import { BrandMark } from "./Brand";
 import { UpdateSettings } from "./Update";
 import { WebResearchSettings } from "./WebResearchSettings";
 import { MemorySettings } from "./MemorySettings";
+import { PreferenceSettings } from "./PreferenceSettings";
 import { ToolProfilesSettings } from "./ToolProfilesSettings";
 import { stepZoom } from "../lib/zoom";
 import { useStore } from "../store";
@@ -33,6 +34,39 @@ export function SettingsPanel() {
             <IconOk size={12} /> Done
           </button>
         </div>
+
+        <Rollout title="Appearance" icon={<IconGear size={14} />}>
+          <Field label="Theme">
+            <Select<Theme>
+              value={settings.theme}
+              onChange={(v) => saveSettings({ theme: v })}
+              options={[
+                ["solidworks", `Match SolidWorks${swName ? ` (${swName})` : ""}`],
+                ["light", "Light"],
+                ["dark", "Dark"],
+                ["system", "Match Windows"],
+              ]}
+            />
+          </Field>
+          <p className="mt-1 text-[11px] text-text-3">Match SolidWorks follows Tools &gt; Options &gt; Colors &gt; Background and updates when you change it.</p>
+          <Field label="Text size">
+            <div className="flex items-center gap-1">
+              <button type="button" className="sw-btn !h-[22px] !w-[24px] !p-0" title="Smaller (Ctrl -)" onClick={() => saveSettings({ zoom: stepZoom(settings.zoom ?? 1, -1) })}>
+                −
+              </button>
+              <span className="w-[44px] text-center text-[12px] tabular-nums text-text">{Math.round((settings.zoom ?? 1) * 100)}%</span>
+              <button type="button" className="sw-btn !h-[22px] !w-[24px] !p-0" title="Larger (Ctrl +)" onClick={() => saveSettings({ zoom: stepZoom(settings.zoom ?? 1, 1) })}>
+                +
+              </button>
+              {(settings.zoom ?? 1) !== 1 && (
+                <button type="button" className="sw-btn !h-[22px] !px-2" title="Reset (Ctrl 0)" onClick={() => saveSettings({ zoom: 1 })}>
+                  Reset
+                </button>
+              )}
+            </div>
+          </Field>
+          <p className="mt-1 text-[11px] text-text-3">Or press Ctrl + / Ctrl − (or Ctrl + mouse wheel) in the panel; Ctrl 0 resets.</p>
+        </Rollout>
 
         <AiProviderSettings />
 
@@ -122,6 +156,8 @@ export function SettingsPanel() {
 
         <MemorySettings Rollout={Rollout} Toggle={Toggle} />
 
+        <PreferenceSettings Rollout={Rollout} />
+
         <Rollout title="Plugins" icon={<IconPlugin size={14} />}>
           <Toggle
             checked={settings.pluginAutoUpdate !== false}
@@ -194,6 +230,26 @@ export function SettingsPanel() {
             label="Silence SolidWorks' rebuild-error sound"
             note="The agent often hits and fixes rebuild errors along the way. The sound comes back as soon as it finishes."
           />
+          <Toggle
+            checked={settings.autoSave !== false}
+            onChange={(v) => saveSettings({ autoSave: v })}
+            label="Save what it changed when each reply ends"
+            note="Only the documents the agent worked in, with the parts they reference. A new document without a file name yet is listed under the reply instead."
+          />
+          <Field label="Parameters key">
+            <Select<string>
+              value={settings.paramsKey ?? "vk:80"}
+              onChange={(v) => saveSettings({ paramsKey: v })}
+              options={[
+                ["vk:80", "P"],
+                ["vk:86", "V"],
+                ["vk:81", "Q"],
+                ["vk:192", "` (backquote)"],
+                ["off", "Off"],
+              ]}
+            />
+          </Field>
+          <p className="mt-1 text-[11px] text-text-3">Select faces, edges or components and press it to open their parameters. It does nothing while you type.</p>
           <div className="mt-2 text-[11.5px] text-text-2">When the agent asks you something and you don't answer</div>
           <Field label="After">
             <Select<string>
@@ -219,39 +275,6 @@ export function SettingsPanel() {
 
         <Rollout title="Updates" icon={<IconUpdate size={14} />}>
           <UpdateSettings Toggle={Toggle} />
-        </Rollout>
-
-        <Rollout title="Appearance" icon={<IconGear size={14} />}>
-          <Field label="Theme">
-            <Select<Theme>
-              value={settings.theme}
-              onChange={(v) => saveSettings({ theme: v })}
-              options={[
-                ["solidworks", `Match SolidWorks${swName ? ` (${swName})` : ""}`],
-                ["light", "Light"],
-                ["dark", "Dark"],
-                ["system", "Match Windows"],
-              ]}
-            />
-          </Field>
-          <p className="mt-1 text-[11px] text-text-3">Match SolidWorks follows Tools &gt; Options &gt; Colors &gt; Background and updates when you change it.</p>
-          <Field label="Text size">
-            <div className="flex items-center gap-1">
-              <button type="button" className="sw-btn !h-[22px] !w-[24px] !p-0" title="Smaller (Ctrl -)" onClick={() => saveSettings({ zoom: stepZoom(settings.zoom ?? 1, -1) })}>
-                −
-              </button>
-              <span className="w-[44px] text-center text-[12px] tabular-nums text-text">{Math.round((settings.zoom ?? 1) * 100)}%</span>
-              <button type="button" className="sw-btn !h-[22px] !w-[24px] !p-0" title="Larger (Ctrl +)" onClick={() => saveSettings({ zoom: stepZoom(settings.zoom ?? 1, 1) })}>
-                +
-              </button>
-              {(settings.zoom ?? 1) !== 1 && (
-                <button type="button" className="sw-btn !h-[22px] !px-2" title="Reset (Ctrl 0)" onClick={() => saveSettings({ zoom: 1 })}>
-                  Reset
-                </button>
-              )}
-            </div>
-          </Field>
-          <p className="mt-1 text-[11px] text-text-3">Or press Ctrl + / Ctrl − (or Ctrl + mouse wheel) in the panel; Ctrl 0 resets.</p>
         </Rollout>
 
         <div className="flex items-center justify-between px-1 pt-0.5 text-[11px] text-text-3">

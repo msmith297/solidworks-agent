@@ -25,6 +25,7 @@ export const BUILTIN_COMMANDS: BuiltinCommand[] = [
   { name: "new-tool", description: "Make a new tool with the agent" },
   { name: "new-plugin", description: "Make a plugin with the agent (bundle your tools, commands, skills)" },
   { name: "settings", description: "Open Options" },
+  { name: "params", description: "Open the virtual parameters of this part or assembly" },
 ];
 
 /** What the popup and a typed command can reach. */

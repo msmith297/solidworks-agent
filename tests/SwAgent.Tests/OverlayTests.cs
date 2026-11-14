@@ -5,6 +5,55 @@ namespace SwAgent.Tests
 {
     public class OverlayTests
     {
+        [Fact]
+        public void A_tag_edit_keeps_the_value_and_note_and_shows_what_it_replaced()
+        {
+            var item = new SceneOverlay.Item { Id = 7, Type = "dimension", Text = "5.04" };
+            var edit = SceneOverlay.ApplyEdit(item, " 5.43 ", " to the tube ");
+            Assert.Equal(7, edit.Id);
+            Assert.Equal("5.04", edit.Original);
+            Assert.Equal("5.43", edit.Value);
+            Assert.Equal("to the tube", edit.Note);
+            Assert.Equal("5.43  (was 5.04)\nto the tube", SceneOverlay.TagText(item));
+        }
+
+        [Theory]
+        [InlineData("5.04")]
+        [InlineData("")]
+        [InlineData("   ")]
+        public void A_tag_saved_with_its_own_value_or_none_is_no_change(string value)
+        {
+            var item = new SceneOverlay.Item { Type = "dimension", Text = "5.04", EditedText = "9", Note = "old" };
+            var edit = SceneOverlay.ApplyEdit(item, value, "");
+            Assert.Null(edit.Value);
+            Assert.Null(edit.Note);
+            Assert.Equal("5.04", SceneOverlay.TagText(item));
+        }
+
+        [Fact]
+        public void A_note_alone_leaves_the_value_as_drawn()
+        {
+            var item = new SceneOverlay.Item { Type = "label", Text = "neck" };
+            var edit = SceneOverlay.ApplyEdit(item, "neck", "same on all rails");
+            Assert.Null(edit.Value);
+            Assert.Equal("neck\nsame on all rails", SceneOverlay.TagText(item));
+        }
+
+        [Fact]
+        public void The_mouse_finds_the_tag_on_top_and_nothing_outside_the_tags()
+        {
+            var below = new SceneOverlay.Item();
+            var above = new SceneOverlay.Item();
+            var tags = new System.Collections.Generic.List<(System.Drawing.RectangleF, SceneOverlay.Item)>
+            {
+                (new System.Drawing.RectangleF(0, 0, 50, 20), below),
+                (new System.Drawing.RectangleF(40, 0, 50, 20), above),
+            };
+            Assert.Same(below, SceneOverlay.TagAt(tags, new System.Drawing.PointF(10, 10)));
+            Assert.Same(above, SceneOverlay.TagAt(tags, new System.Drawing.PointF(45, 10)));
+            Assert.Null(SceneOverlay.TagAt(tags, new System.Drawing.PointF(200, 10)));
+        }
+
         /// <summary>
         /// IModelView.Transform and the pixel positions SolidWorks itself returned for it (MathPoint.MultiplyTransform),
         /// read from a live session: the overlay's projection must land on the same pixels.

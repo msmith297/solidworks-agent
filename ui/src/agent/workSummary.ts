@@ -31,6 +31,7 @@ const MINOR_TOOLS = new Set([
   "test_tool",
   "offer_restart",
   "remember", // shown as its own "Remembered" chip with Undo
+  "save_preference", // the same chip, for a preferred parameter
   "list_memory",
   "compare_fork",
   "read_bridge_file", // a peer's attachment, read-only
@@ -38,7 +39,7 @@ const MINOR_TOOLS = new Set([
 ]);
 
 const LOOKUPS = new Set(["search_sw_api", "get_sw_api_type", "read_user_tool", "list_user_tools", "design_library", "list_memory", "compare_fork"]);
-const OUTCOMES = new Set(["save_user_tool", "edit_user_tool", "add_to_design_library", "remember", "fork_tool"]);
+const OUTCOMES = new Set(["save_user_tool", "edit_user_tool", "add_to_design_library", "remember", "fork_tool", "save_preference"]);
 
 /** C# cells that only look, test or tidy up (for calls without a `kind`, or labelled "change" but clearly scaffolding). */
 const CHECK_TITLE = /^(check|verify|validate|inspect|list|find|get|read|measure|look|query|probe|debug|diagnose|examine|confirm|test|count|show|print|dump|report|search|compare|re-?check|investigate|locate|identify|explore|review|analy[sz]e|evaluate|determine)\b/i;

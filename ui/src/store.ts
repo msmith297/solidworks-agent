@@ -15,6 +15,7 @@ import type {
   Effort,
   FileEntry,
   ImageMediaType,
+  OverlayEdit,
   HostState,
   MessageParam,
   SelectionItem,
@@ -63,6 +64,9 @@ import { EVENT_TAG, HOOK_TAG, autoTurnAllowed, hasHook, hookContextText, systemE
 import { SECRET_SAVED, SECRET_SKIPPED, secretTarget, type SecretAsk } from "./lib/creator";
 import { NO_WRITTEN_REPLY, linkAnswerText, linkState } from "./lib/localLink";
 import type { MemoryIndex } from "./lib/memory";
+import { OVERLAY_TAG, mergeOverlayEdit, overlayEditsName, overlayEditsText } from "./lib/overlayEdits";
+import { VPARAM_TAG, vparamEditsName, vparamEditsText, type VParamEdit } from "./lib/vparams";
+import type { PreferenceIndex } from "./lib/preferences";
 
 export interface ChatSlot {
   docKey: string;
@@ -239,6 +243,12 @@ interface State {
   memory: MemoryIndex | null;
   /** Undo on a "Remembered" chip: the note goes (and any it replaced come back); the chip shows it was undone. */
   undoMemory(threadId: string, noteId: string): Promise<void>;
+  /** The preferred parameters (prefs.index) for the system prompt and Options; null with older add-ins. */
+  prefs: PreferenceIndex | null;
+  /** The v param table (panel "params"): whose, from the selection (P), what to highlight; tick reopens it. */
+  paramsView: { document?: string | null; selection?: boolean; highlight?: string[]; tick: number } | null;
+  /** The table's Apply: the edits go to the agent as one message. */
+  applyVParamEdits(edits: VParamEdit[]): Promise<void>;
   loadPlugins(): Promise<void>;
   pluginsTab: "discover" | "installed" | "marketplaces" | "create";
   setPluginsTab(tab: State["pluginsTab"]): void;
@@ -246,7 +256,7 @@ interface State {
   wakes: Record<string, Wake[]>;
   /** Run a tool or workflow by name (ribbon tools through the add-in, workflows in the chat with the notes). */
   runNamedTool(name: string, notes?: string): Promise<void>;
-  panel: "chat" | "settings" | "newTool" | "plugins";
+  panel: "chat" | "settings" | "newTool" | "plugins" | "params";
   focusTick: number;
   notice: string | null;
   /** "Watch me": recording what the user does in a document (live log from the add-in). */
@@ -490,9 +500,9 @@ Finish this case yourself.${p.builtIn ? "" : " If it is a case the macro should 
 export const MODEL_TAG = "<model_file";
 export const WATCH_TAG = "<watch_log";
 export const VOICE_TAG = "<voice_timeline";
-export { EVENT_TAG, HOOK_TAG };
+export { EVENT_TAG, HOOK_TAG, OVERLAY_TAG, VPARAM_TAG };
 export function isAttachmentText(text: string): boolean {
-  return text.startsWith(MODEL_TAG) || text.startsWith(WATCH_TAG) || text.startsWith(VOICE_TAG) || text.startsWith(HOOK_TAG) || text.startsWith(EVENT_TAG);
+  return text.startsWith(MODEL_TAG) || text.startsWith(WATCH_TAG) || text.startsWith(VOICE_TAG) || text.startsWith(HOOK_TAG) || text.startsWith(EVENT_TAG) || text.startsWith(OVERLAY_TAG) || text.startsWith(VPARAM_TAG);
 }
 
 const clock = (ms: number) => {
@@ -609,6 +619,10 @@ function attachmentBlocks(a: Attachment): ContentBlockParam[] {
       return watchBlocks(a.watch);
     case "voice":
       return voiceBlocks(a.voice, null).blocks;
+    case "overlay":
+      return [{ type: "text", text: overlayEditsText(a.edits) }];
+    case "vparams":
+      return [{ type: "text", text: vparamEditsText(a.edits) }];
   }
 }
 
@@ -911,6 +925,7 @@ export const useStore = create<State>((set, get, api) => {
         tools: get().tools,
         approval,
         realisticAppearance: get().settings.realisticAppearance,
+        autoSave: get().settings.autoSave !== false,
         verbosity: get().settings.verbosity ?? "medium",
         userTools: get().userTools,
         maxSteps: run.maxSteps,
@@ -922,6 +937,7 @@ export const useStore = create<State>((set, get, api) => {
         knowledge: get().knowledge,
         webResearch: get().settings.webResearch !== false,
         memory: get().memory,
+        preferences: get().prefs,
         fromWake: !!run.fromWake,
         fromHook: !!run.fromHook,
         signal: controller.signal,
@@ -1027,6 +1043,12 @@ export const useStore = create<State>((set, get, api) => {
       if ((outcome === "end_turn" || outcome === "stop_sequence") && !controller.signal.aborted) {
         stopHook = await fireHook("Stop", docKey, threadId, { stop_hook_active: !!run.continuation });
         if (stopHook && !stopHook.continue && stopHook.stopReason) set({ notice: stopHook.stopReason });
+      }
+      // Checkpoint: save what the reply changed. A stopped or failed reply isn't one; its changes are saved with the next.
+      if (outcome !== "error" && !controller.signal.aborted && get().settings.autoSave !== false) {
+        const cp = await rpc<{ saved: string[]; untitled: string[]; failed: { title: string; error: string }[] }>("docs.checkpoint").catch(() => null);
+        const notSaved = cp ? [...cp.untitled.map((title) => ({ title, reason: "no file name yet" })), ...cp.failed.map((f) => ({ title: f.title, reason: f.error }))] : [];
+        if (cp && (cp.saved.length || notSaved.length)) patchTurn({ saved: cp.saved, notSaved });
       }
     } catch (err: any) {
       outcome = "error";
@@ -1766,6 +1788,10 @@ export const useStore = create<State>((set, get, api) => {
         done();
         set({ panel: "plugins" });
         return true;
+      case "params":
+        done();
+        set({ panel: "params", paramsView: { document: null, selection: false, highlight: [], tick: Date.now() } });
+        return true;
       case "settings":
         done();
         set({ panel: "settings" });
@@ -1959,6 +1985,8 @@ export const useStore = create<State>((set, get, api) => {
     session: null,
     knowledge: null,
     memory: null,
+    prefs: null,
+    paramsView: null,
     pluginsTab: "discover",
     wakes: {},
 
@@ -2074,6 +2102,22 @@ export const useStore = create<State>((set, get, api) => {
       }
 
       on("overlay.changed", (p: { count: number }) => set({ overlayCount: p?.count ?? 0 }));
+      on("overlay.edited", (edit: OverlayEdit) =>
+        set((s) => {
+          const key = draftKey(s);
+          const list = s.attachments[key] ?? [];
+          const chip = list.find((a) => a.kind === "overlay");
+          const edits = mergeOverlayEdit(chip?.kind === "overlay" ? chip.edits : [], edit);
+          const others = list.filter((a) => a !== chip);
+          return {
+            attachments: {
+              ...s.attachments,
+              [key]: edits.length ? [...others, { id: chip?.id ?? uid(), kind: "overlay", name: overlayEditsName(edits), edits }] : others,
+            },
+            focusTick: s.focusTick + 1,
+          };
+        }),
+      );
 
       // Plugins: the store and components, the agent's tools (MCP servers come and go), and wakes from async hooks.
       on("plugins.changed", () => void loadPluginState());
@@ -2122,6 +2166,13 @@ export const useStore = create<State>((set, get, api) => {
           .catch(() => {});
       on("memory.changed", () => void loadMemory());
       void loadMemory();
+      // Preferred parameters, the same way.
+      const loadPrefs = () =>
+        rpc<PreferenceIndex | null>("prefs.index")
+          .then((prefs) => set({ prefs: prefs ?? null }))
+          .catch(() => {});
+      on("prefs.changed", () => void loadPrefs());
+      void loadPrefs();
 
       on("doc.activated", (doc: DocInfo) => {
         set((s) => ({ docs: { ...s.docs, [doc.key]: doc }, activeDocKey: doc.key }));
@@ -2247,6 +2298,11 @@ export const useStore = create<State>((set, get, api) => {
           case "openSettings":
             set({ panel: "settings" });
             break;
+          case "openParameters": {
+            const a = (args ?? {}) as { document?: string | null; selection?: boolean; highlight?: string[] };
+            set({ panel: "params", paramsView: { document: a.document ?? null, selection: !!a.selection, highlight: a.highlight ?? [], tick: Date.now() } });
+            break;
+          }
           case "runTool": {
             // A ribbon tool the add-in couldn't run on its own (no macro yet, or the macro failed).
             const payload = (args as ToolRunPayload | undefined) ?? null;
@@ -2296,6 +2352,16 @@ export const useStore = create<State>((set, get, api) => {
       if (r) set((s) => ({ selection: { ...s.selection, [r.docKey]: r.items }, selectionTotal: { ...s.selectionTotal, [r.docKey]: r.total ?? r.items.length } }));
     },
 
+    async applyVParamEdits(edits) {
+      if (!edits.length) return;
+      const key = draftKey(get());
+      set((s) => {
+        const list = (s.attachments[key] ?? []).filter((a) => a.kind !== "vparams");
+        return { panel: "chat", attachments: { ...s.attachments, [key]: [...list, { id: uid(), kind: "vparams", name: vparamEditsName(edits), edits }] } };
+      });
+      await get().submitInput("");
+    },
+
     async newChat() {
       const key = get().viewKey;
       await loadChat(key);
@@ -2305,7 +2371,7 @@ export const useStore = create<State>((set, get, api) => {
 
     async undoMemory(threadId, noteId) {
       const key = get().viewKey;
-      await rpc<boolean>("memory.undo", { id: noteId });
+      await rpc<boolean>(noteId.startsWith("p") ? "prefs.undo" : "memory.undo", { id: noteId }); // p: a preferred parameter
       updateThread(key, threadId, (t) => ({ ...t, memoryUndone: [...(t.memoryUndone ?? []), noteId] }));
       void persist(key);
     },

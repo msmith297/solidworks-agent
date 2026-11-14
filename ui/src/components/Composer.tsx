@@ -17,6 +17,7 @@ import {
   Spinner,
   IconCancel,
   IconEdit,
+  IconFx,
   IconMarkup,
   IconMic,
   IconOk,
@@ -32,6 +33,8 @@ import {
 import { EMPTY, MARKUP_COLORS, MARKUP_NAME, currentThread, draftKey, isAgentSelection, talkKeyName, useStore, type MarkupTool, type QueuedMessage, type Tag } from "../store";
 import { atQuery, slashQuery, slashRows, tagRows, type CommandSources } from "../lib/commands";
 import { markupNumber, mentionMarkup } from "../lib/markups";
+import { overlayEditLine } from "../lib/overlayEdits";
+import { vparamEditLine } from "../lib/vparams";
 import { MODELS, clampEffort, effortsFor, groupModels, pickerModels } from "../lib/models";
 import { PROVIDERS, getProvider } from "../agent/providers";
 import { isHosted, rpc } from "../lib/bridge";
@@ -660,6 +663,14 @@ function AttachmentChip({ a, onRemove, onMention }: { a: Attachment; onRemove: (
       );
       break;
     }
+    case "vparams":
+      title = a.edits.map(vparamEditLine).join("\n");
+      body = <ChipLabel icon={<IconFx size={18} />} name={a.name} note="Goes with your next message" />;
+      break;
+    case "overlay":
+      title = a.edits.map(overlayEditLine).join("\n");
+      body = <ChipLabel icon={<IconEdit size={18} />} name={a.name} note="Goes with your next message" />;
+      break;
     case "watch":
       title = a.watch.text;
       body = (

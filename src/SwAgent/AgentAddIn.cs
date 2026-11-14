@@ -1,4 +1,5 @@
 using System;
+using Newtonsoft.Json.Linq;
 using System.Runtime.InteropServices;
 using SwAgent.Chat;
 using SwAgent.Infrastructure;
@@ -62,6 +63,8 @@ namespace SwAgent
             tools.RegisterAll(new Plugins.CreatorTools()); // plugin creator: check_prerequisites, plugin_try_mcp
             tools.RegisterAll(new KnowledgeTools(scripts));
             tools.RegisterAll(new Memory.MemoryTools());
+            tools.RegisterAll(new Memory.PreferenceTools());
+            tools.RegisterAll(new Params.VParamTools());
             tools.RegisterAll(new ForkTools());
             tools.RegisterAll(new ProfileTools());
             CompileAdvisor.Extra = UserHelpers.LastBuild; // compile errors can point at the helpers the agent saved
@@ -114,6 +117,7 @@ namespace SwAgent
 
                 ResumeSession.RestoreWhenReady(Application.Sw); // after "Save and restart": reopen where the user left off
                 Application.Documents.RegisterHandler(() => new ChatDocumentHandler());
+                Application.Documents.RegisterHandler(() => new Params.VParamDocumentHandler()); // virtual parameters, stored in the file
                 Application.Documents.DocumentActivated += doc => Controller.OnDocumentActivated(doc);
 
                 // Right-click menus come from xCAD; the ribbon tab, menu and toolbar are AgentRibbon.
@@ -190,6 +194,9 @@ namespace SwAgent
                     case "options":
                         Controller.SendCommand("openSettings");
                         break;
+                    case "params":
+                        Controller.SendCommand("openParameters", new JObject { ["selection"] = true });
+                        break;
                 }
             }
             catch (Exception ex)
@@ -203,13 +210,20 @@ namespace SwAgent
         {
             try
             {
-                var needsDoc = arg.StartsWith("t") || arg == "ask" || arg == "view";
+                var needsDoc = arg.StartsWith("t") || arg == "ask" || arg == "view" || arg == "params";
                 return !needsDoc || Application.Sw.ActiveDoc != null ? 1 : 0;
             }
             catch
             {
                 return 1;
             }
+        }
+
+        /// <summary>The virtual parameter table in the panel (show_vparams, the P key): args { document?, highlight?, selection? }.</summary>
+        internal void ShowParameters(JObject args)
+        {
+            ShowPane();
+            Controller.SendCommand("openParameters", args);
         }
 
         private void AskAboutSelection()

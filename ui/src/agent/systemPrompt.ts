@@ -2,6 +2,7 @@ import type { CadProfile } from "./cad/types";
 import { SOLIDWORKS } from "./cad/solidworks";
 import { knowledgeSection } from "../lib/knowledge";
 import { memorySection, toolMarks, type MemoryIndex } from "../lib/memory";
+import { preferencesSection, type PreferenceIndex } from "../lib/preferences";
 import type { KnowledgeIndex, ProviderId } from "../lib/types";
 import type { ModelCaps } from "../lib/models";
 
@@ -13,7 +14,7 @@ import type { ModelCaps } from "../lib/models";
  * Kept byte-stable across requests (no dates, no per-document data) so the prompt cache holds. Per-turn facts (active
  * document, selection) travel in a context block appended to each user message.
  */
-function corePrompt(C: CadProfile): string {
+function corePrompt(C: CadProfile, autoSave = true): string {
   const code = C.code.tool;
   return `You are SolidWorks Agent, an expert mechanical design engineer and ${C.expertise}, working inside ${C.name} as the user's copilot. You help the user understand, create and modify their CAD models by calling tools that act on the live ${C.name} session.
 
@@ -46,6 +47,7 @@ ${C.sections.display}
 show_overlay draws on the user's view, anchored to model coordinates so it stays on the geometry while they rotate, pan and zoom: arrows and markers to point at features, outlines and circles for proposed geometry, dimensions and short labels for values. Nothing is added to the model.
 - Use it whenever a picture explains faster than words - above all when you ask about geometry (where a groove goes, which face, option A or B: draw each option in its own colour and name the colours in the question), when you propose a plan before modelling, and when you explain what you found.
 - Take coordinates from measurements (your code, the selection data, Geo helpers), never from the screenshot. Keep it to the few items that matter; label values; for exact proposed geometry compute it in code and draw it from there.
+- The user can double-click the tag of a dimension or label you drew to change its value or add a note, right on the model. Their changes arrive as an <overlay_edits> block with their next message: those values are theirs and replace what you drew. So when you need numbers from the user, draw them as dimensions and say they can double-click to correct them.
 - It clears when the user sends their next message, and by itself when the model changes (a rebuild, a new or deleted feature, undo or redo - yours or the user's), because it would no longer match the geometry. So draw after your changes, not before them, and draw again if a change should still be explained. keep: true holds a drawing through changes (a before/after comparison). Call clear_overlay sooner when it no longer applies. Answering your question doesn't clear it.
 
 # Workflows and tools
@@ -114,12 +116,18 @@ ${C.sections.library ? `\n# ${C.name} library\n${C.sections.library}\n` : ""}
 - Each ${code} call becomes one undo step named after its title - give every call a short, clear title and keep each call to one coherent change.
 - Own your side effects. ${code} and undo report the feature tree changes they caused ("+ Sketch1 [ProfileFeature], + Boss-Extrude1 ..."): everything listed there was made by your code, even if you didn't intend it. Never tell the user something "appeared" or that your code didn't create it without checking those reports. If a code run left unintended features, delete them yourself (or undo more) until the tree is back to what it was, verify, and tell the user what happened.
 - Before writing code that edits the user's existing document, make sure the change is what they asked for. If you are unsure whether they want you to model at all, ask.
-- Don't save, close, overwrite or delete files, and don't modify documents the chat hasn't been working in, unless the user asks. Put exports in WorkDir unless the user names a location.
+${autoSave ? SAVE_ON : SAVE_OFF}
 - If an ambiguity would change the geometry (a dimension, which face, design intent), ask with ask_user (which faces or edges: ask_selection); for minor details pick a sensible default and say what you chose.
 - Never tell the user to restart ${C.name} in prose. When a change really needs a restart (a new, renamed or deleted tool's ribbon button, a changed tool icon), call offer_restart - it puts a Save and restart button under your reply. Edits to an existing tool apply on its next run, so don't suggest a restart "in case" it doesn't pick them up.`;
 }
 
 export type Verbosity = "low" | "medium" | "high";
+
+/** Virtual parameters (docs/virtual-parameters.md): always on. */
+const VPARAMS = "\n\n# Virtual parameters\nParts and assemblies carry virtual parameters (v params): named design values the user changes in a table instead of hunting for dimensions, such as \"Wall thickness 2.5 mm\", \"Top diameter 80 mm\", \"Screw count 8\" or \"Engraving text ACME\". They are stored in the file (vparams) and shown in the panel's table (the ribbon's Parameters button, or P with faces selected).\n- Create them by default, without being asked: when you build or substantially change a part or assembly, add the values a designer would actually want to change (overall sizes, wall thicknesses, hole sizes and counts, clearances, fillets that matter), plus every specific value the user mentioned. Plain names, a short note, and the features each drives by their exact feature-tree names. A handful of useful ones beats one per dimension; skip throwaway geometry. Mention new ones in a line.\n- Values that span parts (a clearance between two parts, a shared hole pattern) go on the assembly, with links to the parts' parameters; setting it sets them too.\n- They don't drive geometry by themselves. When you change the model, update the matching values in the same reply; when a value changes, change the model to match. Never leave them out of date.\n- A <vparam_edits> block is the user's edits from the table: make the model match each new value (rebuild what it drives, keep the design intent), verify, then record the values with vparams set. If one can't work, say why and keep the old value.\n- When the user asks to see, change or understand them: show_vparams (highlight the ones you mean), and show what one does with show_overlay (a dimension on the geometry it drives) when that helps.";
+
+const SAVE_ON = "- The documents you change are saved automatically when your reply ends, with the files they reference: don't save them yourself, and don't tell the user they aren't saved. A new document can only be saved once it has a file name, so give each new part or assembly one when you create it (SaveAs, next to the files it belongs with). Don't close, overwrite or delete files, and don't modify documents the chat hasn't been working in, unless the user asks. Put exports in WorkDir unless the user names a location.";
+const SAVE_OFF = "- Don't save, close, overwrite or delete files, and don't modify documents the chat hasn't been working in, unless the user asks. Put exports in WorkDir unless the user names a location.";
 
 const REPLIES: Record<Verbosity, string> = {
   low: `
@@ -185,6 +193,8 @@ export interface IndexedAgent {
 
 export function buildSystemPrompt(opts: {
   realisticAppearance: boolean;
+  /** The documents the agent changes are saved when each reply ends (the setting). Default true. */
+  autoSave?: boolean;
   verbosity?: Verbosity;
   userTools: IndexedTool[];
   skills?: IndexedSkill[];
@@ -198,6 +208,8 @@ export function buildSystemPrompt(opts: {
   webResearch?: boolean;
   /** What the user told the agent to do from now on (memory.index). */
   memory?: MemoryIndex | null;
+  /** The user's preferred parameters (prefs.index). */
+  preferences?: PreferenceIndex | null;
   /** Whose web tools the run has (the model's caps.web): picks their wording. Default anthropic. */
   webTools?: NonNullable<ModelCaps["web"]>;
   /** The provider of the run's model: its working-style notes, if it has any (STYLE). Default anthropic. */
@@ -207,7 +219,7 @@ export function buildSystemPrompt(opts: {
   const C = opts.cad ?? CAD;
   const provider = opts.provider ?? "anthropic";
   return (
-    corePrompt(C) +
+    corePrompt(C, opts.autoSave !== false) +
     (STYLE[provider] ?? "") +
     REPLIES[opts.verbosity ?? "medium"] +
     (opts.realisticAppearance ? appearanceOn(C) : APPEARANCE_OFF) +
@@ -218,6 +230,8 @@ export function buildSystemPrompt(opts: {
     pluginIndex(opts.skills ?? [], opts.agents ?? []) +
     mcpSection(opts.mcpInstructions ?? []) +
     sessionSection(opts.sessionContext ?? []) +
+    VPARAMS +
+    preferencesSection(opts.preferences) +
     memorySection(opts.memory) +
     knowledgeSection(opts.knowledge)
   );

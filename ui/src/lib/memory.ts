@@ -33,7 +33,7 @@ export interface MemoryScopeInfo {
 }
 
 /** Agent tools that save or change what the agent remembers, the user's profiles or the user's tools: only in turns the user started. */
-export const MEMORY_WRITE_TOOLS = new Set(["remember", "forget", "fork_tool", "compare_fork", "save_tool_profile"]);
+export const MEMORY_WRITE_TOOLS = new Set(["remember", "forget", "fork_tool", "compare_fork", "save_tool_profile", "save_preference", "forget_preference"]);
 
 /**
  * Why a call is refused, or null. A turn a plugin or another agent started (a wake), one a plugin's Stop hook continued,

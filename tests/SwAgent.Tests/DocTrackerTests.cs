@@ -46,6 +46,27 @@ namespace SwAgent.Tests
         }
 
         [Fact]
+        public void The_documents_a_call_changed_are_collected_for_the_end_of_reply_save()
+        {
+            var before = Docs("Assy.SLDASM", "Assy.SLDASM", "Notes.SLDPRT", "Collar.SLDPRT");
+            before[1].Dirty = true; // the user's own unsaved edit, in a document the agent doesn't touch
+            var after = Docs("Assy.SLDASM", "Assy.SLDASM", "Notes.SLDPRT", "Collar.SLDPRT", "Part3");
+            after[1].Dirty = true;
+            after[2].Dirty = true; // changed by the call
+            after[0].Dirty = true; // the active document got the edit
+            after[3].Path = ""; // a new document with no file yet
+            DocTracker.Record(before, after);
+            Assert.Equal(new[] { "Assy.SLDASM", "Collar.SLDPRT", "Part3" }, DocTracker.TakeChanged().OrderBy(t => t));
+            Assert.Empty(DocTracker.TakeChanged()); // taken once
+
+            // Already dirty, edited again while active: still counts. Closed before the save: dropped.
+            DocTracker.Record(after, after);
+            var closed = after.Where(d => d.Title != "Assy.SLDASM").ToList();
+            DocTracker.Record(after, closed);
+            Assert.Empty(DocTracker.TakeChanged());
+        }
+
+        [Fact]
         public void Idle_windows_pile_up_into_one_reminder_and_the_active_one_never_counts()
         {
             var open = Docs("Assy.SLDASM", "Assy.SLDASM");

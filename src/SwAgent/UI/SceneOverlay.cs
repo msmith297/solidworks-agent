@@ -15,6 +15,7 @@ namespace SwAgent.UI
     /// <summary>
     /// The agent's sketch-on-the-model: annotations anchored to 3D points (lines, arrows, outlines, circles, dimensions,
     /// labels) drawn on a click-through layer over the graphics area, plus temporary bodies shown in the scene itself.
+    /// Only the tags take the mouse: a double-click opens OverlayTagEditor, and what the user types goes to the panel.
     /// Annotations are re-projected whenever the camera moves (IModelView.Transform maps model meters to view pixels),
     /// so they stay on the geometry while the user rotates, pans and zooms. Nothing is added to the model or the undo
     /// history; everything goes away with Clear (the agent, the panel's button, or the user's next message).
@@ -42,9 +43,59 @@ namespace SwAgent.UI
             public List<double[]> Outline;
             /// <summary>tris: over the triangle budget - drawn as the outline only.</summary>
             public bool OutlineOnly;
+            /// <summary>Tells the user's edits apart (set when the item is shown).</summary>
+            public int Id;
+            /// <summary>The value the user typed over Text on this tag; null when unchanged.</summary>
+            public string EditedText;
+            /// <summary>The note the user typed on this tag.</summary>
+            public string Note;
+        }
+
+        /// <summary>What the user changed on one tag. Value and Note both null: back to what the agent drew.</summary>
+        public sealed class Edit
+        {
+            public int Id;
+            public string Type;
+            public string Original;
+            public string Value;
+            public string Note;
+            public List<double[]> Points;
+        }
+
+        /// <summary>Raised when the user saves a tag.</summary>
+        public static event Action<Edit> Edited;
+
+        private static int _nextItemId;
+
+        /// <summary>The user's value and note on an item, as the panel gets them. A blank value, or the one drawn, is no change. Pure.</summary>
+        internal static Edit ApplyEdit(Item item, string value, string note)
+        {
+            value = (value ?? "").Trim();
+            note = (note ?? "").Trim();
+            item.EditedText = value.Length == 0 || value == item.Text ? null : value;
+            item.Note = note.Length == 0 ? null : note;
+            return new Edit { Id = item.Id, Type = item.Type, Original = item.Text, Value = item.EditedText, Note = item.Note, Points = item.Points };
+        }
+
+        /// <summary>What a tag shows: the user's value with the one it replaced, and their note on its own line. Pure.</summary>
+        internal static string TagText(Item item)
+        {
+            var text = item.EditedText != null ? $"{item.EditedText}  (was {item.Text})" : item.Text;
+            return item.Note != null ? $"{text}\n{item.Note}" : text;
+        }
+
+        /// <summary>The tag at a point: the last drawn is the one on top. Pure.</summary>
+        internal static Item TagAt(IReadOnlyList<(RectangleF Rect, Item Item)> tags, PointF p)
+        {
+            for (var i = tags.Count - 1; i >= 0; i--)
+                if (tags[i].Rect.Contains(p)) return tags[i].Item;
+            return null;
         }
 
         public static readonly Color DefaultColor = Color.FromArgb(0xFF, 0x8C, 0x1A);
+
+        /// <summary>The border of a tag the user changed.</summary>
+        private static readonly Color EditedColor = Color.FromArgb(0x43, 0xC0, 0x5A);
 
         /// <summary>
         /// Filled triangles across all face items (critique G3): GDI fills each one on every redraw, so beyond this the
@@ -264,7 +315,11 @@ namespace SwAgent.UI
                 _current = new SceneOverlay(sw, model, new IntPtr(view.GetViewHWndx64()), owner);
                 _current.Start();
             }
-            _current._items.AddRange(items);
+            foreach (var item in items)
+            {
+                item.Id = ++_nextItemId;
+                _current._items.Add(item);
+            }
             BudgetTriangles(_current._items);
             _current.CaptureMesh(); // a safe moment: the agent is drawing, SolidWorks isn't in the middle of a command
             _current._dirty = true;
@@ -349,6 +404,12 @@ namespace SwAgent.UI
         private double[] _depthTransform;
         private DateTime _depthAt = DateTime.MinValue;
 
+        // The tags of the last frame (view pixels), which take the mouse; everything else stays click-through.
+        private readonly List<(RectangleF Rect, Item Item)> _tags = new List<(RectangleF, Item)>();
+        private Item _lastClicked;
+        private DateTime _lastClickAt;
+        private bool _editing;
+
         private SceneOverlay(ISldWorks sw, IModelDoc2 model, IntPtr viewHwnd, IntPtr ownerHwnd)
         {
             _sw = sw;
@@ -358,6 +419,7 @@ namespace SwAgent.UI
             FormBorderStyle = FormBorderStyle.None;
             ShowInTaskbar = false;
             StartPosition = FormStartPosition.Manual;
+            Cursor = Cursors.Hand; // only ever seen over a tag: the rest of the layer doesn't take the mouse
             _timer.Tick += Safe.Tick("Scene overlay", Tick);
         }
 
@@ -366,14 +428,87 @@ namespace SwAgent.UI
             get
             {
                 var cp = base.CreateParams;
-                // Layered, click-through and never activated: the user keeps working in SolidWorks underneath.
-                cp.ExStyle |= WsExLayered | WsExTransparent | WsExToolWindow | WsExNoActivate;
+                // Layered and never activated: the user keeps working in SolidWorks underneath. Fully transparent pixels
+                // pass the mouse by themselves, and WndProc passes on all the others except the tags.
+                cp.ExStyle |= WsExLayered | WsExToolWindow | WsExNoActivate;
+                cp.ClassStyle |= CsDblClks;
                 cp.Parent = _ownerHwnd;
                 return cp;
             }
         }
 
         protected override bool ShowWithoutActivation => true;
+
+        protected override void WndProc(ref Message m)
+        {
+            switch (m.Msg)
+            {
+                case WmNcHitTest:
+                    m.Result = new IntPtr(TakesMouseAt(m.LParam) ? HtClient : HtTransparent);
+                    return;
+                case WmMouseActivate:
+                    m.Result = new IntPtr(MaNoActivate);
+                    return;
+                case WmMouseWheel:
+                    PostMessage(_viewHwnd, m.Msg, m.WParam, m.LParam); // zooming with the cursor on a tag
+                    return;
+                case WmLButtonDblClk:
+                    OnTagClick(m.LParam, true);
+                    return;
+                case WmLButtonDown:
+                    OnTagClick(m.LParam, false);
+                    return;
+            }
+            base.WndProc(ref m);
+        }
+
+        private static PointF ClientPoint(IntPtr lParam)
+        {
+            var v = lParam.ToInt64();
+            return new PointF((short)(v & 0xFFFF), (short)((v >> 16) & 0xFFFF));
+        }
+
+        /// <summary>Only a tag does, and not while the view is being turned or panned with the other buttons.</summary>
+        private bool TakesMouseAt(IntPtr screenLParam)
+        {
+            if (_editing || (GetAsyncKeyState(VkMButton) & 0x8000) != 0 || (GetAsyncKeyState(VkRButton) & 0x8000) != 0) return false;
+            var p = ClientPoint(screenLParam);
+            return TagAt(_tags, new PointF(p.X - _screenRect.X, p.Y - _screenRect.Y)) != null;
+        }
+
+        private void OnTagClick(IntPtr clientLParam, bool doubleClick)
+        {
+            var item = TagAt(_tags, ClientPoint(clientLParam));
+            var now = DateTime.UtcNow;
+            var open = item != null && (doubleClick || (ReferenceEquals(item, _lastClicked) && (now - _lastClickAt).TotalMilliseconds <= SystemInformation.DoubleClickTime));
+            _lastClicked = open ? null : item;
+            _lastClickAt = now;
+            if (open) BeginInvoke((Action)(() => Safe.Run("Edit an overlay tag", () => EditTag(item))));
+        }
+
+        private void EditTag(Item item)
+        {
+            if (_editing) return;
+            _editing = true;
+            try
+            {
+                var rect = _tags.FirstOrDefault(t => ReferenceEquals(t.Item, item)).Rect;
+                var at = new Point(_screenRect.X + (int)rect.X, _screenRect.Y + (int)rect.Bottom + 4);
+                float dpi;
+                using (var g = CreateGraphics()) dpi = g.DpiX / 96f;
+                using (var editor = new OverlayTagEditor(item.Type == "dimension" ? "Value" : "Text", item.EditedText ?? item.Text, item.Note, item.Color, dpi, at))
+                {
+                    if (editor.ShowDialog(this) != DialogResult.OK) return;
+                    var edit = ApplyEdit(item, editor.Value, editor.Note);
+                    _dirty = true;
+                    Edited?.Invoke(edit);
+                }
+            }
+            finally
+            {
+                _editing = false;
+            }
+        }
 
         private void Start()
         {
@@ -402,7 +537,7 @@ namespace SwAgent.UI
         /// </summary>
         private void Tick()
         {
-            if (_stale && ReferenceEquals(_current, this))
+            if (_stale && ReferenceEquals(_current, this) && !_editing)
             {
                 // The model changed under the drawing: take the annotations down now; bodies and the event hookup go at the
                 // next safe moment (ClearIfStale).
@@ -466,6 +601,7 @@ namespace SwAgent.UI
         /// <summary>Stay above the SolidWorks window (a pop-up can reorder the owned windows).</summary>
         private void KeepOnTop()
         {
+            if (_editing) return; // it would lift the layer above its own edit box
             // Only while SolidWorks is in front - otherwise this would lift the layer above other applications.
             GetWindowThreadProcessId(GetForegroundWindow(), out var pid);
             if (pid != (uint)System.Diagnostics.Process.GetCurrentProcess().Id) return;
@@ -655,6 +791,7 @@ namespace SwAgent.UI
         {
             _movingFrame = _moving;
             if (_screenRect.Width < 2 || _screenRect.Height < 2) return;
+            _tags.Clear();
             using (var bmp = new Bitmap(_screenRect.Width, _screenRect.Height, PixelFormat.Format32bppArgb))
             {
                 using (var g = Graphics.FromImage(bmp))
@@ -781,7 +918,7 @@ namespace SwAgent.UI
                     {
                         var a = Project(t, item.Points[0]);
                         var b = Project(t, item.Points[1]);
-                        DrawTag(g, item.Text, new PointF((a.X + b.X) / 2, (a.Y + b.Y) / 2), item.Color, dpi, center: true, faded: mostlyHidden);
+                        DrawTag(g, item, new PointF((a.X + b.X) / 2, (a.Y + b.Y) / 2), dpi, center: true, faded: mostlyHidden);
                     }
                     break;
                 }
@@ -845,11 +982,14 @@ namespace SwAgent.UI
             }
             using (var dot = new SolidBrush(behind ? Color.FromArgb(110, item.Color) : item.Color))
                 g.FillEllipse(dot, anchor.X - 3.5f * dpi, anchor.Y - 3.5f * dpi, 7 * dpi, 7 * dpi);
-            DrawTag(g, item.Text, at, item.Color, dpi, center: false, faded: behind);
+            DrawTag(g, item, at, dpi, center: false, faded: behind);
         }
 
-        private void DrawTag(Graphics g, string text, PointF at, Color accent, float dpi, bool center, bool faded = false)
+        private void DrawTag(Graphics g, Item item, PointF at, float dpi, bool center, bool faded = false)
         {
+            var text = TagText(item);
+            var edited = item.EditedText != null || item.Note != null;
+            var accent = edited ? EditedColor : item.Color;
             using (var font = new Font("Segoe UI", 9f, FontStyle.Regular))
             {
                 var size = g.MeasureString(text, font, (int)(260 * dpi));
@@ -858,8 +998,9 @@ namespace SwAgent.UI
                 // Keep it inside the view.
                 r.X = Math.Max(2, Math.Min(r.X, _screenRect.Width - r.Width - 2));
                 r.Y = Math.Max(2, Math.Min(r.Y, _screenRect.Height - r.Height - 2));
+                _tags.Add((r, item));
                 using (var bg = new SolidBrush(Color.FromArgb(faded ? 120 : 225, 0x24, 0x27, 0x2B)))
-                using (var border = new Pen(faded ? Color.FromArgb(110, accent) : accent, 1.4f * dpi))
+                using (var border = new Pen(faded ? Color.FromArgb(110, accent) : accent, (edited ? 2.2f : 1.4f) * dpi))
                 using (var path = RoundRect(r, 4 * dpi))
                 using (var ink = new SolidBrush(Color.FromArgb(faded ? 150 : 255, 255, 255, 255)))
                 {
@@ -873,7 +1014,7 @@ namespace SwAgent.UI
         /// <summary>A small note so the user knows what this is and how it goes away.</summary>
         private void DrawBadge(Graphics g, float dpi)
         {
-            const string text = "SolidWorks Agent overlay  ·  clears with your next message";
+            const string text = "SolidWorks Agent overlay  ·  double-click a value to change it or add a note  ·  clears with your next message";
             using (var font = new Font("Segoe UI", 8f))
             {
                 var size = g.MeasureString(text, font);
@@ -936,12 +1077,21 @@ namespace SwAgent.UI
         }
 
         private const int WsExLayered = 0x80000;
-        private const int WsExTransparent = 0x20;
         private const int WsExToolWindow = 0x80;
         private const int WsExNoActivate = 0x8000000;
         private const int UlwAlpha = 2;
+        private const int CsDblClks = 0x8;
+        private const int WmNcHitTest = 0x84, WmMouseActivate = 0x21, WmMouseWheel = 0x20A, WmLButtonDown = 0x201, WmLButtonDblClk = 0x203;
+        private const int HtClient = 1, HtTransparent = -1, MaNoActivate = 3;
+        private const int VkRButton = 0x02, VkMButton = 0x04;
         private static readonly IntPtr HwndTop = IntPtr.Zero;
         private const int SwpNoSize = 0x1, SwpNoMove = 0x2, SwpNoActivate = 0x10, SwpNoOwnerZOrder = 0x200;
+
+        [DllImport("user32.dll")]
+        private static extern short GetAsyncKeyState(int key);
+
+        [DllImport("user32.dll")]
+        private static extern bool PostMessage(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam);
 
         [DllImport("user32.dll")]
         private static extern IntPtr GetForegroundWindow();

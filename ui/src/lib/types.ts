@@ -63,6 +63,9 @@ export interface TurnMeta {
   error?: string;
   /** The OpenAI speed tier that served the turn, when not the standard one. */
   serviceTier?: string;
+  /** What the end-of-reply save stored (titles), and what it couldn't, with why. */
+  saved?: string[];
+  notSaved?: { title: string; reason: string }[];
 }
 
 /**
@@ -163,6 +166,10 @@ export interface Settings {
   shareView: boolean;
   /** Silence SolidWorks' rebuild-error sound while the agent works. */
   muteErrorSounds: boolean;
+  /** Save the documents the agent changed when each reply ends. */
+  autoSave: boolean;
+  /** The key that opens the v param table for the selection: "vk:<Windows virtual key>" or "off". Default "vk:80" (P). */
+  paramsKey?: string;
   /** Text size of the panel (1 = 100%). Ctrl+/Ctrl-/Ctrl+0. */
   zoom: number;
   /** Download updates in the background and install them when SolidWorks closes. Unset until the user is asked. */
@@ -706,6 +713,18 @@ export interface WatchResult {
 
 export type ImageMediaType = "image/jpeg" | "image/png" | "image/webp" | "image/gif";
 
+import type { VParamEdit } from "./vparams";
+
+/** A tag the user changed on the agent's overlay (lib/overlayEdits.ts). Points are in mm. */
+export interface OverlayEdit {
+  id: number;
+  type: string;
+  original: string;
+  value: string | null;
+  note: string | null;
+  points: number[][];
+}
+
 export type Attachment =
   | {
       id: string;
@@ -725,4 +744,6 @@ export type Attachment =
       entry?: FileEntry;
     }
   | { id: string; kind: "watch"; name: string; watch: WatchResult }
-  | { id: string; kind: "voice"; name: string; voice: VoicePayload };
+  | { id: string; kind: "voice"; name: string; voice: VoicePayload }
+  | { id: string; kind: "overlay"; name: string; edits: OverlayEdit[] }
+  | { id: string; kind: "vparams"; name: string; edits: VParamEdit[] };

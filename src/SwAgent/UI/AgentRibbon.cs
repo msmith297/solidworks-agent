@@ -40,6 +40,7 @@ namespace SwAgent.UI
             ("newchat", 2, "New Chat", "Start a new conversation", () => Icons.NewChat),
             ("ask", 3, "Ask About Selection", "Ask the agent about the selected faces, edges or features", () => Icons.Selection),
             ("view", 4, "Attach View", "Attach a screenshot of the current view to your message", () => Icons.Camera),
+            ("params", 7, "Parameters", "The virtual parameters of this part or assembly (P with faces selected)", () => Icons.Parameters),
         };
 
         private static readonly (string Arg, int Id, string Title, string Hint, Func<byte[]> Icon)[] Trailing =

@@ -65,6 +65,7 @@ namespace SwAgent
         /// <summary>Tool inputs as a form in the chat panel (ToolRunner opens them here unless the user chose the page).</summary>
         private readonly ToolFormBridge _forms;
         private readonly VoiceController _voice;
+        private readonly Params.ParamHotkey _paramKey;
         private WatchRecorder _watch;
 
         /// <summary>What SolidWorks was running when it closed unexpectedly last time (CrashGuard), until dismissed.</summary>
@@ -87,6 +88,8 @@ namespace SwAgent
             _forms = new ToolFormBridge(app, scripts);
             // Push-to-talk voice messages and the markup pen.
             _voice = new VoiceController(app, () => _settings, ChatKeyOf);
+            // The v param key (P): the table, filtered to the selection.
+            _paramKey = new Params.ParamHotkey(() => _settings, () => AgentAddIn.Instance?.ShowParameters(new JObject { ["selection"] = true }));
             _selectionTimer.Tick += Safe.Tick("Selection update", () =>
             {
                 _selectionTimer.Stop();
@@ -158,6 +161,7 @@ namespace SwAgent
             {
                 _overlaySubscribed = true; // the bridge is attached again when the panel reloads
                 UI.SceneOverlay.Changed += count => Safe.Run("Overlay notice", () => _bridge?.Emit("overlay.changed", new JObject { ["count"] = count }));
+                UI.SceneOverlay.Edited += edit => Safe.Run("Overlay edit", () => _bridge?.Emit("overlay.edited", OverlayEditJson(edit)));
             }
             // The panel needs the user to see it (a tool run asks a question or needs approval).
             bridge.Register("app.showPane", p =>
@@ -170,6 +174,7 @@ namespace SwAgent
                 _settings = (JObject)p;
                 SettingsStore.SaveSettings(_settings);
                 _voice.ApplySettings();
+                _paramKey.ApplySettings();
                 Plugins.PluginSettings.Apply(_settings); // before the runtime: Runnable() reads pluginHooks / pluginMcp from it
                 Runtime.ApplySettings(_settings);
                 return null;
@@ -194,6 +199,7 @@ namespace SwAgent
                 return Updates.ToJson();
             });
             bridge.Register("update.unsavedDocuments", p => UnsavedDocuments());
+            bridge.Register("docs.checkpoint", p => SaveChangedDocuments());
             bridge.RegisterAsync("update.restartAndInstall", async p => await RestartAndInstall((bool?)p?["saveDocuments"] == true, p?["panel"] as JObject));
             // { provider? }: without one, Anthropic (older panels).
             bridge.Register("apiKey.get", p => SettingsStore.ApiKeyGetRpc(p));
@@ -376,6 +382,9 @@ namespace SwAgent
             UserTools.Changed += OnUserToolsChanged;
             Plugins.PluginsBridge.Attach(bridge); // plugins.* RPCs: store, marketplaces, commands, skills, agents
             KnowledgeBridge.Attach(bridge); // knowledge.index (helpers and API notes for the system prompt), knowledge.changed
+            Memory.PreferenceBridge.Attach(bridge); // prefs.* (preferred parameters: prompt, Options, Undo)
+            Params.VParamTable.Attach(bridge, () => _app.Sw); // vparams.table; vparams.changed when they change
+            Params.VParamTable.Subscribe(o => _bridge?.Emit("vparams.changed", o));
             Memory.MemoryBridge.Attach(bridge); // memory.* (standing instructions: prompt, Options, Undo), userTools.setHidden
             bridge.Register("doc.activate", p =>
             {
@@ -600,6 +609,55 @@ namespace SwAgent
             public Win32Window(IntPtr handle) => Handle = handle;
 
             public IntPtr Handle { get; }
+        }
+
+        /// <summary>
+        /// A reply's checkpoint (the panel calls it when a reply ends): saves the documents the agent's calls changed, with
+        /// the documents they reference, so closing a window or a crash can't lose the work. A document with no file
+        /// name yet can't be saved without asking for one: it's listed instead. Returns { saved, untitled, failed }.
+        /// </summary>
+        private JObject SaveChangedDocuments()
+        {
+            var saved = new JArray();
+            var untitled = new JArray();
+            var failed = new JArray();
+            var changed = new HashSet<string>(DocTracker.TakeChanged(), StringComparer.OrdinalIgnoreCase);
+            if (changed.Count > 0)
+            {
+                foreach (var model in ((_app.Sw.GetDocuments() as object[]) ?? new object[0]).OfType<IModelDoc2>())
+                {
+                    string title;
+                    try
+                    {
+                        title = model.GetTitle();
+                        if (!changed.Contains(title) || !model.GetSaveFlag()) continue;
+                        if (string.IsNullOrEmpty(model.GetPathName()))
+                        {
+                            untitled.Add(title);
+                            continue;
+                        }
+                    }
+                    catch
+                    {
+                        continue; // closing mid-enumeration
+                    }
+                    int errors = 0, warnings = 0;
+                    try
+                    {
+                        if (model.Save3((int)(swSaveAsOptions_e.swSaveAsOptions_Silent | swSaveAsOptions_e.swSaveAsOptions_SaveReferenced), ref errors, ref warnings))
+                            saved.Add(title);
+                        else
+                            failed.Add(new JObject { ["title"] = title, ["error"] = ((swFileSaveError_e)errors).ToString() });
+                    }
+                    catch (Exception ex)
+                    {
+                        failed.Add(new JObject { ["title"] = title, ["error"] = ex.Message });
+                    }
+                }
+                Log.Info($"Checkpoint: saved {saved.Count}, no file name {untitled.Count}, failed {failed.Count}" +
+                         (failed.Count > 0 ? ": " + string.Join("; ", failed.Select(f => $"{f["title"]} ({f["error"]})")) : ""));
+            }
+            return new JObject { ["saved"] = saved, ["untitled"] = untitled, ["failed"] = failed };
         }
 
         // ---- updates ----
@@ -903,6 +961,18 @@ namespace SwAgent
             }
         }
 
+        /// <summary>A tag the user changed on the overlay, for the chat box: the points in mm, as the agent's show_overlay takes them.</summary>
+        internal static JObject OverlayEditJson(UI.SceneOverlay.Edit e) =>
+            new JObject
+            {
+                ["id"] = e.Id,
+                ["type"] = e.Type,
+                ["original"] = e.Original,
+                ["value"] = e.Value,
+                ["note"] = e.Note,
+                ["points"] = new JArray(e.Points.Select(p => new JArray(p.Select(c => Math.Round(c * 1000, 3))))),
+            };
+
         /// <summary>COLORREF (0x00BBGGRR) to #RRGGBB.</summary>
         internal static string ToHex(int colorRef) => $"#{colorRef & 0xFF:X2}{(colorRef >> 8) & 0xFF:X2}{(colorRef >> 16) & 0xFF:X2}";
 
@@ -933,6 +1003,7 @@ namespace SwAgent
             Safe.Run("Close the tool form", () => _forms.CancelPending("SolidWorks is closing."));
             StopWatch();
             Safe.Run("Stop voice", _voice.Dispose);
+            Safe.Run("Stop the v param key", _paramKey.Dispose);
             Safe.Run("Save chats", _workspace.Flush);
             Safe.Run("Stop the local link", () => _link?.Dispose());
             _themeTimer.Dispose();

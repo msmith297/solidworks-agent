@@ -267,6 +267,12 @@ export async function mockRpc(method: string, params: any): Promise<unknown> {
     case "update.status":
     case "update.check":
       return MOCK_UPDATE;
+    case "vparams.table":
+      return MOCK_VPARAMS(!!params?.selection);
+    case "prefs.index":
+      return MOCK_PREFS;
+    case "docs.checkpoint":
+      return { saved: ["Tea Cup.SLDPRT"], untitled: [], failed: [] };
     case "update.unsavedDocuments":
       return [{ title: "Mounting Bracket.SLDPRT", path: "C:\Parts\Mounting Bracket.SLDPRT", untitled: false }];
     case "update.restartAndInstall":
@@ -1054,6 +1060,8 @@ function mockWake(arg: string | { from: string; ticket?: string; text?: string }
 }
 if (!(window as any).chrome?.webview) {
   (window as unknown as { __mockWake?: typeof mockWake }).__mockWake = mockWake;
+  // A command from the add-in (ribbon button, P key): __mockCommand("openParameters", { selection: true }).
+  (window as unknown as { __mockCommand?: (name: string, args?: unknown) => void }).__mockCommand = (name, args) => emitLocal("command", { name, args: args ?? null });
   if (location.search.includes("wake")) setTimeout(() => mockWake(), 5000);
 }
 
@@ -1216,3 +1224,41 @@ function demoOpenAiThread(now: string): ChatData["threads"][number] {
     ],
   };
 }
+
+/** A tea cup with the v params the agent would make (vparams.table), the selection's rows marked when opened with P. */
+function MOCK_VPARAMS(selection: boolean) {
+  const row = (name: string, value: string, unit: string, note: string, drives: string[], match = false, type = "length", options: string[] = []) => ({
+    name, type, value, unit, note, drives, options, links: [], updated: "2026-11-03", match: selection && match,
+  });
+  return {
+    document: "Tea Set.SLDASM",
+    kind: "assembly",
+    filtered: selection,
+    selection: selection ? "2 faces" : null,
+    groups: [
+      { scope: "assembly", title: "Tea Set.SLDASM", document: "Tea Set.SLDASM", components: [], selected: false,
+        params: [{ ...row("Cup to saucer clearance", "0.5", "mm", "Gap under the cup's foot", ["Coincident1"]), links: [{ part: "Tea Cup.SLDPRT", param: "Foot clearance" }] }] },
+      { scope: "part", title: "Tea Cup.SLDPRT", document: "Tea Cup.SLDPRT", components: ["Tea Cup-1"], selected: selection,
+        params: [
+          row("Wall thickness", "2.5", "mm", "Side wall and bottom", ["Shell1"], true),
+          row("Top diameter", "80", "mm", "Outside, at the rim", ["Cup Revolve"], true),
+          row("Bottom diameter", "55", "mm", "Outside, at the foot", ["Cup Revolve"]),
+          row("Height", "90", "mm", "Foot to rim", ["Cup Revolve"]),
+          row("Handle style", "Loop", "", "Shape of the handle", ["Handle Sweep"], false, "choice", ["Loop", "Ear", "None"]),
+          row("Rim fillet", "1", "mm", "Rounded lip", ["Rim Fillet"]),
+        ] },
+      { scope: "part", title: "Saucer.SLDPRT", document: "Saucer.SLDPRT", components: ["Saucer-1"], selected: false,
+        params: [row("Diameter", "140", "mm", "Outside", ["Saucer Revolve"]), row("Logo text", "ACME", "", "Engraved under the rim", ["Logo Wrap"], false, "text")] },
+    ],
+  };
+}
+
+const MOCK_PREFS = {
+  topics: [
+    { topic: "3D printing (FDM)", items: [{ id: "p1a2b3c", topic: "3D printing (FDM)", date: "2026-11-03", text: "M5 self-tapping pilot holes: Ø4.6 mm" }] },
+    { topic: "Fasteners", items: [{ id: "p4d5e6f", topic: "Fasteners", date: "2026-11-03", text: "Socket head cap screws: black oxide, ISO 4762" }] },
+  ],
+  used: 140,
+  cap: 6000,
+  file: "C:\Users\you\AppData\Roaming\SwAgent\agent-knowledge\preferred-parameters.md",
+};

@@ -12,6 +12,7 @@ namespace SwAgent.Tools
     /// after every model tool call (on the UI thread, like the call itself): a window that appeared during a call is the
     /// agent's; the one active after a call, or one a call changed, is in use. Documents the user opened are never the
     /// agent's. Only visible windows count: parts an assembly loaded in the background aren't windows.
+    /// It also collects the documents the calls changed, which the panel saves when a reply ends (TakeChanged).
     /// </summary>
     internal static class DocTracker
     {
@@ -43,6 +44,7 @@ namespace SwAgent.Tools
 
         private static readonly object Sync = new object();
         private static readonly Dictionary<string, Info> Agents = new Dictionary<string, Info>(StringComparer.OrdinalIgnoreCase);
+        private static readonly HashSet<string> Changed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private static DateTime _lastNudge = DateTime.MinValue;
         private static int _lastNudgeCount;
 
@@ -64,7 +66,11 @@ namespace SwAgent.Tools
             }
         }
 
-        /// <summary>One model tool call's before and after: new windows are the agent's, the active or changed ones are in use.</summary>
+        /// <summary>
+        /// One model tool call's before and after: new windows are the agent's, the active or changed ones are in use.
+        /// Changed: a new window with unsaved changes or no file yet, one that got unsaved changes, and the active one
+        /// when it has unsaved changes (an edit to an already dirty document doesn't change its flag).
+        /// </summary>
         public static void Record(IReadOnlyCollection<Doc> before, IReadOnlyCollection<Doc> after)
         {
             if (before == null || after == null) return;
@@ -77,14 +83,18 @@ namespace SwAgent.Tools
                     if (!was.TryGetValue(d.Title, out var prior))
                     {
                         Agents[d.Title] = new Info { Title = d.Title, Opened = now, LastUsed = now };
+                        if (d.Dirty || string.IsNullOrEmpty(d.Path)) Changed.Add(d.Title);
+                        continue;
                     }
-                    else if ((d.Active || (d.Dirty && !prior.Dirty)) && Agents.TryGetValue(d.Title, out var info))
+                    if (d.Dirty && (!prior.Dirty || d.Active)) Changed.Add(d.Title);
+                    if ((d.Active || (d.Dirty && !prior.Dirty)) && Agents.TryGetValue(d.Title, out var info))
                     {
                         info.LastUsed = now;
                     }
                 }
                 var open = new HashSet<string>(after.Select(d => d.Title), StringComparer.OrdinalIgnoreCase);
                 foreach (var gone in Agents.Keys.Where(k => !open.Contains(k)).ToList()) Agents.Remove(gone);
+                Changed.RemoveWhere(k => !open.Contains(k));
             }
         }
 
@@ -121,12 +131,24 @@ namespace SwAgent.Tools
                    "Save and close the ones you're done with: close_documents with idle: true (or name them). Keep the assembly and the parts you're still editing open.";
         }
 
+        /// <summary>The documents changed since the last call, by title; the list starts again empty.</summary>
+        public static List<string> TakeChanged()
+        {
+            lock (Sync)
+            {
+                var list = Changed.ToList();
+                Changed.Clear();
+                return list;
+            }
+        }
+
         /// <summary>Forget everything (tests).</summary>
         internal static void Reset()
         {
             lock (Sync)
             {
                 Agents.Clear();
+                Changed.Clear();
                 _lastNudge = DateTime.MinValue;
                 _lastNudgeCount = 0;
             }
