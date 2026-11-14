@@ -418,6 +418,23 @@ await t("Link: a Stop-hook continuation answers once, at its very end", async ()
   assert.deepEqual(addIn.of("u3d_d"), ["working", { answer: "done", text: "Also told Bridge Manager.", error: null }]);
 });
 
+await t("Link: with approval on auto, a Stop-hook continuation of a trusted woken turn runs execute_csharp without asking", async () => {
+  await until(idle, "an idle chat");
+  let step = 0;
+  reply = () =>
+    [
+      () => text("First answer."),
+      () => ({ sse: anthropicStream([{ type: "tool_use", id: "toolu_s1", name: "execute_csharp", input: { title: "Read sketches", code: "x" } }], "tool_use") }),
+      () => text("Read them."),
+    ][Math.min(step++, 2)]();
+  addIn.blockNextStop();
+  addIn.wake("u3d_s", "Status?");
+  await until(() => addIn.of("u3d_s").some((r) => r.answer) || S().runs[thread().id]?.approval, "the answer or an approval card");
+  assert.equal(S().runs[thread().id]?.approval ?? null, null, "no approval card in the continuation");
+  await until(idle, "the continuation's end");
+  assert.ok(!addIn.of("u3d_s").includes("approval"), "the ticket never waited for approval");
+});
+
 await t("Link: Stop reports stopped", async () => {
   await until(idle, "an idle chat");
   const open = hold();

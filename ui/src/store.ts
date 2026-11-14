@@ -116,8 +116,8 @@ export interface RunOverride {
   fromWake?: boolean;
   /**
    * A wake the user trusts (wakeTrusted): from their own console, or from their other agents / Claude Desktop / Codex
-   * while "Trust messages from my agents" is on. The turn follows the approval setting like a typed message. Not carried
-   * into Stop-hook continuations (a plugin's request).
+   * while "Trust messages from my agents" is on. The turn follows the approval setting like a typed message. A Stop-hook
+   * continuation of a woken turn is judged again on the hook's text (continueAfterStop).
    */
   trustedWake?: boolean;
   /** A Stop-hook continuation: the turn goes on because a plugin asked, so no memory, profile or tool-copy writes (lib/memory.ts). */
@@ -1163,7 +1163,10 @@ export const useStore = create<State>((set, get, api) => {
     const n = q.findIndex((m) => m.staged || m.run);
     const batch = n < 0 ? q : q.slice(0, n);
     set((s) => ({ queue: { ...s.queue, [threadId]: n < 0 ? [] : q.slice(n) } }));
-    const next: RunOverride = { model: run.model, effort: run.effort, autoApprove: run.autoApprove, label: run.label, maxSteps: run.maxSteps, longRun: run.longRun, continuation: true, fromWake: run.fromWake, fromHook: true };
+    // A woken turn's continuation carries more messages from the same senders (agent-bridge's Stop hook delivers the
+    // ones that arrived meanwhile): it is trusted like a wake with that text, so approval on auto never stops it.
+    const trustedWake = run.fromWake ? wakeTrusted({ text: reason }, get().settings) : undefined;
+    const next: RunOverride = { model: run.model, effort: run.effort, autoApprove: run.autoApprove, label: run.label, maxSteps: run.maxSteps, longRun: run.longRun, continuation: true, fromWake: run.fromWake, trustedWake, fromHook: true };
     const release = beginPreparing(docKey, threadId);
     void (async () => {
       // The user already has the answer above: the continuation does only what the plugin asks, without a recap.
